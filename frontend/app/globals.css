@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        /* Base - Light Mode Default */
+        --background: 0 0% 100%;
+        /* White */
+        --foreground: 220 10% 20%;
+        /* #2e3540 Slate Dark */
+
+        --card: 0 0% 100%;
+        --card-foreground: 220 10% 20%;
+
+        --popover: 0 0% 100%;
+        --popover-foreground: 220 10% 20%;
+
+        /* Primary Green #224034 (Reap Dark Green) */
+        --primary: 156 30% 19%;
+        --primary-foreground: 0 0% 100%;
+
+        /* Secondary/Accent Mint */
+        --secondary: 150 40% 96%;
+        /* Very light mint */
+        --secondary-foreground: 156 30% 19%;
+
+        --muted: 240 5% 96%;
+        --muted-foreground: 220 10% 45%;
+
+        --accent: 150 40% 94%;
+        --accent-foreground: 156 30% 19%;
+
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+
+        --border: 240 5% 90%;
+        --input: 240 5% 90%;
+        --ring: 156 30% 19%;
+
+        --radius: 0.75rem;
+        /* Standard rounded-xl */
+
+        /* Chart Colors */
+        --chart-1: 156 30% 19%;
+        /* Green */
+        --chart-2: 150 60% 40%;
+        /* Lighter Green */
+        --chart-3: 35 90% 60%;
+        /* Amber for warning */
+        --chart-4: 0 80% 60%;
+        /* Red for error */
+        --chart-5: 200 80% 60%;
+        /* Blue */
+    }
+
+    .dark {
+        /* Dark Mode Mapping */
+        --background: 156 35% 10%;
+        --foreground: 0 0% 98%;
+
+        --card: 156 35% 15%;
+        --card-foreground: 0 0% 98%;
+        /* ...keep rest standard dark... */
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: var(--font-serif), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    }
+}
+
+@layer utilities {
+    .glow-text {
+        text-shadow: 0 0 20px rgba(50, 100, 80, 0.4);
+    }
+}
