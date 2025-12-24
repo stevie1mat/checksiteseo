@@ -5,10 +5,13 @@ export function FeaturesSection() {
         <section id="features" className="py-24 bg-white">
             <div className="max-w-7xl mx-auto px-6">
                 <div className="text-center mb-20">
-                    <p className="text-sm font-medium text-slate-500 uppercase tracking-widest mb-4">Introducing our audit module...</p>
-                    <h2 className="font-serif text-4xl md:text-5xl text-[#224034] max-w-2xl mx-auto leading-tight">
-                        AI-powered technical readiness management.
+                    <p className="text-sm font-medium text-slate-500 uppercase tracking-widest mb-4">Why CheckSite AEO?</p>
+                    <h2 className="font-serif text-4xl md:text-5xl text-[#224034] max-w-3xl mx-auto leading-tight mb-6">
+                        Complete AEO readiness management powered by advanced AI.
                     </h2>
+                    <p className="text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed">
+                        From technical crawlability to content optimization and authority signals, we analyze every factor that determines how AI models understand, trust, and cite your content.
+                    </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">

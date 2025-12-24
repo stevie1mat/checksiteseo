@@ -1,40 +1,90 @@
+"use client"
+
 import Link from "next/link";
-import { Bot } from "lucide-react";
+import { Bot, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 export function Navbar() {
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
     return (
         <nav className="absolute top-0 w-full z-50 py-6 px-6">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
-                <Link href="/" className="flex items-center gap-2">
-                    {/* Simple Text Logo per Reap style */}
-                    <Bot className="w-5 h-5 text-white/90" />
+                {/* Logo */}
+                <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
+                    <Bot className="w-6 h-6 text-white" />
                     <span className="font-serif text-2xl font-medium text-white tracking-wide">
                         CheckSite AEO
                     </span>
                 </Link>
 
-                <div className="hidden md:flex items-center gap-10">
+                {/* Desktop Navigation */}
+                <div className="hidden md:flex items-center gap-8">
                     <Link href="#features" className="text-sm font-medium text-white/80 hover:text-white transition-colors">
                         Features
                     </Link>
                     <Link href="#how-it-works" className="text-sm font-medium text-white/80 hover:text-white transition-colors">
-                        How it works
+                        How It Works
+                    </Link>
+                    <Link href="#pricing" className="text-sm font-medium text-white/80 hover:text-white transition-colors">
+                        Pricing
+                    </Link>
+                    <Link href="#faq" className="text-sm font-medium text-white/80 hover:text-white transition-colors">
+                        FAQ
                     </Link>
                     <Link href="https://github.com/stevie1mat/checksiteseo" className="text-sm font-medium text-white/80 hover:text-white transition-colors">
                         Docs
                     </Link>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <Link href="#" className="text-sm font-medium text-white hover:opacity-80 transition-opacity">
-                        Sign in
+                {/* CTA Buttons */}
+                <div className="hidden md:flex items-center gap-3">
+                    <Link href="/signin" className="text-sm font-medium text-white hover:text-white/80 transition-opacity px-4 py-2">
+                        Sign In
                     </Link>
-                    <Button className="bg-white text-[#224034] hover:bg-white/90 font-medium rounded-lg px-6">
-                        Book a demo
+                    <Button className="bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold rounded-lg px-6 shadow-lg shadow-[#8cd9b8]/30 transition-all">
+                        Start Free Trial
                     </Button>
                 </div>
+
+                {/* Mobile Menu Button */}
+                <button
+                    className="md:hidden text-white"
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                >
+                    <Menu className="w-6 h-6" />
+                </button>
             </div>
+
+            {/* Mobile Menu */}
+            {mobileMenuOpen && (
+                <div className="md:hidden mt-6 bg-white/10 backdrop-blur-lg rounded-xl p-6 space-y-4">
+                    <Link href="#features" className="block text-sm font-medium text-white hover:text-white/80 transition-colors">
+                        Features
+                    </Link>
+                    <Link href="#how-it-works" className="block text-sm font-medium text-white hover:text-white/80 transition-colors">
+                        How It Works
+                    </Link>
+                    <Link href="#pricing" className="block text-sm font-medium text-white hover:text-white/80 transition-colors">
+                        Pricing
+                    </Link>
+                    <Link href="#faq" className="block text-sm font-medium text-white hover:text-white/80 transition-colors">
+                        FAQ
+                    </Link>
+                    <Link href="https://github.com/stevie1mat/checksiteseo" className="block text-sm font-medium text-white hover:text-white/80 transition-colors">
+                        Docs
+                    </Link>
+                    <div className="pt-4 border-t border-white/20 space-y-3">
+                        <Link href="/signin" className="block text-sm font-medium text-white">
+                            Sign In
+                        </Link>
+                        <Button className="w-full bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold rounded-lg">
+                            Start Free Trial
+                        </Button>
+                    </div>
+                </div>
+            )}
         </nav>
     );
 }
