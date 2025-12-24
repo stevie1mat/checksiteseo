@@ -183,14 +183,15 @@ async def analyze_content_gap(text_content: str) -> dict:
     
     prompt = f"""
     Analyze this website homepage content. 
-    Based STRICLY on what the specific page is about (e.g. a Portfolio, a SaaS, a Blog), what important information is MISSING?
+    Based STRICTLY on what the specific page is about (e.g. a Portfolio, a SaaS, a Blog), what important information is MISSING?
 
     Do NOT use generic examples like "Pricing" or "API Docs" unless they are actually relevant to this specific entity.
-    For a portfolio, look for "Case Studies", "Resume", "Tech Stack".
-    For a SaaS, look for "Pricing", "Features".
+    For a portfolio, look for "Case Studies", "Resume/CV", "Tech Stack", "Project Details", "Contact Info", "Testimonials", "About/Bio", "Skills", "Experience Timeline".
+    For a SaaS, look for "Pricing", "Features", "Use Cases", "Integrations", "Security/Compliance", "Customer Reviews", "API Documentation", "Comparison Chart".
+    For a blog/content site, look for "Author Bio", "Categories", "Newsletter", "Social Links", "Popular Posts", "About Page".
     
     Return a JSON object with:
-    - missing_topics: List of 3 key short missing items that are RELEVANT contextually.
+    - missing_topics: List of 6-9 key short missing items that are RELEVANT and SPECIFIC to this entity. Be comprehensive but focused.
     
     Content:
     {text_content[:2000]}...

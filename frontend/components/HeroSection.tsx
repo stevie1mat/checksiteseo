@@ -386,25 +386,51 @@ export function HeroSection() {
                         {/* [NEW] Content Gap Analysis - Full Width */}
                         {/* @ts-ignore */}
                         {result.breakdown.content.gap && result.breakdown.content.gap.details.length > 0 && (
-                            <div className="md:col-span-2 bg-[#224034] rounded-xl p-8 text-white shadow-lg space-y-6 relative overflow-hidden group h-fit">
+                            <div className="md:col-span-2 bg-[#224034] rounded-xl p-8 text-white shadow-lg relative overflow-hidden group h-fit">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-emerald-500/20 transition-all duration-700" />
+                                <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#8cd9b8]/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
 
-                                <div className="flex items-center gap-3 relative z-10 border-b border-emerald-500/20 pb-4">
-                                    <Bot className="w-6 h-6 text-emerald-300" />
-                                    <div className="text-left">
-                                        <h4 className="font-serif text-2xl text-white">The Missing Answer</h4>
-                                        <p className="text-sm text-emerald-200/60">What AI models want to see on this page to rank it higher.</p>
+                                {/* Score Section */}
+                                <div className="text-center mb-8 relative z-10">
+                                    <p className="text-emerald-200/80 font-medium uppercase tracking-widest text-xs mb-3">The Missing Answer</p>
+                                    <div className="flex items-center justify-center gap-3">
+                                        <div className="text-6xl md:text-7xl font-serif tracking-tighter leading-none">
+                                            {/* @ts-ignore */}
+                                            {Math.max(0, 100 - (result.breakdown.content.gap.details.length * 10))}
+                                        </div>
+                                        <div className="text-left space-y-1">
+                                            <div className="text-lg font-light opacity-80">/ 100</div>
+                                            <div className={`text-sm font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm ${
+                                                /* @ts-ignore */
+                                                result.breakdown.content.gap.details.length <= 3 ? 'bg-emerald-400/20 text-emerald-100' :
+                                                    /* @ts-ignore */
+                                                    result.breakdown.content.gap.details.length <= 5 ? 'bg-amber-500/20 text-amber-100' :
+                                                        'bg-red-500/20 text-red-100'
+                                                }`}>
+                                                {/* @ts-ignore */}
+                                                {result.breakdown.content.gap.details.length <= 3 ? 'Good' :
+                                                    /* @ts-ignore */
+                                                    result.breakdown.content.gap.details.length <= 5 ? 'Fair' :
+                                                        'Needs Work'}
+                                            </div>
+                                        </div>
                                     </div>
+                                    <p className="text-emerald-100/70 text-sm mt-3 max-w-[300px] mx-auto leading-relaxed">
+                                        What AI models want to see on this page to rank it higher.
+                                    </p>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
-                                    {/* @ts-ignore */}
-                                    {result.breakdown.content.gap.details.map((topic: string, i: number) => (
-                                        <div key={i} className="flex items-center gap-3 bg-white/5 p-4 rounded-lg border border-emerald-500/20 hover:bg-white/10 transition-colors">
-                                            <Search className="w-5 h-5 text-emerald-400 shrink-0" />
-                                            <span className="font-medium text-emerald-50">{topic}</span>
-                                        </div>
-                                    ))}
+                                {/* Gap Topics Grid */}
+                                <div className="relative z-10 border-t border-emerald-500/20 pt-6">
+                                    <p className="text-xs font-semibold text-emerald-200/80 uppercase tracking-wider mb-4">Missing Topics</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        {/* @ts-ignore */}
+                                        {result.breakdown.content.gap.details.map((topic: string, i: number) => (
+                                            <div key={i} className="bg-white/5 p-4 rounded-lg border border-emerald-500/20 hover:bg-white/10 transition-colors">
+                                                <span className="font-medium text-emerald-50 text-sm">{topic}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         )}
