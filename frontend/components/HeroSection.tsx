@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, Sparkles, AlertCircle, Download, XCircle, Bot, FileText, Code, AlignLeft, Search } from "lucide-react"
+import { Check, Sparkles, AlertCircle, Download, XCircle, Bot, FileText, Code, AlignLeft, Search, Lock } from "lucide-react"
 // Recharts import removed
 
 type AnalysisResult = {
@@ -330,14 +330,12 @@ export function HeroSection() {
 
                                 {/* Strengths (Pros) */}
                                 <div className="space-y-2">
-                                    <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Strengths</p>
                                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                                        <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-3">Strengths</p>
                                         <ul className="space-y-3">
                                             {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Pro:")).slice(0, 5).map((signal, i) => (
                                                 <li key={i} className="flex items-start gap-3 text-sm text-slate-600 border-b border-gray-50 pb-2 last:border-0 last:pb-0">
-                                                    <div className="bg-emerald-100/50 p-1 rounded-full shrink-0 mt-0.5">
-                                                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                                    </div>
+                                                    <Check className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
                                                     <span className="text-sm leading-relaxed">{signal.replace("Pro:", "").trim()}</span>
                                                 </li>
                                             ))}
@@ -357,26 +355,27 @@ export function HeroSection() {
 
                                 {/* Weaknesses (Cons) */}
                                 <div className="space-y-2 pt-2">
-                                    <p className="text-xs font-semibold text-red-500 uppercase tracking-wider">Weaknesses & Risks</p>
-                                    <ul className="space-y-2">
-                                        {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Con:")).slice(0, 5).map((signal, i) => (
-                                            <li key={i} className="flex items-start gap-2 text-sm text-slate-600 bg-red-50/50 p-2 rounded-lg border border-red-100/50">
-                                                <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                                                <span className="text-xs md:text-sm">{signal.replace("Con:", "").trim()}</span>
-                                            </li>
-                                        ))}
-                                        {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Con:")).length > 5 && (
-                                            <li className="relative">
-                                                <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
-                                                <button
-                                                    onClick={() => setIsRegisterOpen(true)}
-                                                    className="text-xs md:text-sm text-red-600 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-4 py-1.5 rounded-full transition-colors w-full border border-red-100/50 shadow-sm relative z-10"
-                                                >
-                                                    Show full analysis
-                                                </button>
-                                            </li>
-                                        )}
-                                    </ul>
+                                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                                        <p className="text-xs font-semibold text-red-500 uppercase tracking-wider mb-3">Weaknesses & Risks</p>
+                                        <ul className="space-y-3">
+                                            {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Con:")).slice(0, 5).map((signal, i) => (
+                                                <li key={i} className="flex items-start gap-3 text-sm text-slate-600 border-b border-gray-50 pb-2 last:border-0 last:pb-0">
+                                                    <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
+                                                    <span className="text-sm leading-relaxed">{signal.replace("Con:", "").trim()}</span>
+                                                </li>
+                                            ))}
+                                            {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Con:")).length > 5 && (
+                                                <li className="text-center pt-3 border-t border-gray-50 mt-1">
+                                                    <button
+                                                        onClick={() => setIsRegisterOpen(true)}
+                                                        className="text-xs md:text-sm text-red-600 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-4 py-1.5 rounded-full transition-colors w-full border border-red-100/50 shadow-sm"
+                                                    >
+                                                        Show full analysis
+                                                    </button>
+                                                </li>
+                                            )}
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -424,8 +423,11 @@ export function HeroSection() {
                         </button>
 
                         <div className="text-center space-y-4">
-                            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                                <Sparkles className="w-6 h-6 text-emerald-600" />
+                            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 relative shadow-inner">
+                                <Lock className="w-8 h-8 text-emerald-600" />
+                                <div className="absolute top-0 right-0 bg-white rounded-full p-1 shadow-sm border border-emerald-100">
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                </div>
                             </div>
 
                             <h3 className="text-2xl font-serif text-[#224034]">Unlock Full Analysis</h3>
