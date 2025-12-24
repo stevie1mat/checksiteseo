@@ -318,6 +318,32 @@ export function HeroSection() {
                             </div>
                         </div>
 
+                        {/* [NEW] Content Gap Analysis - Full Width */}
+                        {/* @ts-ignore */}
+                        {result.breakdown.content.gap && result.breakdown.content.gap.details.length > 0 && (
+                            <div className="md:col-span-2 bg-[#224034] rounded-xl p-8 text-white shadow-lg space-y-6 relative overflow-hidden group h-fit">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-emerald-500/20 transition-all duration-700" />
+
+                                <div className="flex items-center gap-3 relative z-10 border-b border-emerald-500/20 pb-4">
+                                    <Bot className="w-6 h-6 text-emerald-300" />
+                                    <div className="text-left">
+                                        <h4 className="font-serif text-2xl text-white">The Missing Answer</h4>
+                                        <p className="text-sm text-emerald-200/60">What AI models want to see on this page to rank it higher.</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+                                    {/* @ts-ignore */}
+                                    {result.breakdown.content.gap.details.map((topic: string, i: number) => (
+                                        <div key={i} className="flex items-center gap-3 bg-white/5 p-4 rounded-lg border border-emerald-500/20 hover:bg-white/10 transition-colors">
+                                            <Search className="w-5 h-5 text-emerald-400 shrink-0" />
+                                            <span className="font-medium text-emerald-50">{topic}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Column 3: Authority Signals */}
                         <div className="space-y-6">
                             <div className="flex items-center gap-2 mb-4">
@@ -382,31 +408,7 @@ export function HeroSection() {
 
                     </div>
 
-                    {/* [NEW] Content Gap Analysis - Full Width */}
-                    {/* @ts-ignore */}
-                    {result.breakdown.content.gap && result.breakdown.content.gap.details.length > 0 && (
-                        <div className="mt-8 bg-[#224034] rounded-xl p-8 text-white shadow-lg space-y-6 relative overflow-hidden group w-full">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-emerald-500/20 transition-all duration-700" />
 
-                            <div className="flex items-center gap-3 relative z-10 border-b border-emerald-500/20 pb-4">
-                                <Bot className="w-6 h-6 text-emerald-300" />
-                                <div className="text-left">
-                                    <h4 className="font-serif text-2xl text-white">The Missing Answer</h4>
-                                    <p className="text-sm text-emerald-200/60">What AI models want to see on this page to rank it higher.</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
-                                {/* @ts-ignore */}
-                                {result.breakdown.content.gap.details.map((topic: string, i: number) => (
-                                    <div key={i} className="flex items-center gap-3 bg-white/5 p-4 rounded-lg border border-emerald-500/20 hover:bg-white/10 transition-colors">
-                                        <Search className="w-5 h-5 text-emerald-400 shrink-0" />
-                                        <span className="font-medium text-emerald-50">{topic}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
 
                 </div>
             )}
