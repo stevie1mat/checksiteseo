@@ -64,8 +64,7 @@ export default function SignUpPage() {
             <div className="w-full max-w-md bg-[#2a4e40] rounded-2xl p-8 shadow-2xl border border-white/5">
                 <div className="text-center mb-8">
                     <Link href="/" className="inline-flex items-center gap-2 text-white hover:opacity-80 transition-opacity mb-6">
-                        <Bot className="w-8 h-8" />
-                        <span className="font-serif text-2xl font-medium">CheckSite AEO</span>
+                        <span className="font-serif text-2xl font-medium">CheckSite AEO<span className="text-[#8cd9b8]">.</span></span>
                     </Link>
                     <h1 className="font-serif text-3xl text-white mb-2">Create an account</h1>
                     <p className="text-white/60">Start optimizing for the AI era</p>

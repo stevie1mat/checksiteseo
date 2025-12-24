@@ -36,8 +36,7 @@ export function Footer() {
                     {/* Brand Column */}
                     <div className="lg:col-span-2">
                         <div className="flex items-center gap-2 mb-4">
-                            <Bot className="w-6 h-6 text-[#8cd9b8]" />
-                            <span className="font-serif text-2xl font-medium">CheckSite AEO</span>
+                            <span className="font-serif text-2xl font-medium">CheckSite AEO<span className="text-[#8cd9b8]">.</span></span>
                         </div>
                         <p className="text-white/60 text-sm leading-relaxed mb-6">
                             Empowering content creators and SEO professionals with AI-powered tools to dominate answer engines and maximize visibility in the age of AI search.
