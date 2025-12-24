@@ -48,19 +48,6 @@ export function HowItWorksSection() {
                         <p className="text-sm text-slate-500 max-w-[150px]">View actionable insights and fixes.</p>
                     </div>
                 </div>
-
-                {/* Testimonial Quote */}
-                <div className="max-w-2xl mx-auto text-center mt-24">
-                    <div className="text-[#224034] text-6xl font-serif opacity-20 mb-4">"</div>
-                    <h3 className="text-2xl md:text-3xl text-slate-600 font-medium leading-relaxed">
-                        Before AEO Audit, I used to guess if my site was readable. Now my content gets cited the first time.
-                    </h3>
-                    <div className="mt-8 flex flex-col items-center">
-                        <div className="w-12 h-12 rounded-full bg-slate-200 mb-2" />
-                        <p className="font-bold text-slate-800">Stephanie</p>
-                        <p className="text-xs text-slate-500">SEO Manager, Tech Co</p>
-                    </div>
-                </div>
             </div>
         </section>
     );
