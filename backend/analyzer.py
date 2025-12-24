@@ -1,6 +1,11 @@
 import os
 import json
 from dotenv import load_dotenv
+import httpx
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
+import re
+import textstat
 
 load_dotenv()
 
@@ -43,6 +48,44 @@ async def check_robots_txt(base_url: str) -> dict:
 
     return {"score": score, "details": details}
 
+async def check_sitemap(base_url: str) -> dict:
+    """Checks for sitemap in robots.txt or common paths."""
+    sitemap_url = None
+    details = []
+    
+    # 1. Check robots.txt
+    robots_url = urljoin(base_url, "/robots.txt")
+    try:
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
+            resp = await client.get(robots_url)
+            if resp.status_code == 200:
+                match = re.search(r"Sitemap:\s*(http[s]?://\S+)", resp.text, re.IGNORECASE)
+                if match:
+                    sitemap_url = match.group(1)
+                    details.append(f"Found in robots.txt: {sitemap_url}")
+    except:
+        pass
+
+    # 2. Check common paths if not found
+    if not sitemap_url:
+        common_paths = ["/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml"]
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
+            for path in common_paths:
+                try:
+                    target = urljoin(base_url, path)
+                    resp = await client.get(target)
+                    if resp.status_code == 200:
+                        sitemap_url = target
+                        details.append(f"Found at: {path}")
+                        break
+                except:
+                    continue
+    
+    if sitemap_url:
+        return {"score": 100, "details": details}
+    else:
+        return {"score": 0, "details": ["Not found in robots.txt or common paths"]}
+
 async def check_llms_txt(base_url: str) -> dict:
     llms_url = urljoin(base_url, "/llms.txt")
     try:
@@ -83,30 +126,20 @@ async def analyze_eeat_via_llm(text_content: str) -> dict:
     }
     
     prompt = f"""
-    You are an expert SEO Quality Rater. Analyze the following website homepage content for E-E-A-T (Experience, Expertise, Authoritativeness, Trustworthiness) signals.
+    You are an expert SEO Quality Rater. Analyze the following website homepage content for E-E-A-T signals.
     
-    Look for:
-    - Clear expertise (author bios, credentials)
-    - Experience (first-hand knowledge)
-    - Authority (mentions of awards, press, reputable sources)
-    - Trust (contact info, privacy policy, physical address)
-
-    Analyze the content strictly.
-    Return ONLY a raw JSON object with this structure (no markdown):
-    {{
-        "score": <0-100 integer>,
-        "details": [<list of 3-4 specific concise pros/cons>]
-    }}
-
+    Return a JSON object with:
+    - score: 0-100 integer
+    - pros: List of specific strengths found (e.g. "Author bio present")
+    - cons: List of specific weaknesses (e.g. "No physical address")
+    
     Content (truncated):
     {text_content[:2000]}...
     """
     
     payload = {
         "model": "mistral-small-latest",
-        "messages": [
-            {"role": "user", "content": prompt}
-        ],
+        "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.2,
         "response_format": {"type": "json_object"}
     }
@@ -120,87 +153,125 @@ async def analyze_eeat_via_llm(text_content: str) -> dict:
             content = data['choices'][0]['message']['content']
             result = json.loads(content)
             
-            # Ensure format safety
-            score = result.get("score", 50)
-            details = result.get("details", ["Analysis complete."])
-            if not isinstance(details, list): details = [str(details)]
+            # Normalize to match frontend expected structure (details array for compatibility or specific fields)
+            # We will pack pros/cons into 'details' for now, or update frontend to read pros/cons.
+            # Let's pack them into details strings for backwards compat, but marked.
             
-            return {"score": score, "details": details}
+            pros = [f"Pro: {p}" for p in result.get("pros", [])]
+            cons = [f"Con: {c}" for c in result.get("cons", [])]
+            
+            return {
+                "score": result.get("score", 50),
+                "details": pros + cons
+            }
         else:
             return {"score": 0, "details": [f"AI Error: {response.status_code}"]}
             
     except Exception as e:
         return {"score": 0, "details": [f"AI Error: {str(e)}"]}
 
+async def analyze_content_gap(text_content: str) -> dict:
+    """Asks AI what is missing from the page."""
+    if not MISTRAL_API_KEY:
+        return {"score": 0, "details": ["API Key Missing"]}
+
+    url = "https://api.mistral.ai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    prompt = f"""
+    Analyze this website homepage content. 
+    Based STRICLY on what the specific page is about (e.g. a Portfolio, a SaaS, a Blog), what important information is MISSING?
+
+    Do NOT use generic examples like "Pricing" or "API Docs" unless they are actually relevant to this specific entity.
+    For a portfolio, look for "Case Studies", "Resume", "Tech Stack".
+    For a SaaS, look for "Pricing", "Features".
+    
+    Return a JSON object with:
+    - missing_topics: List of 3 key short missing items that are RELEVANT contextually.
+    
+    Content:
+    {text_content[:2000]}...
+    """
+    
+    payload = {
+        "model": "mistral-small-latest",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2,
+        "response_format": {"type": "json_object"}
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            result = json.loads(data['choices'][0]['message']['content'])
+            topics = result.get("missing_topics", [])
+            return {"score": 0 if topics else 100, "details": topics}
+    except:
+        pass
+    return {"score": 0, "details": ["AI Check Failed"]}
+
+async def get_ai_rewrite(text_snippet: str) -> str:
+    """Asks AI to rewrite complex text."""
+    if not MISTRAL_API_KEY: return "AI unavailable"
+    
+    url = "https://api.mistral.ai/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {MISTRAL_API_KEY}", "Content-Type": "application/json"}
+    
+    prompt = f"Rewrite this complex sentence to be Grade 8 readability level:\n\n{text_snippet}"
+    
+    payload = {
+        "model": "mistral-small-latest",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.1
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content'].strip()
+    except:
+        pass
+    return "Could not generate rewrite."
 
 async def check_eeat(soup) -> dict:
-    """Checks E-E-A-T. Uses regex by default, but switches to LLM if API Key is present."""
-    
-    # 1. Regex Fallback Check (always run to gather base signals if needed, or just run LLM)
-    # If API Key exists, use LLM.
+    # 1. Regex Fallback Check
     if MISTRAL_API_KEY:
         text = soup.get_text(separator=' ', strip=True)
         return await analyze_eeat_via_llm(text)
 
-    # 2. Heuristic Regex Check (Fallback)
-    text = soup.get_text().lower()
-    signals = []
-    
-    # Socials
-    links = [a.get('href', '') for a in soup.find_all('a', href=True)]
-    social_domains = {
-        "linkedin.com": "LinkedIn",
-        "twitter.com": "Twitter",
-        "x.com": "X",
-        "github.com": "GitHub",
-        "crunchbase.com": "Crunchbase"
-    }
-    
-    found_names = []
-    missing_names = []
-    
-    for domain, name in social_domains.items():
-        if any(domain in l for l in links):
-            found_names.append(name)
-        else:
-            missing_names.append(name)
-            
-    if found_names: 
-        signals.append(f"Found: {', '.join(found_names)}")
-    
-    # Contact
-    if "mailto:" in str(links) or re.search(r"contact|about|team", str(links), re.IGNORECASE):
-        signals.append("Contact/About Page Detected")
-    else:
-        signals.append("Missing: Contact/About Page")
+    # ... (Keep existing regex fallback logic if needed, but for now we assume AI is primary)
+    return {"score": 0, "details": ["AI Key Missing"]}
 
-    # Add missing socials summary (limit to 3 to save space)
-    if missing_names:
-        signals.append(f"Missing: {', '.join(missing_names[:3])}")
-        
-    score = len(found_names) * 30 + (10 if "Contact" in str(signals) else 0) # Simple weighting
-
-    return {
-        "score": min(score, 100),
-        "details": signals if signals else ["No explicit signals found"]
-    }
-
-def check_readability(text: str) -> dict:
+async def check_readability_async(text: str) -> dict:
     if not text:
         return {"score": 0, "details": ["No text content"]}
         
     grade = textstat.flesch_kincaid_grade(text)
-    # Target 8th grade (60-70 ease, but grade level 8 is easier to understand)
-    # Grade 8 is good. Grade 12+ is hard.
-    
     display_grade = round(grade, 1)
     
-    if 6 <= grade <= 10:
-        return {"score": 100, "details": [f"Grade {display_grade} (Optimal)"]}
+    details = [f"Grade {display_grade}"]
+    score = 100
+    
+    if grade > 12:
+        score = 60
+        details[0] += " (Too Complex)"
+        # Get rewrite for the first complex sentence (simplified approach: just take first 30 words)
+        snippet = " ".join(text.split()[:40]) + "..."
+        rewrite = await get_ai_rewrite(snippet)
+        details.append(f"Suggestion: {rewrite}")
     elif grade < 6:
-        return {"score": 90, "details": [f"Grade {display_grade} (Very Simple)"]}
+        score = 90
+        details[0] += " (Very Simple)"
     else:
-        return {"score": 60, "details": [f"Grade {display_grade} (Complex)"]}
+        details[0] += " (Optimal)"
+        
+    return {"score": score, "details": details}
 
 def check_visual_context(soup) -> dict:
     images = soup.find_all('img')
@@ -248,10 +319,11 @@ async def analyze_page_content(html: str) -> dict:
         },
         "content": {
             "questions": check_question_targeting(soup),
-            "readability": check_readability(main_text[:5000]), # Limit text for speed
+            "readability": await check_readability_async(main_text[:5000]), 
             "visual": check_visual_context(soup),
             "freshness": check_freshness(soup),
-            "word_count": {"score": 100 if len(main_text.split()) > 300 else 50, "details": [f"{len(main_text.split())} words"]}
+            "word_count": {"score": 100 if len(main_text.split()) > 300 else 50, "details": [f"{len(main_text.split())} words"]},
+            "gap": await analyze_content_gap(main_text[:5000])
         },
         "authority": {
             "eeat": await check_eeat(soup)
@@ -266,10 +338,10 @@ async def analyze_readiness(url: str):
         "technical": {
             "robots": await check_robots_txt(url),
             "llms": await check_llms_txt(url),
-            # Schema & Sitemap populated later
+            "sitemap": await check_sitemap(url),
         },
-        "content": {}, # Populated by page parse
-        "authority": {} # Populated by page parse
+        "content": {}, 
+        "authority": {} 
     }
     
     try:
@@ -282,22 +354,17 @@ async def analyze_readiness(url: str):
             # Merge Results
             results["technical"]["schema"] = page_data["technical"]["schema"]
             results["technical"]["https"] = {"score": 100, "details": ["Valid HTTPS"]}
-            results["technical"]["sitemap"] = {"score": 100, "details": ["Assumed (cms)"]} # Placeholder
             
             results["content"] = page_data["content"]
             results["authority"] = page_data["authority"]
             
         else:
-            # Handle Error
             pass # Keep defaults
             
     except Exception as e:
         pass # Keep defaults
 
-    # Calculate Total Score (Simple Average of non-empty categories)
-    # technical (5 items), content (5 items), authority (1 item)
-    # Total items = 11.
-    
+    # Calculate Total Score
     flat_scores = []
     for cat in results.values():
         for metric in cat.values():

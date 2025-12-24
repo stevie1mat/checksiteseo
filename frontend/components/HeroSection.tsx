@@ -36,6 +36,7 @@ export function HeroSection() {
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<AnalysisResult | null>(null)
     const [error, setError] = useState("")
+    const [isRegisterOpen, setIsRegisterOpen] = useState(false)
 
     const handleAnalyze = async () => {
         if (!url) return
@@ -271,12 +272,22 @@ export function HeroSection() {
                                     <Badge variant="secondary" className="bg-slate-100 text-slate-700">{result.breakdown.content.questions.details[0].split('/')[0]} / 5</Badge>
                                 </div>
                                 {/* Readability */}
-                                <div className="flex justify-between items-center pb-4 border-b border-gray-50">
-                                    <div>
-                                        <p className="font-semibold text-slate-700 text-sm">Readability</p>
-                                        <p className="text-xs text-slate-500 mt-0.5">Flesch-Kincaid Grade</p>
+                                <div className="pb-4 border-b border-gray-50">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <div>
+                                            <p className="font-semibold text-slate-700 text-sm">Readability</p>
+                                            <p className="text-xs text-slate-500 mt-0.5">Flesch-Kincaid Grade</p>
+                                        </div>
+                                        <Badge variant="outline" className={`${result.breakdown.content.readability.details[0].includes('Complex') ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                                            {result.breakdown.content.readability.details[0].split('(')[0]}
+                                        </Badge>
                                     </div>
-                                    <Badge variant="outline" className="border-emerald-200 text-emerald-700 bg-emerald-50">{result.breakdown.content.readability.details[0].split('(')[0]}</Badge>
+                                    {result.breakdown.content.readability.details.find(d => d.startsWith("Suggestion:")) && (
+                                        <div className="mt-2 bg-orange-50/50 rounded-lg p-2 border border-orange-100 text-xs">
+                                            <span className="font-bold text-orange-600 block mb-0.5">AI Rewrite Suggestion:</span>
+                                            <span className="text-slate-600 italic">"{result.breakdown.content.readability.details.find(d => d.startsWith("Suggestion:"))?.replace("Suggestion:", "").trim()}"</span>
+                                        </div>
+                                    )}
                                 </div>
                                 {/* Visual Context */}
                                 <div className=" pb-4 border-b border-gray-50">
@@ -313,27 +324,124 @@ export function HeroSection() {
                                 <Sparkles className="w-5 h-5 text-slate-400" />
                                 <h3 className="font-serif text-xl text-[#224034]">Authority Signals</h3>
                             </div>
-                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 h-fit">
+                            {/* Detected Entities - AI Trust Analysis */}
+                            <div className="space-y-4">
+                                <p className="font-semibold text-slate-700 text-sm">AI Trust Analysis</p>
 
-                                <p className="font-semibold text-slate-700 text-sm mb-3">Detected Entities:</p>
-                                <ul className="space-y-3">
-                                    {result.breakdown.authority.eeat.details.map((signal, i) => (
-                                        <li key={i} className="flex items-center gap-2 text-sm text-slate-600">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                                            {signal}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
+                                {/* Strengths (Pros) */}
+                                <div className="space-y-2">
+                                    <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Strengths</p>
+                                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                                        <ul className="space-y-3">
+                                            {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Pro:")).slice(0, 5).map((signal, i) => (
+                                                <li key={i} className="flex items-start gap-3 text-sm text-slate-600 border-b border-gray-50 pb-2 last:border-0 last:pb-0">
+                                                    <div className="bg-emerald-100/50 p-1 rounded-full shrink-0 mt-0.5">
+                                                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                                    </div>
+                                                    <span className="text-sm leading-relaxed">{signal.replace("Pro:", "").trim()}</span>
+                                                </li>
+                                            ))}
+                                            {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Pro:")).length > 5 && (
+                                                <li className="text-center pt-3 border-t border-gray-50 mt-1">
+                                                    <button
+                                                        onClick={() => setIsRegisterOpen(true)}
+                                                        className="text-xs md:text-sm text-emerald-600 hover:text-emerald-700 font-bold bg-emerald-50 hover:bg-emerald-100 px-4 py-1.5 rounded-full transition-colors w-full border border-emerald-100/50 shadow-sm"
+                                                    >
+                                                        Show more
+                                                    </button>
+                                                </li>
+                                            )}
+                                        </ul>
+                                    </div>
+                                </div>
 
-                            {/* Pro Upsell - Small */}
-                            <div className="bg-[#224034] rounded-xl p-5 text-white/90 text-center">
-                                <p className="font-serif text-lg mb-2">Unlock Full Report</p>
-                                <p className="text-xs text-white/60 mb-4">Get deep competitor analysis and keyword gap tracking.</p>
-                                <Button size="sm" className="w-full bg-[#8cd9b8] text-[#16211d] hover:bg-[#7bcfa7]">Start Free Trial</Button>
+                                {/* Weaknesses (Cons) */}
+                                <div className="space-y-2 pt-2">
+                                    <p className="text-xs font-semibold text-red-500 uppercase tracking-wider">Weaknesses & Risks</p>
+                                    <ul className="space-y-2">
+                                        {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Con:")).slice(0, 5).map((signal, i) => (
+                                            <li key={i} className="flex items-start gap-2 text-sm text-slate-600 bg-red-50/50 p-2 rounded-lg border border-red-100/50">
+                                                <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                                                <span className="text-xs md:text-sm">{signal.replace("Con:", "").trim()}</span>
+                                            </li>
+                                        ))}
+                                        {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Con:")).length > 5 && (
+                                            <li className="relative">
+                                                <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                                                <button
+                                                    onClick={() => setIsRegisterOpen(true)}
+                                                    className="text-xs md:text-sm text-red-600 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-4 py-1.5 rounded-full transition-colors w-full border border-red-100/50 shadow-sm relative z-10"
+                                                >
+                                                    Show full analysis
+                                                </button>
+                                            </li>
+                                        )}
+                                    </ul>
+                                </div>
                             </div>
                         </div>
 
+                    </div>
+
+                    {/* [NEW] Content Gap Analysis - Full Width */}
+                    {/* @ts-ignore */}
+                    {result.breakdown.content.gap && result.breakdown.content.gap.details.length > 0 && (
+                        <div className="mt-8 bg-[#224034] rounded-xl p-8 text-white shadow-lg space-y-6 relative overflow-hidden group w-full">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-emerald-500/20 transition-all duration-700" />
+
+                            <div className="flex items-center gap-3 relative z-10 border-b border-emerald-500/20 pb-4">
+                                <Bot className="w-6 h-6 text-emerald-300" />
+                                <div className="text-left">
+                                    <h4 className="font-serif text-2xl text-white">The Missing Answer</h4>
+                                    <p className="text-sm text-emerald-200/60">What AI models want to see on this page to rank it higher.</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+                                {/* @ts-ignore */}
+                                {result.breakdown.content.gap.details.map((topic: string, i: number) => (
+                                    <div key={i} className="flex items-center gap-3 bg-white/5 p-4 rounded-lg border border-emerald-500/20 hover:bg-white/10 transition-colors">
+                                        <Search className="w-5 h-5 text-emerald-400 shrink-0" />
+                                        <span className="font-medium text-emerald-50">{topic}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            )}
+
+            {/* Registration Modal */}
+            {isRegisterOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 md:p-8 relative animate-in zoom-in-95 duration-200">
+                        <button
+                            onClick={() => setIsRegisterOpen(false)}
+                            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                            <XCircle className="w-6 h-6" />
+                        </button>
+
+                        <div className="text-center space-y-4">
+                            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <Sparkles className="w-6 h-6 text-emerald-600" />
+                            </div>
+
+                            <h3 className="text-2xl font-serif text-[#224034]">Unlock Full Analysis</h3>
+                            <p className="text-slate-600 text-sm leading-relaxed">
+                                Get access to all <strong>{result?.breakdown.authority.eeat.details.length} authority signals</strong>, detailed competitor comparisons, and the full content gap report.
+                            </p>
+
+                            <div className="pt-2 space-y-3">
+                                <Button className="w-full bg-[#224034] hover:bg-[#1a3329] text-white h-11 text-base font-semibold shadow-lg shadow-[#224034]/20">
+                                    Create Free Account
+                                </Button>
+                                <p className="text-xs text-slate-400">
+                                    No credit card required • Free for 14 days
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
