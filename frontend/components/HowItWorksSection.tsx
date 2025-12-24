@@ -1,11 +1,30 @@
-
-const steps = [
-    { number: "1", title: "Upload URL", description: "Selected documents from the contact" },
-    { number: "2", title: "Audit Run", description: "Reap checks them for completeness" },
-    { number: "3", title: "See Progress", description: "Stay in sync with built-in AI case assistant" }
-];
+import { Globe, Cpu, FileBarChart } from "lucide-react";
 
 export function HowItWorksSection() {
+    const steps = [
+        {
+            number: "1",
+            icon: Globe,
+            title: "Enter Your URL",
+            description: "Simply paste your website URL into our analyzer. No installation, no complex setup required.",
+            details: "Our system immediately begins crawling your site to gather all necessary data including robots.txt, sitemap, schema markup, and page content."
+        },
+        {
+            number: "2",
+            icon: Cpu,
+            title: "AI Analysis",
+            description: "Our advanced AI models analyze your content across 50+ technical and content factors.",
+            details: "We check technical readiness (robots.txt, HTTPS, schema), content structure (readability, questions, freshness), and authority signals (E-E-A-T indicators) in real-time."
+        },
+        {
+            number: "3",
+            icon: FileBarChart,
+            title: "Get Actionable Report",
+            description: "Review your comprehensive AEO readiness score with detailed breakdowns and recommendations.",
+            details: "See exactly what's working, what needs improvement, and get AI-powered suggestions to fill content gaps and boost your answer engine visibility."
+        }
+    ];
+
     return (
         <section id="how-it-works" className="py-24 bg-[#F9FBFA]">
             <div className="max-w-7xl mx-auto px-6">
@@ -13,40 +32,39 @@ export function HowItWorksSection() {
                     <div className="inline-block px-4 py-1 rounded-full border border-slate-200 text-xs font-bold tracking-widest uppercase text-slate-500 mb-6 bg-white">
                         Process
                     </div>
-                    <h2 className="font-serif text-4xl text-[#224034]">How It Works Today</h2>
+                    <h2 className="font-serif text-4xl md:text-5xl text-[#224034] mb-4">How It Works</h2>
+                    <p className="text-slate-500 text-lg max-w-2xl mx-auto">
+                        Get comprehensive AEO insights in three simple steps. Takes less than 60 seconds.
+                    </p>
                 </div>
 
-                {/* Process Timeline */}
-                <div className="relative flex flex-col md:flex-row justify-center items-start gap-8 md:gap-0 max-w-4xl mx-auto">
-                    {/* Dashed Line (hidden on mobile) */}
-                    <div className="hidden md:block absolute top-[28px] left-0 w-full h-[2px] border-t-2 border-dashed border-slate-200 -z-0" />
+                {/* Process Steps - No connecting line */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 max-w-6xl mx-auto">
+                    {steps.map((step, index) => (
+                        <div key={index} className="flex flex-col items-center text-center">
+                            {/* Icon Circle */}
+                            <div className="relative mb-6">
+                                <div className="w-20 h-20 rounded-full bg-[#224034] text-white flex items-center justify-center shadow-xl shadow-[#224034]/20 border-4 border-[#F9FBFA] group-hover:scale-110 transition-transform">
+                                    <step.icon className="w-9 h-9" />
+                                </div>
+                                {/* Step Number Badge */}
+                                <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-[#8cd9b8] text-[#224034] flex items-center justify-center font-bold text-sm shadow-lg">
+                                    {step.number}
+                                </div>
+                            </div>
 
-                    {/* Step 1 */}
-                    <div className="flex-1 flex flex-col items-center text-center relative z-10">
-                        <div className="w-14 h-14 rounded-full bg-[#224034] text-white flex items-center justify-center font-bold text-xl mb-6 shadow-xl shadow-[#224034]/20 border-4 border-[#F9FBFA]">
-                            1
+                            {/* Content */}
+                            <div className="space-y-3">
+                                <h3 className="font-serif text-2xl text-[#224034] mb-2">{step.title}</h3>
+                                <p className="text-slate-600 font-medium leading-relaxed">
+                                    {step.description}
+                                </p>
+                                <p className="text-sm text-slate-500 leading-relaxed">
+                                    {step.details}
+                                </p>
+                            </div>
                         </div>
-                        <h3 className="font-semibold text-slate-800 mb-2">Scan URL</h3>
-                        <p className="text-sm text-slate-500 max-w-[150px]">Enter your domain for instant analysis.</p>
-                    </div>
-
-                    {/* Step 2 */}
-                    <div className="flex-1 flex flex-col items-center text-center relative z-10">
-                        <div className="w-14 h-14 rounded-full bg-[#224034] text-white flex items-center justify-center font-bold text-xl mb-6 shadow-xl shadow-[#224034]/20 border-4 border-[#F9FBFA]">
-                            2
-                        </div>
-                        <h3 className="font-semibold text-slate-800 mb-2">AI Checks</h3>
-                        <p className="text-sm text-slate-500 max-w-[150px]">We parse robots.txt, schema, and content.</p>
-                    </div>
-
-                    {/* Step 3 */}
-                    <div className="flex-1 flex flex-col items-center text-center relative z-10">
-                        <div className="w-14 h-14 rounded-full bg-[#224034] text-white flex items-center justify-center font-bold text-xl mb-6 shadow-xl shadow-[#224034]/20 border-4 border-[#F9FBFA]">
-                            3
-                        </div>
-                        <h3 className="font-semibold text-slate-800 mb-2">Get Report</h3>
-                        <p className="text-sm text-slate-500 max-w-[150px]">View actionable insights and fixes.</p>
-                    </div>
+                    ))}
                 </div>
             </div>
         </section>
