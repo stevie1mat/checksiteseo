@@ -30,9 +30,8 @@ export function DashboardSidebar() {
     return (
         <div className="flex h-full w-64 flex-col bg-[#224034] text-white border-r border-[#2a4e40]">
             <div className="p-6">
-                <Link href="/dashboard" className="flex items-center gap-2 text-white hover:opacity-80 transition-opacity">
-                    <Bot className="w-8 h-8 text-[#8cd9b8]" />
-                    <span className="font-serif text-xl font-medium">CheckSite AEO</span>
+                <Link href="/" className="flex items-center gap-2 text-white hover:opacity-80 transition-opacity">
+                    <span className="font-serif text-xl font-medium">CheckSite AEO<span className="text-[#8cd9b8]">.</span></span>
                 </Link>
             </div>
 
