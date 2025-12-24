@@ -17,23 +17,23 @@ export default function ContactPage() {
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-6 py-16 -mt-12">
-                <div className="grid md:grid-cols-3 gap-8">
+            <div className="max-w-7xl mx-auto px-6 py-24 -mt-12">
+                <div className="grid md:grid-cols-3 gap-12">
                     {/* Contact Info Cards */}
-                    <div className="md:col-span-1 space-y-4">
-                        <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-100">
+                    <div className="md:col-span-1 space-y-6">
+                        <div className="bg-white p-6 rounded-xl border border-slate-200">
                             <MessageSquare className="w-6 h-6 text-[#224034] mb-4" />
                             <h3 className="font-semibold text-[#224034]">Chat with us</h3>
                             <p className="text-sm text-slate-500 mb-2">Speak to our friendly team.</p>
                             <a href="#" className="text-[#224034] font-medium hover:underline">Start a live chat</a>
                         </div>
-                        <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-100">
+                        <div className="bg-white p-6 rounded-xl border border-slate-200">
                             <Mail className="w-6 h-6 text-[#224034] mb-4" />
                             <h3 className="font-semibold text-[#224034]">Email us</h3>
                             <p className="text-sm text-slate-500 mb-2">We'll respond within 24 hours.</p>
                             <a href="mailto:hello@checksiteaeo.com" className="text-[#224034] font-medium hover:underline">hello@checksiteaeo.com</a>
                         </div>
-                        <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-100">
+                        <div className="bg-white p-6 rounded-xl border border-slate-200">
                             <Phone className="w-6 h-6 text-[#224034] mb-4" />
                             <h3 className="font-semibold text-[#224034]">Call us</h3>
                             <p className="text-sm text-slate-500 mb-2">Mon-Fri from 8am to 5pm.</p>
@@ -42,9 +42,9 @@ export default function ContactPage() {
                     </div>
 
                     {/* Contact Form */}
-                    <div className="md:col-span-2 bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
-                        <form className="space-y-6">
-                            <div className="grid md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2 bg-white rounded-2xl p-12 border border-slate-200">
+                        <form className="space-y-8">
+                            <div className="grid md:grid-cols-2 gap-8">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-700">First name</label>
                                     <Input placeholder="First name" />

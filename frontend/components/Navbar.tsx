@@ -43,9 +43,11 @@ export function Navbar() {
                     <Link href="/signin" className="text-sm font-medium text-white hover:text-white/80 transition-opacity px-4 py-2">
                         Sign In
                     </Link>
-                    <Button className="bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold rounded-lg px-6 shadow-lg shadow-[#8cd9b8]/30 transition-all">
-                        Start Free Trial
-                    </Button>
+                    <Link href="/signup">
+                        <Button className="bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold rounded-lg px-6 shadow-lg shadow-[#8cd9b8]/30 transition-all">
+                            Get Started
+                        </Button>
+                    </Link>
                 </div>
 
                 {/* Mobile Menu Button */}
@@ -79,9 +81,11 @@ export function Navbar() {
                         <Link href="/signin" className="block text-sm font-medium text-white">
                             Sign In
                         </Link>
-                        <Button className="w-full bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold rounded-lg">
-                            Start Free Trial
-                        </Button>
+                        <Link href="/signup" className="w-full">
+                            <Button className="w-full bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold rounded-lg">
+                                Get Started
+                            </Button>
+                        </Link>
                     </div>
                 </div>
             )}

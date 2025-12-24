@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link";
-import { Bot, ChevronLeft } from "lucide-react";
+import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,10 +9,11 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function SignInPage() {
+export default function SignUpPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
 
     async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -24,18 +25,38 @@ export default function SignInPage() {
         const password = formData.get("password") as string;
         const supabase = createClient();
 
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signUp({
             email,
             password,
+            options: {
+                emailRedirectTo: `${location.origin}/auth/callback`,
+            },
         });
 
         if (error) {
             setError(error.message);
             setLoading(false);
         } else {
-            router.push("/dashboard");
-            router.refresh();
+            setSuccess(true);
+            setLoading(false);
         }
+    }
+
+    if (success) {
+        return (
+            <div className="min-h-screen bg-[#224034] flex flex-col items-center justify-center p-4">
+                <div className="w-full max-w-md bg-[#2a4e40] rounded-2xl p-8 shadow-2xl border border-white/5 text-center">
+                    <Bot className="w-12 h-12 text-[#8cd9b8] mx-auto mb-4" />
+                    <h2 className="font-serif text-2xl text-white mb-4">Check your email</h2>
+                    <p className="text-white/80 mb-8">
+                        We've sent you a confirmation link. Please check your email to activate your account.
+                    </p>
+                    <Button asChild className="w-full bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold h-11">
+                        <Link href="/signin">Return to Sign In</Link>
+                    </Button>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -46,8 +67,8 @@ export default function SignInPage() {
                         <Bot className="w-8 h-8" />
                         <span className="font-serif text-2xl font-medium">CheckSite AEO</span>
                     </Link>
-                    <h1 className="font-serif text-3xl text-white mb-2">Welcome back</h1>
-                    <p className="text-white/60">Sign in to your account</p>
+                    <h1 className="font-serif text-3xl text-white mb-2">Create an account</h1>
+                    <p className="text-white/60">Start optimizing for the AI era</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -68,12 +89,7 @@ export default function SignInPage() {
                         />
                     </div>
                     <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="password" className="text-white">Password</Label>
-                            <Link href="#" className="text-xs text-white/50 hover:text-white transition-colors">
-                                Forgot password?
-                            </Link>
-                        </div>
+                        <Label htmlFor="password" className="text-white">Password</Label>
                         <Input
                             id="password"
                             name="password"
@@ -83,14 +99,14 @@ export default function SignInPage() {
                         />
                     </div>
                     <Button disabled={loading} className="w-full bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold h-11 text-lg mt-6">
-                        {loading ? "Signing in..." : "Sign In"}
+                        {loading ? "Creating account..." : "Sign Up"}
                     </Button>
                 </form>
 
                 <div className="mt-8 text-center text-sm text-white/40">
-                    Don't have an account?{" "}
-                    <Link href="/signup" className="text-[#8cd9b8] hover:text-[#7bcfa7] transition-colors font-medium">
-                        Get Started
+                    Already have an account?{" "}
+                    <Link href="/signin" className="text-[#8cd9b8] hover:text-[#7bcfa7] transition-colors font-medium">
+                        Sign In
                     </Link>
                 </div>
             </div>
