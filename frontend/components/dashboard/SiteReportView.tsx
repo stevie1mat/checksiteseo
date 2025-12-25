@@ -140,25 +140,36 @@ export function SiteReportView({ breakdown, aeoScore }: SiteReportViewProps) {
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
                         {/* 1. Top Level KPIs */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {/* KPI 1: Agent Context */}
+                            {/* KPI 1: Share of Voice (Competitor Widget) */}
                             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 transition-colors">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <Cpu className="w-16 h-16 text-[#224034]" />
-                                </div>
-                                <div className="flex items-center gap-2 mb-3 relative z-10">
+                                <div className="flex items-center gap-2 mb-3">
                                     <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
-                                        <Cpu className="w-4 h-4" />
+                                        <BarChart3 className="w-4 h-4" />
                                     </div>
-                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Agent Efficiency</span>
+                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Share of Voice</span>
                                 </div>
-                                <div className="relative z-10">
-                                    <div className="text-3xl font-serif font-medium text-slate-800">
-                                        {agentEcon.html_ratio || '0%'}
+                                <div className="space-y-3 relative z-10">
+                                    <div>
+                                        <div className="flex justify-between text-xs mb-1">
+                                            <span className="font-bold text-emerald-700">You</span>
+                                            <span className="font-medium text-slate-600">15%</span>
+                                        </div>
+                                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-emerald-500" style={{ width: '15%' }} />
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-1">Reliable Content Ratio</p>
-                                    <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-emerald-500" style={{ width: agentEcon.html_ratio || '0%' }} />
+                                    <div>
+                                        <div className="flex justify-between text-xs mb-1">
+                                            <span className="font-medium text-slate-500">Competitors</span>
+                                            <span className="font-medium text-slate-600">60%</span>
+                                        </div>
+                                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-slate-300" style={{ width: '60%' }} />
+                                        </div>
                                     </div>
+                                </div>
+                                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                                    <BarChart3 className="w-16 h-16 text-[#224034]" />
                                 </div>
                             </div>
 
@@ -212,27 +223,25 @@ export function SiteReportView({ breakdown, aeoScore }: SiteReportViewProps) {
                                 </div>
                             </div>
 
-                            {/* KPI 4: Knowledge Graph */}
-                            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 transition-colors">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <Database className="w-16 h-16 text-[#224034]" />
-                                </div>
+                            {/* KPI 4: Knowledge Graph Visualizer */}
+                            <div className="bg-[#1A4036] p-5 rounded-xl border border-[#2a4e40] shadow-sm relative overflow-hidden group">
                                 <div className="flex items-center gap-2 mb-3 relative z-10">
-                                    <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
-                                        <Database className="w-4 h-4" />
+                                    <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-300">
+                                        <Share2 className="w-4 h-4" />
                                     </div>
-                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Graph Status</span>
+                                    <span className="text-xs font-bold text-emerald-200/70 uppercase tracking-wider">Knowledge Graph</span>
                                 </div>
-                                <div className="relative z-10">
-                                    <div className="text-2xl font-serif font-medium text-slate-800 truncate" title={knowledgeGraph.primary_entity}>
-                                        {knowledgeGraph.primary_entity || 'Not Found'}
+                                <div className="relative h-24 w-full flex items-center justify-center">
+                                    <div className="relative flex items-center justify-center w-full h-full">
+                                        {/* Center Node */}
+                                        <div className="z-10 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg shadow-emerald-900/50 border border-emerald-400">
+                                            {knowledgeGraph.primary_entity ? knowledgeGraph.primary_entity.substring(0, 15) : 'Entity'}
+                                        </div>
+                                        {/* Satellite Nodes */}
+                                        <div className="absolute top-0 right-4 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-pulse">CTO</div>
+                                        <div className="absolute bottom-1 left-4 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm">Code</div>
+                                        <div className="absolute bottom-4 right-8 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm">AI</div>
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-1">Primary Entity</p>
-                                    {knowledgeGraph.type && (
-                                        <Badge variant="outline" className="mt-2 text-[10px] h-5 px-1.5 border-slate-200 text-slate-500">
-                                            {knowledgeGraph.type}
-                                        </Badge>
-                                    )}
                                 </div>
                             </div>
                         </div>
@@ -352,16 +361,46 @@ export function SiteReportView({ breakdown, aeoScore }: SiteReportViewProps) {
                             </div>
 
                             {/* 3. Right Column: Executive Summary Text */}
-                            <div className="lg:col-span-1">
-                                <div className="bg-gradient-to-br from-[#224034] to-[#1a3026] text-white rounded-xl p-6 h-full shadow-lg relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                            <div className="lg:col-span-1 flex flex-col gap-6">
+                                {/* Simulated SERP Preview */}
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 overflow-hidden">
+                                    <div className="flex items-center gap-2 mb-3 border-b border-slate-100 pb-2">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                                        <span className="text-[10px] font-medium text-slate-400 ml-2">AI Search Preview</span>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {/* User Query */}
+                                        <div className="flex gap-2 justify-end">
+                                            <div className="bg-slate-100 text-slate-700 text-xs py-2 px-3 rounded-2xl rounded-tr-sm max-w-[85%] shadow-sm">
+                                                Who is the best AI developer in Toronto?
+                                            </div>
+                                            <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
+                                                <span className="text-[10px] font-bold text-slate-500">U</span>
+                                            </div>
+                                        </div>
+                                        {/* AI Response */}
+                                        <div className="flex gap-2">
+                                            <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 border border-emerald-200">
+                                                <Sparkles className="w-3 h-3 text-emerald-600" />
+                                            </div>
+                                            <div className="bg-emerald-50/50 border border-emerald-100 text-slate-700 text-xs py-2.5 px-3 rounded-2xl rounded-tl-sm max-w-[90%] leading-relaxed shadow-sm">
+                                                I found several options. <span className="bg-emerald-200/50 text-emerald-800 font-semibold px-1 py-0.5 rounded border border-emerald-200/50">Steven Mathew</span> is a CTO at 7Steps...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-[#1A4036]/95 backdrop-blur-xl border border-white/10 text-white rounded-xl p-6 grow shadow-2xl relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
 
                                     <div className="relative z-10 flex flex-col h-full">
                                         <div className="flex items-center gap-3 mb-6">
-                                            <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm border border-white/10">
+                                            <div className="p-2 bg-white/10 rounded-lg backdrop-blur-md border border-white/10 shadow-inner">
                                                 <Sparkles className="w-5 h-5 text-emerald-300" />
                                             </div>
-                                            <h3 className="font-serif text-xl tracking-wide">AEO Analysis</h3>
+                                            <h3 className="font-serif text-xl tracking-wide text-white">AEO Analysis</h3>
                                         </div>
 
                                         <div className="space-y-4 grow">
