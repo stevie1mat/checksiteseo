@@ -19,7 +19,7 @@ export default async function DashboardPage() {
     const FREE_PLAN_LIMIT = 1 // 1 site for free plan
 
     return (
-        <div className="space-y-8 max-w-6xl mx-auto">
+        <div className="space-y-8 w-full px-4">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="font-serif text-3xl text-[#224034]">Overview</h1>
