@@ -39,7 +39,7 @@ export function DashboardStats({ siteCount, maxSites, sites }: DashboardStatsPro
     return (
         <div className="grid gap-6 md:grid-cols-3">
             {/* Portfolio Usage */}
-            <Card className="border-slate-200 shadow-xs">
+            <Card className="border-slate-200 shadow-xs bg-white">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-slate-500">Portfolio Usage</CardTitle>
                     <Globe className="h-4 w-4 text-slate-400" />
@@ -56,7 +56,7 @@ export function DashboardStats({ siteCount, maxSites, sites }: DashboardStatsPro
             </Card>
 
             {/* Portfolio Health */}
-            <Card className="border-slate-200 shadow-xs">
+            <Card className="border-slate-200 shadow-xs bg-white">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-slate-500">Portfolio Health</CardTitle>
                     <Activity className={`h-4 w-4 ${healthColor}`} />
@@ -73,7 +73,7 @@ export function DashboardStats({ siteCount, maxSites, sites }: DashboardStatsPro
             </Card>
 
             {/* Competitor Movements */}
-            <Card className="border-slate-200 shadow-xs">
+            <Card className="border-slate-200 shadow-xs bg-white">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-slate-500">Active Competitors</CardTitle>
                     <TrendingUp className="h-4 w-4 text-blue-500" />

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from analyzer import analyze_readiness
+from analyzer import analyze_readiness, generate_content_strategy
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -116,3 +116,12 @@ async def analyze_url(request: AnalyzeRequest):
             pass
 
     return result
+
+class PlanRequest(BaseModel):
+    user_domain: str
+    competitor_domain: str
+
+@app.post("/generate-plan")
+async def generate_plan(request: PlanRequest):
+    plan = await generate_content_strategy(request.user_domain, request.competitor_domain)
+    return plan

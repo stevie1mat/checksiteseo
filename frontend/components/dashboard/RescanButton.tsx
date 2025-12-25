@@ -37,7 +37,7 @@ export function RescanButton({ siteId, url }: RescanButtonProps) {
             size="sm"
             onClick={handleRescan}
             disabled={loading}
-            className="text-[#224034] border-[#224034]/20 hover:bg-[#224034]/5"
+            className="text-[#224034] border-[#224034]/20 hover:bg-[#224034]/5 pr-6"
         >
             <RefreshCw className={`w-3.5 h-3.5 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Scanning...' : 'Rescan'}

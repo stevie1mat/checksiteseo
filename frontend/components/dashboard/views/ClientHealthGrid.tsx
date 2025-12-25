@@ -162,6 +162,9 @@ export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
 
                                 const trend = getDisplayTrend();
 
+                                // Prepare data for sparkline (normalize to 0-100)
+                                const sparklineData = graphHistory.map(h => h.aeo_score);
+
                                 return (
                                     <TableRow key={site.id} className="group border-slate-100 hover:bg-slate-50 transition-all duration-200">
                                         <TableCell className="py-4 pl-6">
@@ -188,7 +191,7 @@ export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
                                                     {graphHistory.length > 0 ? (
                                                         graphHistory.map((h, i) => {
                                                             const height = Math.max(15, h.aeo_score);
-                                                            // Fix opacity: if only 1 item, make it 100%. Otherwise distribute.
+                                                            // Opacity: 100% if single item, otherwise distributed
                                                             const opacity = graphHistory.length === 1 ? 1 : 0.3 + ((i / (graphHistory.length - 1)) * 0.7);
 
                                                             return (
@@ -203,6 +206,7 @@ export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
                                                             )
                                                         })
                                                     ) : (
+                                                        /* Empty state line if absolutely no data (should be rare/impossible with fallback) */
                                                         <div className="w-full h-[1px] bg-slate-200"></div>
                                                     )}
                                                 </div>
@@ -218,6 +222,7 @@ export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
                                                 )}
                                             </div>
                                         </TableCell>
+
                                         <TableCell className="py-4">
                                             <div className="flex gap-2">
                                                 <StatusBadge status={health.robots} label="Robots" />
@@ -227,14 +232,27 @@ export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
                                         </TableCell>
                                         <TableCell className="py-4">
                                             <div className="flex flex-col gap-0.5">
-                                                <span className={cn(
-                                                    "text-sm font-medium",
-                                                    trend === 'up' ? "text-emerald-700" : trend === 'down' ? "text-rose-700" : "text-slate-600"
-                                                )}>
-                                                    {site.aeo_score ? `Score: ${site.aeo_score}` : 'Pending'}
-                                                </span>
+                                                {/* LAST CHANGE COLUMN: Delta */}
+                                                {(graphHistory.length > 1 && trend !== 'new') ? (
+                                                    (() => {
+                                                        const current = graphHistory[graphHistory.length - 1].aeo_score;
+                                                        const previous = graphHistory[graphHistory.length - 2].aeo_score;
+                                                        const delta = current - previous;
+                                                        return (
+                                                            <span className={cn(
+                                                                "text-sm font-bold",
+                                                                delta > 0 ? "text-emerald-600" : delta < 0 ? "text-rose-600" : "text-slate-600"
+                                                            )}>
+                                                                {delta > 0 ? '+' : ''}{delta}%
+                                                            </span>
+                                                        )
+                                                    })()
+                                                ) : (
+                                                    <span className="text-sm font-medium text-slate-400">First Scan</span>
+                                                )}
+
                                                 <span className="text-[10px] text-slate-400 uppercase tracking-wider">
-                                                    {site.last_scanned_at ? formatDistanceToNow(new Date(site.last_scanned_at), { addSuffix: true }) : 'Never'}
+                                                    Since last scan
                                                 </span>
                                             </div>
                                         </TableCell>
@@ -260,8 +278,8 @@ export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
                             })}
                         </TableBody>
                     </Table>
-                </div>
-            </Card>
+                </div >
+            </Card >
         </>
     )
 }

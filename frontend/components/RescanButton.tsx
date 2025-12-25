@@ -39,7 +39,7 @@ export function RescanButton({ siteId, url }: RescanButtonProps) {
         <Button
             onClick={handleRescan}
             disabled={loading}
-            className="bg-[#224034] hover:bg-[#1a3027] text-white"
+            className="bg-[#224034] hover:bg-[#1a3027] text-white pr-6"
         >
             {loading ? (
                 <>

@@ -118,9 +118,9 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
 
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
-                    <Button className="bg-[#224034] hover:bg-[#1a332a] text-white gap-2 h-11 px-6">
-                        <Plus className="w-4 h-4" />
-                        Add New Site
+                    <Button className="group bg-gradient-to-br from-[#2a4e40] to-[#1d332b] hover:from-[#335c4a] hover:to-[#224034] text-white shadow-lg shadow-[#224034]/25 border border-[#3e5c50]/50 hover:shadow-xl hover:shadow-[#224034]/30 hover:-translate-y-0.5 transition-all duration-300 gap-2 h-12 !px-12 rounded-xl font-medium tracking-wide text-base">
+                        <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                        <span className="relative top-[1px]">Add New Site</span>
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md bg-[#1d332b] border-[#2a4e40] text-white">

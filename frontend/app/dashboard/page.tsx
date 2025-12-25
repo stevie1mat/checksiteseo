@@ -38,10 +38,7 @@ export default async function DashboardPage() {
                         <h1 className="font-serif text-3xl text-[#224034]">Overview</h1>
                         <p className="text-slate-500 mt-1">Track your AEO performance across all sites.</p>
                     </div>
-                    {/* Visual Polish: Larger button with Icon */}
-                    <div className="transform scale-110 origin-right">
-                        <AddSiteDialog currentSiteCount={siteCount} maxSites={FREE_PLAN_LIMIT} />
-                    </div>
+                    <AddSiteDialog currentSiteCount={siteCount} maxSites={FREE_PLAN_LIMIT} />
                 </div>
             </div>
 

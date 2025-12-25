@@ -660,3 +660,86 @@ async def analyze_readiness(url: str):
         "competitors": competitors_data  # Add competitors at top level
     }
 
+async def generate_content_strategy(user_domain: str, competitor_domain: str) -> dict:
+    """Generates a content plan to compete against a specific domain."""
+    if not MISTRAL_API_KEY:
+        return {
+            "pillars": ["Technical SEO", "Content Depth", "Authority Building"],
+            "titles": [f"Why {user_domain} is better than {competitor_domain}", f"Top alternatives to {competitor_domain}"]
+        }
+
+    # 1. Try to scrape competitor for context (lightweight)
+    competitor_content = ""
+    target_url = competitor_domain if competitor_domain.startswith("http") else f"https://{competitor_domain}"
+    
+    try:
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+            resp = await client.get(target_url)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                # Get headers and first few paragraphs
+                texts = []
+                for h in soup.find_all(['h1', 'h2', 'h3'])[:10]:
+                    texts.append(h.get_text(strip=True))
+                competitor_content = " ".join(texts)[:2000]
+    except Exception as e:
+        print(f"Competitor Scrape Failed: {e}")
+        pass
+
+    # 2. Prompt LLM
+    url = "https://api.mistral.ai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    prompt = f"""
+    Act as a Content Strategist. Create a "Gap Analysis & Content Plan" for {user_domain} to outrank {competitor_domain}.
+    
+    Competitor Highlights ({competitor_domain}):
+    {competitor_content if competitor_content else "Content unavailable, strictly use domain knowledge."}
+    
+    Goal: Capture 'Share of Voice' from this competitor.
+    
+    Return a JSON object with:
+    1. "pillars": List of 3 core content themes {competitor_domain} is winning at that {user_domain} should target.
+    2. "titles": List of 5 specific click-worthy article titles for {user_domain} to write.
+    3. "tactics": List of 3 specific SEO tactics to use (e.g. "Target keyword X", "Create comparison page").
+    
+    Format:
+    {{
+        "pillars": ["...", "...", "..."],
+        "titles": ["...", "...", ...],
+        "tactics": ["...", ...]
+    }}
+    """
+    
+    payload = {
+        "model": "mistral-small-latest",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.4,
+        "response_format": {"type": "json_object"}
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return json.loads(data['choices'][0]['message']['content'])
+            
+    except Exception as e:
+        print(f"Strategy Gen Error: {e}")
+        
+    return {
+        "pillars": ["Comparison Strategy", "Feature Gap Filling", "User Guide Expansion"],
+        "titles": [
+            f"{user_domain} vs {competitor_domain}: The Complete Guide",
+            f"Why Users are Switching from {competitor_domain}",
+            f"Top 5 Alternatives to {competitor_domain}",
+            f"How to achieve X with {user_domain}",
+            f"Advanced features in {user_domain} you missed"
+        ],
+        "tactics": ["Create a direct comparison landing page", "Target their long-tail help queries", "Bid on their brand keywords"]
+    }
