@@ -16,7 +16,7 @@ interface SiteReportViewProps {
 }
 
 export function SiteReportView({ domain, initialReport, siteId }: SiteReportViewProps) {
-    const { report, isLoading } = useAEOScan(domain)
+    const { report, isLoading } = useAEOScan(domain, siteId)
 
     // Use live report if available, otherwise initial
     const activeReport = report || initialReport

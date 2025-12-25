@@ -35,14 +35,16 @@ export async function POST(request: Request) {
 
             const data = await apiResponse.json();
 
-            // 4. Save FULL result (Technical, Content, Authority) to checklist column
+            // 4. Save FULL result (Technical, Content, Authority, Competitors) to checklist column
             const fullBreakdown = data.breakdown || {};
             const basicSeo = fullBreakdown.content?.basic_seo?.data || {};
+            const competitors = data.competitors || {};
 
             // We store the ENTIRE breakdown in 'checklist' so page.tsx can access deep details
             // We also merge the flat flags for backward compatibility if needed by other components
             const checklist = {
                 ...fullBreakdown,
+                competitors: competitors,  // Add competitors data
                 has_h1: basicSeo.has_h1 || false,
                 has_schema: fullBreakdown.technical?.schema?.score > 0,
                 has_meta_desc: basicSeo.has_meta_desc || false,
@@ -227,9 +229,10 @@ export async function GET(request: Request) {
                 missing_critical: breakdown?.authority?.knowledge_graph?.data?.missing_critical || []
             },
 
-            competitors: {
-                yourShare: 12, // Mocked for now
-                others: 60
+            competitors: breakdown.competitors || {
+                yourShare: 0,
+                others: 100,
+                top_competitors: []
             },
             // DEBUG FIELDS - Keeping for one more verify cycle
             _debug_keys: Object.keys(breakdown),

@@ -396,6 +396,85 @@ async def get_ai_rewrite(text_snippet: str) -> str:
         pass
     return "Could not generate rewrite."
 
+async def analyze_competitors(text_content: str, url: str) -> dict:
+    """Uses Mistral AI to identify competitors and estimate share of voice."""
+    if not MISTRAL_API_KEY:
+        return {
+            "yourShare": 15,
+            "others": 85,
+            "top_competitors": ["Competitor A", "Competitor B", "Competitor C"]
+        }
+
+    api_url = "https://api.mistral.ai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    # Extract domain for context
+    domain = urlparse(url).netloc
+    
+    prompt = f"""
+    Analyze this website content and identify its top 3-5 REAL competitors.
+    
+    Website: {domain}
+    
+    Based on the content, industry, and services described:
+    1. Identify 3-5 actual competitor domains (real websites, not generic names)
+    2. Estimate this site's "Share of Voice" (0-100%) - how visible/authoritative it appears compared to competitors
+    3. Consider factors: content depth, SEO quality, brand mentions, specificity
+    
+    Return a JSON object with:
+    - yourShare: integer 0-100 (realistic estimate based on content quality)
+    - others: integer (100 - yourShare)
+    - top_competitors: list of 3-5 real competitor domain names (e.g. ["competitor1.com", "competitor2.io"])
+    
+    Be realistic. Most sites have 10-25% share unless they're industry leaders.
+    
+    Content (truncated):
+    {text_content[:2000]}...
+    """
+    
+    payload = {
+        "model": "mistral-small-latest",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.3,
+        "response_format": {"type": "json_object"}
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(api_url, json=payload, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            result = json.loads(data['choices'][0]['message']['content'])
+            
+            # Validate and normalize
+            your_share = min(max(result.get("yourShare", 15), 0), 100)
+            competitors = result.get("top_competitors", [])
+            
+            # Ensure we have at least some competitors
+            if not competitors or len(competitors) == 0:
+                competitors = ["Competitor A", "Competitor B", "Competitor C"]
+            
+            return {
+                "yourShare": your_share,
+                "others": 100 - your_share,
+                "top_competitors": competitors[:5]  # Cap at 5
+            }
+    except Exception as e:
+        print(f"Competitor Analysis Error: {e}")
+        pass
+        
+    # Fallback
+    return {
+        "yourShare": 15,
+        "others": 85,
+        "top_competitors": ["Competitor A", "Competitor B", "Competitor C"]
+    }
+
+
 async def check_eeat(soup) -> dict:
     # 1. Regex Fallback Check
     if MISTRAL_API_KEY:
@@ -534,12 +613,19 @@ async def analyze_readiness(url: str):
         "authority": {} 
     }
     
+    # For competitor analysis
+    main_text = ""
+    
     try:
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             page = await client.get(url)
             
         if page.status_code == 200:
             page_data = await analyze_page_content(page.text)
+            
+            # Extract text for competitor analysis
+            soup = BeautifulSoup(page.text, "html.parser")
+            main_text = soup.get_text(separator=' ', strip=True)
             
             # Merge Results
             results["technical"]["schema"] = page_data["technical"]["schema"]
@@ -556,6 +642,9 @@ async def analyze_readiness(url: str):
     except Exception as e:
         pass # Keep defaults
 
+    # Run Competitor Analysis
+    competitors_data = await analyze_competitors(main_text[:3000] if main_text else "", url)
+
     # Calculate Total Score
     flat_scores = []
     for cat in results.values():
@@ -567,5 +656,7 @@ async def analyze_readiness(url: str):
     return {
         "url": url,
         "total_score": total,
-        "breakdown": results
+        "breakdown": results,
+        "competitors": competitors_data  # Add competitors at top level
     }
+
