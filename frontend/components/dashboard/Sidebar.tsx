@@ -16,7 +16,7 @@ const sidebarItems = [
     { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
 ]
 
-export function DashboardSidebar() {
+export function SidebarContent() {
     const pathname = usePathname()
     const router = useRouter()
     const supabase = createClient()
@@ -28,7 +28,7 @@ export function DashboardSidebar() {
     }
 
     return (
-        <div className="flex h-full w-64 flex-col bg-[#1A4036] text-white border-r border-[#2a4e40]">
+        <div className="flex h-full w-full flex-col bg-[#1A4036] text-white">
             <div className="p-6">
                 <Link href="/" className="flex items-center gap-2 text-white hover:opacity-80 transition-opacity">
                     <span className="font-serif text-xl font-medium">CheckSite AEO<span className="text-[#8cd9b8]">.</span></span>
@@ -65,6 +65,14 @@ export function DashboardSidebar() {
                     Sign Out
                 </button>
             </div>
+        </div>
+    )
+}
+
+export function DashboardSidebar() {
+    return (
+        <div className="hidden border-r border-[#2a4e40] md:block md:w-64 bg-[#1A4036]">
+            <SidebarContent />
         </div>
     )
 }

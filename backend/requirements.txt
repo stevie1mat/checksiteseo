@@ -6,3 +6,4 @@ pydantic
 textstat
 python-dotenv
 tiktoken
+supabase
