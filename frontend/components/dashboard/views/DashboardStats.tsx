@@ -81,9 +81,6 @@ export function DashboardStats({ siteCount, maxSites, sites }: DashboardStatsPro
                 <CardContent>
                     <div className="text-2xl font-bold text-[#224034]">{totalCompetitors}</div>
                     <p className="text-xs text-slate-500 mt-1">Competitors being tracked</p>
-                    <div className="mt-2 text-xs text-blue-600 font-medium cursor-pointer hover:underline">
-                        View Details &rarr;
-                    </div>
                 </CardContent>
             </Card>
         </div>

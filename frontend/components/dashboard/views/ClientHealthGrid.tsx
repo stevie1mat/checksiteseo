@@ -29,7 +29,8 @@ export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
 
     // Helper to calculate trend from site history
     const getTrend = (site: Site) => {
-        if (!site.site_history || site.site_history.length < 2) return 'neutral';
+        if (!site.site_history || site.site_history.length === 0) return 'neutral';
+        if (site.site_history.length === 1) return 'new';
         const current = site.site_history[0].aeo_score;
         const previous = site.site_history[1].aeo_score;
         return current > previous ? 'up' : current < previous ? 'down' : 'neutral';
@@ -125,10 +126,41 @@ export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
                         </TableHeader>
                         <TableBody>
                             {sites.map((site) => {
-                                const trend = getTrend(site);
-                                const health = site.health_status || { robots: 'neutral', schema: 'neutral', content: 'neutral' };
                                 const isScanning = scanningId === site.id
-                                const graphHistory = [...(site.site_history || [])].reverse();
+
+                                // Enhanced History Logic:
+                                // If history is empty but we have a score (first scan before fix), use current score as history point.
+                                let graphHistory = [...(site.site_history || [])].reverse();
+                                if (graphHistory.length === 0 && site.aeo_score > 0) {
+                                    graphHistory = [{ id: 'synthetic-now', site_id: site.id, aeo_score: site.aeo_score, created_at: site.last_scanned_at || new Date().toISOString() }];
+                                }
+
+                                const health = site.health_status || { robots: 'neutral', schema: 'neutral', content: 'neutral' };
+
+                                // Recalculate trend with potentially synthetic history
+                                const getDisplayTrend = () => {
+                                    if (graphHistory.length === 0) return 'neutral';
+                                    if (graphHistory.length === 1) return 'new';
+                                    const current = graphHistory[graphHistory.length - 1].aeo_score; // Last item in our graph array (which is reversed history)
+                                    const previous = graphHistory[graphHistory.length - 2].aeo_score;
+                                    // Wait, graphHistory is [...history].reverse(). 
+                                    // Original logic: site.site_history[0] is newest. 
+                                    // So graphHistory[0] is OLDEST. graphHistory[length-1] is NEWEST.
+
+                                    // Let's stick to using the sorted array directly for trend to be safe
+                                    // But graphHistory is easier for graph.
+
+                                    // Re-evaluating based on original "getTrend":
+                                    // original: site.site_history[0] (newest) vs [1] (older)
+                                    // graphHistory above (reversed): [0] (oldest) ... [last] (newest)
+
+                                    if (graphHistory.length < 2) return 'new';
+                                    const curr = graphHistory[graphHistory.length - 1].aeo_score;
+                                    const prev = graphHistory[graphHistory.length - 2].aeo_score;
+                                    return curr > prev ? 'up' : curr < prev ? 'down' : 'neutral';
+                                };
+
+                                const trend = getDisplayTrend();
 
                                 return (
                                     <TableRow key={site.id} className="group border-slate-100 hover:bg-slate-50 transition-all duration-200">
@@ -156,13 +188,16 @@ export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
                                                     {graphHistory.length > 0 ? (
                                                         graphHistory.map((h, i) => {
                                                             const height = Math.max(15, h.aeo_score);
+                                                            // Fix opacity: if only 1 item, make it 100%. Otherwise distribute.
+                                                            const opacity = graphHistory.length === 1 ? 1 : 0.3 + ((i / (graphHistory.length - 1)) * 0.7);
+
                                                             return (
                                                                 <div
                                                                     key={h.id}
                                                                     className="w-1.5 rounded-t-[1px] bg-[#224034]"
                                                                     style={{
                                                                         height: `${height}%`,
-                                                                        opacity: 0.15 + ((i / graphHistory.length) * 0.85)
+                                                                        opacity: opacity
                                                                     }}
                                                                 />
                                                             )
@@ -176,6 +211,8 @@ export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
                                                     <ArrowUpRight className="w-4 h-4 text-emerald-600" />
                                                 ) : trend === 'down' ? (
                                                     <ArrowDownRight className="w-4 h-4 text-rose-600" />
+                                                ) : trend === 'new' ? (
+                                                    <span className="text-[10px] font-medium text-[#224034] bg-[#224034]/10 px-1.5 py-0.5 rounded">NEW</span>
                                                 ) : (
                                                     <span className="text-xs text-slate-400">-</span>
                                                 )}
