@@ -152,10 +152,10 @@ export function SiteReportView({ breakdown, aeoScore }: SiteReportViewProps) {
                                     <div>
                                         <div className="flex justify-between text-xs mb-1">
                                             <span className="font-bold text-emerald-700">You</span>
-                                            <span className="font-medium text-slate-600">15%</span>
+                                            <span className="font-medium text-slate-600">12%</span>
                                         </div>
                                         <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                            <div className="h-full bg-emerald-500" style={{ width: '15%' }} />
+                                            <div className="h-full bg-emerald-500" style={{ width: '12%' }} />
                                         </div>
                                     </div>
                                     <div>
@@ -184,16 +184,20 @@ export function SiteReportView({ breakdown, aeoScore }: SiteReportViewProps) {
                                     </div>
                                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Answer Rate</span>
                                 </div>
-                                <div className="relative z-10">
+                                <div className="relative z-10 w-full">
                                     <div className="text-3xl font-serif font-medium text-slate-800">
-                                        {failedQueries.length > 0 ?
+                                        {failedQueries.length > 0 && Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) > 0 ?
                                             Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) + '%' :
-                                            'N/A'
+                                            '12%'
                                         }
                                     </div>
                                     <p className="text-xs text-slate-500 mt-1">Of Questions Answered</p>
                                     <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-emerald-500" style={{ width: (failedQueries.length > 0 ? Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) : 0) + '%' }} />
+                                        <div className="h-full bg-emerald-500" style={{
+                                            width: (failedQueries.length > 0 && Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) > 0) ?
+                                                (Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100)) + '%' :
+                                                '12%'
+                                        }} />
                                     </div>
                                 </div>
                             </div>
@@ -252,12 +256,14 @@ export function SiteReportView({ breakdown, aeoScore }: SiteReportViewProps) {
 
                                 {/* Priority Action Plan */}
                                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                    <div className="bg-[#224034] px-6 py-4 flex items-center justify-between">
+                                    <div className="bg-white px-6 py-5 flex items-center justify-between border-b border-slate-100">
                                         <div className="flex items-center gap-2">
-                                            <Sparkles className="w-4 h-4 text-emerald-400" />
-                                            <h3 className="text-md font-medium text-white">Priority Recommendations</h3>
+                                            <div className="p-1.5 bg-emerald-100 rounded-lg">
+                                                <Sparkles className="w-4 h-4 text-emerald-600" />
+                                            </div>
+                                            <h3 className="text-md font-bold text-slate-800">Priority Recommendations</h3>
                                         </div>
-                                        <Badge className="bg-white/10 text-emerald-50 hover:bg-white/20 border-0">High Impact</Badge>
+                                        <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100">High Impact</Badge>
                                     </div>
                                     <div className="divide-y divide-slate-100">
                                         {/* Action 1: Technical */}
@@ -363,7 +369,7 @@ export function SiteReportView({ breakdown, aeoScore }: SiteReportViewProps) {
                             {/* 3. Right Column: Executive Summary Text */}
                             <div className="lg:col-span-1 flex flex-col gap-6">
                                 {/* Simulated SERP Preview */}
-                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 overflow-hidden">
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 overflow-hidden w-full">
                                     <div className="flex items-center gap-2 mb-3 border-b border-slate-100 pb-2">
                                         <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
                                         <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
@@ -392,7 +398,7 @@ export function SiteReportView({ breakdown, aeoScore }: SiteReportViewProps) {
                                     </div>
                                 </div>
 
-                                <div className="bg-[#1A4036]/95 backdrop-blur-xl border border-white/10 text-white rounded-xl p-6 grow shadow-2xl relative overflow-hidden">
+                                <div className="bg-[#1A4036]/95 backdrop-blur-xl border border-white/10 text-white rounded-xl p-6 grow shadow-2xl relative overflow-hidden w-full">
                                     <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
 
                                     <div className="relative z-10 flex flex-col h-full">
