@@ -1,12 +1,14 @@
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import { Check, XCircle, Database } from "lucide-react"
+import { Check, XCircle, Database, ArrowRight } from "lucide-react"
 import { AEOReport } from "@/types/aeo"
 
 interface AuthorityTabProps {
     activeReport: AEOReport
+    siteId?: string
 }
 
-export function AuthorityTab({ activeReport }: AuthorityTabProps) {
+export function AuthorityTab({ activeReport, siteId }: AuthorityTabProps) {
     const knowledgeGraph = activeReport.knowledgeGraph || {}
 
     return (
@@ -55,6 +57,14 @@ export function AuthorityTab({ activeReport }: AuthorityTabProps) {
                                         <p className="text-amber-600">
                                             Add {knowledgeGraph.missing_critical.join(", ")} to improve graph depth.
                                         </p>
+                                    </div>
+                                )}
+
+                                {siteId && (
+                                    <div className="pt-2">
+                                        <Link href={`/dashboard/sites/${siteId}/knowledge-graph`} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">
+                                            View Full Knowledge Graph <ArrowRight className="w-3 h-3" />
+                                        </Link>
                                     </div>
                                 )}
                             </>
@@ -121,10 +131,16 @@ export function AuthorityTab({ activeReport }: AuthorityTabProps) {
                                         <span className="text-slate-600 italic">{activeReport.authority.eeat.hallucination_risk.fix}</span>
                                     </div>
                                 )}
+                                {siteId && (
+                                    <div className="mt-3 text-right">
+                                        <Link href={`/dashboard/sites/${siteId}/hallucination-risk`} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">
+                                            View Full Analysis <ArrowRight className="w-3 h-3" />
+                                        </Link>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
-
                 </div>
             </div>
         </div>

@@ -116,7 +116,8 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
                 </div>
             ) : (
                 // Construct Initial Report (Server Side) to hydration matches
-                <SiteReportView domain={site.url} initialReport={{
+                // @ts-ignore
+                <SiteReportView siteId={site.id} domain={site.url} initialReport={{
                     domain: site.url,
                     scannedAt: latestScan.last_scanned_at,
                     status: site.status === 'error' ? 'failed' : 'completed',

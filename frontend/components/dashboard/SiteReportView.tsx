@@ -12,9 +12,10 @@ import { AuthorityTab } from "./tabs/AuthorityTab"
 interface SiteReportViewProps {
     domain: string
     initialReport?: AEOReport
+    siteId?: string
 }
 
-export function SiteReportView({ domain, initialReport }: SiteReportViewProps) {
+export function SiteReportView({ domain, initialReport, siteId }: SiteReportViewProps) {
     const { report, isLoading } = useAEOScan(domain)
 
     // Use live report if available, otherwise initial
@@ -60,105 +61,128 @@ export function SiteReportView({ domain, initialReport }: SiteReportViewProps) {
         )
     }
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'technical' | 'content' | 'authority'>('overview')
+    // If report is still processing (from polling), show scanning UI or just skeletons
+    // For now we assume completed or failed
 
-    // Helper Accessors (Safeguarded)
-    const aeoScore = activeReport.scores?.overall || 0
-    const techScore = activeReport.scores?.technical || 0
-    const contentScore = activeReport.scores?.content || 0
+    const [activeTab, setActiveTabState] = useState<'overview' | 'technical' | 'content' | 'authority'>('overview');
+
+    const setActiveTab = (tab: any) => {
+        setActiveTabState(tab);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Derived Scores
+    const overallScore = Math.round(activeReport.scores.overall);
+    const techScore = typeof activeReport.scores.technical === 'number' ? Math.round(activeReport.scores.technical) : 0;
+    const contentScore = typeof activeReport.scores.content === 'number' ? Math.round(activeReport.scores.content) : 0;
+    const authorityScore = activeReport.scores.authority; // 'Analysis' string usually
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-
             {/* Overview / Navigation Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Total Score Card */}
-                <div onClick={() => setActiveTab('overview')}
-                    className={`cursor-pointer rounded-xl p-5 border transition-all duration-200 group
-                    ${activeTab === 'overview' ? 'bg-[#224034] text-white border-[#224034] shadow-md ring-2 ring-[#224034] ring-offset-2' : 'bg-white hover:border-[#224034]/30 border-slate-200 text-slate-700 hover:shadow-md'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                        <span className={`text-xs font-bold uppercase tracking-wider ${activeTab === 'overview' ? 'text-emerald-300' : 'text-slate-400'}`}>Overall AEO Score</span>
-                        <BarChart3 className={`w-4 h-4 ${activeTab === 'overview' ? 'text-emerald-300' : 'text-slate-400'}`} />
+                {/* 1. Overall Score (Overview Tab Trigger) */}
+                <div
+                    onClick={() => setActiveTab('overview')}
+                    className={`relative p-6 rounded-xl border-2 transition-all duration-200 cursor-pointer overflow-hidden group
+                        ${activeTab === 'overview'
+                            ? 'bg-[#1A4036] border-[#1A4036] text-white shadow-xl scale-[1.02]'
+                            : 'bg-white border-slate-100 hover:border-[#8CD9B8] hover:shadow-md'
+                        }`}
+                >
+                    <div className="flex justify-between items-start mb-4">
+                        <span className={`text-xs font-bold uppercase tracking-wider ${activeTab === 'overview' ? 'text-[#8CD9B8]' : 'text-slate-500'}`}>
+                            Overall AEO Score
+                        </span>
+                        <BarChart3 className={`w-5 h-5 ${activeTab === 'overview' ? 'text-[#8CD9B8]' : 'text-slate-300'}`} />
                     </div>
-                    <div className="flex items-end justify-between">
-                        <div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-serif font-medium">{aeoScore}</span>
-                                <span className={`text-sm ${activeTab === 'overview' ? 'text-emerald-200' : 'text-slate-400'}`}>/ 100</span>
-                            </div>
-                            <p className={`text-xs mt-1 ${activeTab === 'overview' ? 'text-emerald-200' : 'text-slate-400'}`}>Executive Summary</p>
-                        </div>
+                    <div className="flex items-end gap-2">
+                        <span className="text-5xl font-serif font-medium">{overallScore}</span>
+                        <span className={`text-sm mb-1.5 ${activeTab === 'overview' ? 'text-slate-300' : 'text-slate-400'}`}>/ 100</span>
                     </div>
-                </div>
-
-                {/* Technical Card */}
-                <div onClick={() => setActiveTab('technical')}
-                    className={`cursor-pointer rounded-xl p-5 border transition-all duration-200 group
-                    ${activeTab === 'technical' ? 'bg-[#224034] text-white border-[#224034] shadow-md ring-2 ring-[#224034] ring-offset-2' : 'bg-white hover:border-[#224034]/30 border-slate-200 text-slate-700 hover:shadow-md'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                        <span className={`text-xs font-bold uppercase tracking-wider ${activeTab === 'technical' ? 'text-emerald-300' : 'text-slate-400'}`}>Technical</span>
-                        <Code className={`w-4 h-4 ${activeTab === 'technical' ? 'text-emerald-300' : 'text-slate-400'}`} />
-                    </div>
-                    <div className="flex items-end justify-between">
-                        <div>
-                            <div className="text-3xl font-serif font-medium">{techScore > 0 ? techScore : '-'}</div>
-                            <p className={`text-xs mt-1 ${activeTab === 'technical' ? 'text-emerald-200' : 'text-slate-400'}`}>Robots, LLMs.txt, Schema</p>
-                        </div>
-                        <ChevronRight className={`w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all ${activeTab === 'technical' ? 'text-emerald-300' : 'text-slate-400'}`} />
+                    <div className={`mt-2 text-sm ${activeTab === 'overview' ? 'text-slate-300' : 'text-slate-500'}`}>
+                        Executive Summary
                     </div>
                 </div>
 
-                {/* Content Card */}
-                <div onClick={() => setActiveTab('content')}
-                    className={`cursor-pointer rounded-xl p-5 border transition-all duration-200 group
-                    ${activeTab === 'content' ? 'bg-[#224034] text-white border-[#224034] shadow-md ring-2 ring-[#224034] ring-offset-2' : 'bg-white hover:border-[#224034]/30 border-slate-200 text-slate-700 hover:shadow-md'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                        <span className={`text-xs font-bold uppercase tracking-wider ${activeTab === 'content' ? 'text-emerald-300' : 'text-slate-400'}`}>Content</span>
-                        <AlignLeft className={`w-4 h-4 ${activeTab === 'content' ? 'text-emerald-300' : 'text-slate-400'}`} />
+                {/* 2. Technical (Tab Trigger) */}
+                <div
+                    onClick={() => setActiveTab('technical')}
+                    className={`relative p-6 rounded-xl border-2 transition-all duration-200 cursor-pointer group
+                        ${activeTab === 'technical'
+                            ? 'bg-white border-[#1A4036] ring-1 ring-[#1A4036] shadow-md'
+                            : 'bg-white border-slate-100 hover:border-[#8CD9B8] hover:shadow-md'
+                        }`}
+                >
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Technical</span>
+                        <Code className={`w-5 h-5 ${activeTab === 'technical' ? 'text-[#1A4036]' : 'text-slate-300'}`} />
                     </div>
-                    <div className="flex items-end justify-between">
-                        <div>
-                            <div className="text-3xl font-serif font-medium">{contentScore > 0 ? contentScore : '-'}</div>
-                            <p className={`text-xs mt-1 ${activeTab === 'content' ? 'text-emerald-200' : 'text-slate-400'}`}>Structure, Failed Queries</p>
-                        </div>
-                        <ChevronRight className={`w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all ${activeTab === 'content' ? 'text-emerald-300' : 'text-slate-400'}`} />
+                    <div className="text-3xl font-serif font-medium text-[#224034]">{techScore > 0 ? techScore : '-'}</div>
+                    <div className="mt-2 text-sm text-slate-500 truncate">
+                        Robots, LLMs.txt, Schema
                     </div>
                 </div>
 
-                {/* Authority Card */}
-                <div onClick={() => setActiveTab('authority')}
-                    className={`cursor-pointer rounded-xl p-5 border transition-all duration-200 group
-                    ${activeTab === 'authority' ? 'bg-[#224034] text-white border-[#224034] shadow-md ring-2 ring-[#224034] ring-offset-2' : 'bg-white hover:border-[#224034]/30 border-slate-200 text-slate-700 hover:shadow-md'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                        <span className={`text-xs font-bold uppercase tracking-wider ${activeTab === 'authority' ? 'text-emerald-300' : 'text-slate-400'}`}>Authority</span>
-                        <Sparkles className={`w-4 h-4 ${activeTab === 'authority' ? 'text-emerald-300' : 'text-slate-400'}`} />
+                {/* 3. Content (Tab Trigger) */}
+                <div
+                    onClick={() => setActiveTab('content')}
+                    className={`relative p-6 rounded-xl border-2 transition-all duration-200 cursor-pointer group
+                        ${activeTab === 'content'
+                            ? 'bg-white border-[#1A4036] ring-1 ring-[#1A4036] shadow-md'
+                            : 'bg-white border-slate-100 hover:border-[#8CD9B8] hover:shadow-md'
+                        }`}
+                >
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Content</span>
+                        <AlignLeft className={`w-5 h-5 ${activeTab === 'content' ? 'text-[#1A4036]' : 'text-slate-300'}`} />
                     </div>
-                    <div className="flex items-end justify-between">
-                        <div>
-                            <div className="text-2xl font-serif font-medium">Analysis</div>
-                            <p className={`text-[10px] mt-1 ${activeTab === 'authority' ? 'text-emerald-200' : 'text-slate-400'}`}>Knowledge Graph, E-E-A-T</p>
-                        </div>
-                        <ChevronRight className={`w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all ${activeTab === 'authority' ? 'text-emerald-300' : 'text-slate-400'}`} />
+                    <div className="text-3xl font-serif font-medium text-[#224034]">{contentScore > 0 ? contentScore : '-'}</div>
+                    <div className="mt-2 text-sm text-slate-500 truncate">
+                        Structure, Failed Queries
+                    </div>
+                </div>
+
+                {/* 4. Authority (Tab Trigger) */}
+                <div
+                    onClick={() => setActiveTab('authority')}
+                    className={`relative p-6 rounded-xl border-2 transition-all duration-200 cursor-pointer group
+                        ${activeTab === 'authority'
+                            ? 'bg-white border-[#1A4036] ring-1 ring-[#1A4036] shadow-md'
+                            : 'bg-white border-slate-100 hover:border-[#8CD9B8] hover:shadow-md'
+                        }`}
+                >
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Authority</span>
+                        <Sparkles className={`w-5 h-5 ${activeTab === 'authority' ? 'text-[#1A4036]' : 'text-slate-300'}`} />
+                    </div>
+                    <div className="text-3xl font-serif font-medium text-[#224034]">Analysis</div>
+                    <div className="mt-2 text-sm text-slate-500 truncate">
+                        Knowledge Graph, E-E-A-T
                     </div>
                 </div>
             </div>
 
             {/* Detailed Views */}
             <div className="mt-8">
-                {activeTab === 'overview' && (
-                    <OverviewTab activeReport={activeReport} setActiveTab={setActiveTab} />
+                {/* 0. EXECUTIVE SUMMARY (Overview Only) */}
+                {(activeTab === 'overview') && (
+                    <OverviewTab activeReport={activeReport} setActiveTab={setActiveTab} siteId={siteId} />
                 )}
 
-                {activeTab === 'technical' && (
-                    <TechnicalTab activeReport={activeReport} />
+                {/* 1. TECHNICAL VIEW */}
+                {(activeTab === 'technical') && (
+                    <TechnicalTab activeReport={activeReport} setActiveTab={setActiveTab} siteId={siteId} />
                 )}
 
-                {activeTab === 'content' && (
-                    <ContentTab activeReport={activeReport} />
+                {/* 2. CONTENT VIEW */}
+                {(activeTab === 'content') && (
+                    <ContentTab activeReport={activeReport} siteId={siteId} />
                 )}
 
-                {activeTab === 'authority' && (
-                    <AuthorityTab activeReport={activeReport} />
+                {/* 3. AUTHORITY VIEW */}
+                {(activeTab === 'authority') && (
+                    <AuthorityTab activeReport={activeReport} siteId={siteId} />
                 )}
             </div>
         </div>

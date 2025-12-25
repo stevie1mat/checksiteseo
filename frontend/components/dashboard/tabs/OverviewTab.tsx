@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -8,9 +9,10 @@ import { AEOReport } from "@/types/aeo"
 interface OverviewTabProps {
     activeReport: AEOReport
     setActiveTab: (tab: 'overview' | 'technical' | 'content' | 'authority') => void
+    siteId?: string
 }
 
-export function OverviewTab({ activeReport, setActiveTab }: OverviewTabProps) {
+export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabProps) {
     const aeoScore = activeReport.scores?.overall || 0
     const techScore = activeReport.scores?.technical || 0
     const contentScore = activeReport.scores?.content || 0
@@ -26,142 +28,150 @@ export function OverviewTab({ activeReport, setActiveTab }: OverviewTabProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <TooltipProvider>
                     {/* KPI 1: Share of Voice (Competitor Widget) */}
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 transition-colors">
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
-                                <BarChart3 className="w-4 h-4" />
+                    <Link href={siteId ? `/dashboard/sites/${siteId}/share-of-voice` : '#'} className="block">
+                        <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
+                                    <BarChart3 className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Share of Voice</span>
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="max-w-xs">Percentage of AI responses where your brand is cited vs competitors.</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Share of Voice</span>
-                            <Tooltip>
-                                <TooltipTrigger>
-                                    <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p className="max-w-xs">Percentage of AI responses where your brand is cited vs competitors.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </div>
-                        <div className="space-y-3 relative z-10">
-                            <div>
-                                <div className="flex justify-between text-xs mb-1">
-                                    <span className="font-bold text-emerald-700">You</span>
-                                    <span className="font-medium text-slate-600">12%</span>
+                            <div className="space-y-3 relative z-10">
+                                <div>
+                                    <div className="flex justify-between text-xs mb-1">
+                                        <span className="font-bold text-emerald-700">You</span>
+                                        <span className="font-medium text-slate-600">12%</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-emerald-500" style={{ width: '12%' }} />
+                                    </div>
                                 </div>
-                                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-emerald-500" style={{ width: '12%' }} />
-                                </div>
-                            </div>
-                            <div>
-                                <div className="flex justify-between text-xs mb-1">
-                                    <span className="font-medium text-slate-500">Competitors</span>
-                                    <span className="font-medium text-slate-600">60%</span>
-                                </div>
-                                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-slate-300" style={{ width: '60%' }} />
+                                <div>
+                                    <div className="flex justify-between text-xs mb-1">
+                                        <span className="font-medium text-slate-500">Competitors</span>
+                                        <span className="font-medium text-slate-600">60%</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-slate-300" style={{ width: '60%' }} />
+                                    </div>
                                 </div>
                             </div>
+                            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                                <BarChart3 className="w-16 h-16 text-[#224034]" />
+                            </div>
                         </div>
-                        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                            <BarChart3 className="w-16 h-16 text-[#224034]" />
-                        </div>
-                    </div>
+                    </Link>
 
                     {/* KPI 2: Content Gap */}
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 transition-colors">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <FileText className="w-16 h-16 text-[#224034]" />
-                        </div>
-                        <div className="flex items-center gap-2 mb-3 relative z-10">
-                            <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
-                                <FileText className="w-4 h-4" />
+                    <Link href={siteId ? `/dashboard/sites/${siteId}/answer-rate` : '#'} className="block">
+                        <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <FileText className="w-16 h-16 text-[#224034]" />
                             </div>
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Answer Rate</span>
-                            <Tooltip>
-                                <TooltipTrigger>
-                                    <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p className="max-w-xs">How many user questions your content directly answers.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </div>
-                        <div className="relative z-10 w-full">
-                            <div className="text-3xl font-serif font-medium text-slate-800">
-                                {failedQueries.length > 0 && Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) > 0 ?
-                                    Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) + '%' :
-                                    '12%'
-                                }
+                            <div className="flex items-center gap-2 mb-3 relative z-10">
+                                <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
+                                    <FileText className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Answer Rate</span>
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="max-w-xs">How many user questions your content directly answers.</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
-                            <p className="text-xs text-slate-500 mt-1">Of Questions Answered</p>
-                            <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-emerald-500" style={{
-                                    width: (failedQueries.length > 0 && Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) > 0) ?
-                                        (Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100)) + '%' :
+                            <div className="relative z-10 w-full">
+                                <div className="text-3xl font-serif font-medium text-slate-800">
+                                    {failedQueries.length > 0 && Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) > 0 ?
+                                        Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) + '%' :
                                         '12%'
-                                }} />
+                                    }
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">Of Questions Answered</p>
+                                <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-emerald-500" style={{
+                                        width: (failedQueries.length > 0 && Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) > 0) ?
+                                            (Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100)) + '%' :
+                                            '12%'
+                                    }} />
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </Link>
 
                     {/* KPI 3: Hallucination Risk */}
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 transition-colors">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <AlertCircle className="w-16 h-16 text-[#224034]" />
-                        </div>
-                        <div className="flex items-center gap-2 mb-3 relative z-10">
-                            <div className={`p-2 rounded-lg ${hallucinationLevel === 'High' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                <AlertCircle className="w-4 h-4" />
+                    <Link href={siteId ? `/dashboard/sites/${siteId}/hallucination-risk` : '#'} className="block">
+                        <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <AlertCircle className="w-16 h-16 text-[#224034]" />
                             </div>
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Safety Score</span>
-                            <Tooltip>
-                                <TooltipTrigger>
-                                    <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p className="max-w-xs">Risk of AI models hallucinating when citing your content.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </div>
-                        <div className="relative z-10">
-                            <div className={`text-3xl font-serif font-medium ${hallucinationLevel === 'High' ? 'text-red-600' : 'text-emerald-600'}`}>
-                                {hallucinationLevel === 'High' ? 'High Risk' : 'Safe'}
+                            <div className="flex items-center gap-2 mb-3 relative z-10">
+                                <div className={`p-2 rounded-lg ${hallucinationLevel === 'High' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                    <AlertCircle className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Safety Score</span>
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="max-w-xs">Risk of AI models hallucinating when citing your content.</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
-                            <p className="text-xs text-slate-500 mt-1">Hallucination Probability</p>
-                            <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                                <div className={`h-full ${hallucinationLevel === 'High' ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: hallucinationLevel === 'High' ? '25%' : '90%' }} />
+                            <div className="relative z-10">
+                                <div className={`text-3xl font-serif font-medium ${hallucinationLevel === 'High' ? 'text-red-600' : 'text-emerald-600'}`}>
+                                    {hallucinationLevel === 'High' ? 'High Risk' : 'Safe'}
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">Hallucination Probability</p>
+                                <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                    <div className={`h-full ${hallucinationLevel === 'High' ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: hallucinationLevel === 'High' ? '25%' : '90%' }} />
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </Link>
 
                     {/* KPI 4: Knowledge Graph Visualizer */}
-                    <div className="bg-[#1A4036] p-5 rounded-xl border border-[#2a4e40] shadow-sm relative overflow-hidden group">
-                        <div className="flex items-center gap-2 mb-3 relative z-10">
-                            <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-300">
-                                <Share2 className="w-4 h-4" />
-                            </div>
-                            <span className="text-xs font-bold text-emerald-200/70 uppercase tracking-wider">Knowledge Graph</span>
-                            <Tooltip>
-                                <TooltipTrigger>
-                                    <Info className="w-3 h-3 text-emerald-400/50 cursor-help hover:text-emerald-300 transition-colors" />
-                                </TooltipTrigger>
-                                <TooltipContent className="bg-[#224034] border-emerald-500/20 text-emerald-100">
-                                    <p className="max-w-xs">Visual representation of how AI understands your brand entities.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </div>
-                        <div className="relative h-24 w-full flex items-center justify-center">
-                            <div className="relative flex items-center justify-center w-full h-full">
-                                {/* Center Node */}
-                                <div className="z-10 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg shadow-emerald-900/50 border border-emerald-400">
-                                    {knowledgeGraph.primaryEntity ? knowledgeGraph.primaryEntity.substring(0, 15) : 'Entity'}
+                    <Link href={siteId ? `/dashboard/sites/${siteId}/knowledge-graph` : '#'} className="block">
+                        <div className="bg-[#1A4036] p-5 h-full rounded-xl border border-[#2a4e40] shadow-sm relative overflow-hidden group hover:shadow-lg transition-all">
+                            <div className="flex items-center gap-2 mb-3 relative z-10">
+                                <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-300">
+                                    <Share2 className="w-4 h-4" />
                                 </div>
-                                {/* Satellite Nodes */}
-                                <div className="absolute top-0 right-4 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-float" style={{ animationDelay: '0s' }}>CTO</div>
-                                <div className="absolute bottom-1 left-4 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-float" style={{ animationDelay: '2s' }}>Code</div>
-                                <div className="absolute bottom-4 right-8 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-float" style={{ animationDelay: '4s' }}>AI</div>
+                                <span className="text-xs font-bold text-emerald-200/70 uppercase tracking-wider">Knowledge Graph</span>
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <Info className="w-3 h-3 text-emerald-400/50 cursor-help hover:text-emerald-300 transition-colors" />
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-[#224034] border-emerald-500/20 text-emerald-100">
+                                        <p className="max-w-xs">Visual representation of how AI understands your brand entities.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                            <div className="relative h-24 w-full flex items-center justify-center">
+                                <div className="relative flex items-center justify-center w-full h-full">
+                                    {/* Center Node */}
+                                    <div className="z-10 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg shadow-emerald-900/50 border border-emerald-400">
+                                        {knowledgeGraph.primaryEntity ? knowledgeGraph.primaryEntity.substring(0, 15) : 'Entity'}
+                                    </div>
+                                    {/* Satellite Nodes */}
+                                    <div className="absolute top-0 right-4 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-float" style={{ animationDelay: '0s' }}>CTO</div>
+                                    <div className="absolute bottom-1 left-4 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-float" style={{ animationDelay: '2s' }}>Code</div>
+                                    <div className="absolute bottom-4 right-8 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-float" style={{ animationDelay: '4s' }}>AI</div>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </Link>
                 </TooltipProvider>
             </div>
 

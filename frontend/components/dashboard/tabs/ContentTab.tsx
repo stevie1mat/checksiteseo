@@ -1,5 +1,6 @@
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import { Check, AlertCircle, FileText, XCircle } from "lucide-react"
+import { Check, AlertCircle, FileText, XCircle, ArrowRight } from "lucide-react"
 import {
     Table,
     TableBody,
@@ -12,9 +13,10 @@ import { AEOReport } from "@/types/aeo"
 
 interface ContentTabProps {
     activeReport: AEOReport
+    siteId?: string
 }
 
-export function ContentTab({ activeReport }: ContentTabProps) {
+export function ContentTab({ activeReport, activeReport: { content }, siteId }: ContentTabProps & { activeReport: { content: any } }) {
     // Helper Accessors (Safeguarded)
     const failedQueries = activeReport.content?.missingAnswers || []
 
@@ -31,7 +33,7 @@ export function ContentTab({ activeReport }: ContentTabProps) {
                             <p className="font-semibold text-slate-700 text-base">Question Targeting</p>
                             <p className="text-sm text-slate-500 mt-0.5">Headers asking questions</p>
                         </div>
-                        <Badge variant="secondary" className="bg-slate-100 text-slate-700">{activeReport.content.questionTargetingScore} / 5</Badge>
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-700">{content.questionTargetingScore} / 5</Badge>
                     </div>
                     {/* Readability */}
                     <div className="pb-4 border-b border-gray-50">
@@ -42,20 +44,20 @@ export function ContentTab({ activeReport }: ContentTabProps) {
                             </div>
                             <div className="flex items-center gap-2">
                                 <Badge variant="outline" className={`
-                                    ${activeReport.content.readabilityGrade > 12 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}
+                                    ${content.readabilityGrade > 12 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}
                                 `}>
-                                    Grade {activeReport.content.readabilityGrade}
+                                    Grade {content.readabilityGrade}
                                 </Badge>
-                                {activeReport.content.readabilityGrade > 12 &&
+                                {content.readabilityGrade > 12 &&
                                     <button className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded">Simplify</button>
                                 }
                             </div>
                         </div>
                         {/* Rewrite Suggestion (Legacy Array Support) */}
-                        {activeReport.content.readabilityDetails?.find((d: string) => d.startsWith("Suggestion:")) && (
+                        {content.readabilityDetails?.find((d: string) => d.startsWith("Suggestion:")) && (
                             <div className="mt-3 bg-orange-50 rounded-xl p-4 border border-orange-100">
                                 <span className="font-bold text-orange-700 block mb-1 text-sm uppercase tracking-wide">✨ AI Rewrite Suggestion</span>
-                                <span className="text-slate-700 text-base leading-relaxed">"{activeReport.content.readabilityDetails.find((d: string) => d.startsWith("Suggestion:"))?.replace("Suggestion:", "").trim()}"</span>
+                                <span className="text-slate-700 text-base leading-relaxed">"{content.readabilityDetails.find((d: string) => d.startsWith("Suggestion:"))?.replace("Suggestion:", "").trim()}"</span>
                             </div>
                         )}
                     </div>
@@ -63,10 +65,10 @@ export function ContentTab({ activeReport }: ContentTabProps) {
                     <div className=" pb-4 border-b border-gray-50">
                         <div className="flex justify-between mb-2">
                             <p className="font-semibold text-slate-700 text-base">Visual Context</p>
-                            <p className="text-sm font-medium text-slate-600">{activeReport.content.visualContextScore || 0}%</p>
+                            <p className="text-sm font-medium text-slate-600">{content.visualContextScore || 0}%</p>
                         </div>
                         <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-blue-500 rounded-full" style={{ width: (activeReport.content.visualContextScore || 0) + '%' }}></div>
+                            <div className="h-full bg-blue-500 rounded-full" style={{ width: (content.visualContextScore || 0) + '%' }}></div>
                         </div>
                     </div>
                     {/* Freshness */}
@@ -75,7 +77,7 @@ export function ContentTab({ activeReport }: ContentTabProps) {
                             <p className="font-semibold text-slate-700 text-base">Content Freshness</p>
                             <p className="text-sm text-slate-500 mt-0.5">Dates validated</p>
                         </div>
-                        {(activeReport.content.freshnessScore || 0) > 0 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
+                        {(content.freshnessScore || 0) > 0 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
                     </div>
                 </div>
 
@@ -107,6 +109,11 @@ export function ContentTab({ activeReport }: ContentTabProps) {
                                     <p className="text-emerald-100/60 text-base mt-3 max-w-[200px] leading-relaxed">
                                         We simulated real user questions to see if your site provides the answers.
                                     </p>
+                                    {siteId && (
+                                        <Link href={`/dashboard/sites/${siteId}/answer-rate`} className="inline-flex items-center gap-2 mt-4 text-sm text-emerald-300 hover:text-white transition-colors">
+                                            View Full Analysis <ArrowRight className="w-4 h-4" />
+                                        </Link>
+                                    )}
                                 </div>
 
                                 {/* Table Section */}

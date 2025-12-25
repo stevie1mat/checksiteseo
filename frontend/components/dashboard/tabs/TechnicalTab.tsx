@@ -5,9 +5,11 @@ import { AEOReport } from "@/types/aeo"
 
 interface TechnicalTabProps {
     activeReport: AEOReport
+    setActiveTab?: (tab: 'overview' | 'technical' | 'content' | 'authority') => void
+    siteId?: string
 }
 
-export function TechnicalTab({ activeReport }: TechnicalTabProps) {
+export function TechnicalTab({ activeReport, setActiveTab, siteId }: TechnicalTabProps) {
     const agentEcon = activeReport.agentEconomics || {}
     const techScore = activeReport.scores?.technical || 0
 
