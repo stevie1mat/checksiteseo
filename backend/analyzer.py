@@ -126,12 +126,20 @@ async def analyze_eeat_via_llm(text_content: str) -> dict:
     }
     
     prompt = f"""
-    You are an expert SEO Quality Rater. Analyze the following website homepage content for E-E-A-T signals.
+    You are an expert SEO Quality Rater. Analyze the content for E-E-A-T signals AND Hallucination Risks.
+    
+    1. E-E-A-T: Find specific strengths (Pros) and weaknesses (Cons).
+    2. Hallucination Risk: Look for vague claims like "extensive experience", "years of practice", "expert" that lack specific numbers or dates. These cause AI agents to hallucinate real numbers.
     
     Return a JSON object with:
     - score: 0-100 integer
-    - pros: List of specific strengths found (e.g. "Author bio present")
-    - cons: List of specific weaknesses (e.g. "No physical address")
+    - pros: List of specific strengths found
+    - cons: List of specific weaknesses
+    - hallucination_risk: {{
+        "level": "Low" | "Medium" | "High",
+        "reason": "Explain why (e.g. 'Vague temporal claims found')",
+        "fix": "Suggestion (e.g. 'Change extensive experience to over 6 years')"
+    }}
     
     Content (truncated):
     {text_content[:2000]}...
@@ -162,7 +170,8 @@ async def analyze_eeat_via_llm(text_content: str) -> dict:
             
             return {
                 "score": result.get("score", 50),
-                "details": pros + cons
+                "details": pros + cons,
+                "hallucination_risk": result.get("hallucination_risk", {})
             }
         else:
             return {"score": 0, "details": [f"AI Error: {response.status_code}"]}
@@ -197,24 +206,171 @@ async def analyze_content_gap(text_content: str) -> dict:
     {text_content[:2000]}...
     """
     
+    return {"score": 0, "details": ["AI Check Failed"]}
+
+def calculate_agent_economics(text_content: str, raw_html_len: int) -> dict:
+    """Calculates token usage and estimated cost."""
+    try:
+        import tiktoken
+        encoding = tiktoken.get_encoding("cl100k_base")
+        token_count = len(encoding.encode(text_content))
+    except ImportError:
+        # Fallback if tiktoken fails
+        token_count = len(text_content.split()) * 1.3
+        
+    # Boilerplate estimation (very rough: difference between raw HTML size and clean text size)
+    clean_len = len(text_content)
+    boilerplate_ratio = round((1 - (clean_len / max(raw_html_len, 1))) * 100, 1)
+
+    # HTML vs Content Ratio (Signal-to-Noise)
+    # Ratio of Clean Text to Raw HTML. 
+    # E.g. 500 chars text / 8000 chars HTML = 0.0625 (1:16 ratio)
+    ratio = clean_len / max(raw_html_len, 1)
+    
+    # Cost: $2.50 / 1M input tokens (GPT-4o rough avg) -> $0.0000025 per token
+    cost_est = (token_count / 1_000_000) * 2.50
+    
+    # Interpretation
+    code_bloat_score = "Good"
+    if ratio < 0.10: # Less than 10% content
+        code_bloat_score = "Critical Bloat"
+    elif ratio < 0.25:
+        code_bloat_score = "Moderate Bloat"
+
+    return {
+        "total_tokens": int(token_count),
+        "boilerplate_ratio": boilerplate_ratio,
+        "estimated_cost": f"${cost_est:.4f}",
+        "html_ratio": f"{ratio:.1%}",
+        "code_bloat_score": code_bloat_score,
+        "raw_text_len": clean_len,
+        "raw_html_len": raw_html_len
+    }
+
+async def analyze_failed_queries(text_content: str) -> dict:
+    """Simulates user questions that the site might fail to answer."""
+    if not MISTRAL_API_KEY:
+        return {"score": 0, "details": [], "data": []}
+
+    url = "https://api.mistral.ai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    prompt = f"""
+    Analyze the following website content. Act as a potential client looking to hire a developer or buy a service.
+    
+    1. Generate 5 critical questions a client would ask (e.g., pricing, availability, specific experience, tech stack).
+    2. For each question, determine if the answer is 'Explicitly Stated', 'Implied', or 'Missing' in the text.
+    3. IF the answer is 'Missing' or 'Implied', DRAFT a 40-60 word answer based on industry best practices or a standard professional response that the user *should* add to their site. 
+       - For 'Pricing', suggest a retainer/project model explanation.
+       - For 'Tech Stack', suggest a modern list relevant to their field.
+       - If 'Explicitly Stated', leave 'draft_answer' empty.
+    
+    Return a JSON object with:
+    - queries: List of objects {{ 
+        "question": "...", 
+        "status": "Explicitly Stated" | "Implied" | "Missing", 
+        "confidence": "High" | "Medium" | "Low",
+        "draft_answer": "..." (Only for Missing/Implied)
+    }}
+    
+    Content (truncated):
+    {text_content[:3000]}...
+    """
+
     payload = {
         "model": "mistral-small-latest",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.2,
         "response_format": {"type": "json_object"}
     }
-    
+
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.post(url, json=payload, headers=headers)
+        
         if response.status_code == 200:
             data = response.json()
             result = json.loads(data['choices'][0]['message']['content'])
-            topics = result.get("missing_topics", [])
-            return {"score": 0 if topics else 100, "details": topics}
+            queries = result.get("queries", [])
+            
+            # Score based on how many are NOT missing
+            found_count = sum(1 for q in queries if q["status"] == "Explicitly Stated")
+            score = int((found_count / max(len(queries), 1)) * 100)
+            
+            return {
+                "score": score,
+                "details": [f"{q['question']} ({q['status']})" for q in queries],
+                "data": queries
+            }
+    except Exception as e:
+        print(f"Failed Query Analysis Error: {e}")
+        pass
+        
+    return {"score": 0, "details": ["AI Check Failed"], "data": []}
+
+async def extract_entities(text_content: str) -> dict:
+    """Extracts named entities for the Knowledge Graph."""
+    if not MISTRAL_API_KEY:
+        return {"score": 0, "details": [], "data": {}}
+
+    url = "https://api.mistral.ai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    prompt = f"""
+    Analyze the text for the PRIMARY entity (Person or Organization).
+    1. Identify the Name and Type (Person/Org).
+    2. Identify relationships: 'worksFor', 'jobTitle', 'alumniOf', 'knowsAbout' (skills), 'sameAs' (social links).
+    3. If a relationship is found, extract the value. If not found, mark as 'Missing'.
+    
+    Return a JSON object with keys:
+    - primary_entity: Name
+    - type: Person | Organization
+    - relationships: {{
+        "worksFor": "...",
+        "jobTitle": "...",
+        "alumniOf": "...",
+        "knowsAbout": ["...", "..."],
+        "sameAs": ["...", "..."] (Social links)
+    }}
+    - missing_critical: List of fields that are missing (e.g. ["alumniOf", "sameAs"])
+    
+    Content (truncated):
+    {text_content[:2000]}...
+    """
+
+    payload = {
+        "model": "mistral-small-latest",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.1,
+        "response_format": {"type": "json_object"}
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            result = json.loads(data['choices'][0]['message']['content'])
+            
+            # Simple scoring: do we have at least one Person/Org/Skill?
+            has_data = any(v and v != 'None Detected' for v in result.values())
+            
+            return {
+                "score": 100 if has_data else 0,
+                "details": ["Entities Extracted" if has_data else "No Entities Found"],
+                "data": result
+            }
     except:
         pass
-    return {"score": 0, "details": ["AI Check Failed"]}
+        
+    return {"score": 0, "details": ["AI Check Failed"], "data": {}}
 
 async def get_ai_rewrite(text_snippet: str) -> str:
     """Asks AI to rewrite complex text."""
@@ -300,6 +456,36 @@ def check_freshness(soup) -> dict:
     
     return {"score": 0, "details": ["No dates detected"]}
 
+def check_basic_seo(soup) -> dict:
+    # H1 Check
+    h1 = soup.find('h1')
+    has_h1 = bool(h1)
+    
+    # Meta Description Check
+    meta_desc = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
+    has_desc = bool(meta_desc)
+    desc_len = len(meta_desc.get('content', '')) if meta_desc else 0
+    
+    # OG Title Check
+    og_title = soup.find('meta', attrs={'property': 'og:title'})
+    has_og = bool(og_title)
+
+    score = 0
+    if has_h1: score += 40
+    if has_desc: score += 40
+    if has_og: score += 20
+
+    return {
+        "score": score,
+        "details": [],
+        "data": {
+            "has_h1": has_h1,
+            "has_meta_desc": has_desc,
+            "meta_desc_length": desc_len,
+            "has_og": has_og
+        }
+    }
+
 async def analyze_page_content(html: str) -> dict:
     soup = BeautifulSoup(html, "html.parser")
     main_text = soup.get_text(separator=' ', strip=True)
@@ -317,6 +503,7 @@ async def analyze_page_content(html: str) -> dict:
         "technical": {
             "schema": {"score": 100 if has_schema else 0, "details": [f"Found: {', '.join(schema_types)}" if has_schema else "Missing"]},
             "https": {"score": 100, "details": ["Secured"]}, # Assumed if we are here
+            "agent_economics": calculate_agent_economics(main_text, len(html))
         },
         "content": {
             "questions": check_question_targeting(soup),
@@ -324,10 +511,12 @@ async def analyze_page_content(html: str) -> dict:
             "visual": check_visual_context(soup),
             "freshness": check_freshness(soup),
             "word_count": {"score": 100 if len(main_text.split()) > 300 else 50, "details": [f"{len(main_text.split())} words"]},
-            "gap": await analyze_content_gap(main_text[:5000])
+            "gap": await analyze_failed_queries(main_text[:5000]), # Replaces old gap analysis
+            "basic_seo": check_basic_seo(soup)
         },
         "authority": {
-            "eeat": await check_eeat(soup)
+            "eeat": await check_eeat(soup),
+            "knowledge_graph": await extract_entities(main_text[:4000])
         }
     }
 
@@ -357,6 +546,8 @@ async def analyze_readiness(url: str):
             results["technical"]["https"] = {"score": 100, "details": ["Valid HTTPS"]}
             
             results["content"] = page_data["content"]
+            # Expose basic_seo at top level for easy access if needed, or stick to content structure
+            # Frontend expects it in 'checklist' derived from this.
             results["authority"] = page_data["authority"]
             
         else:

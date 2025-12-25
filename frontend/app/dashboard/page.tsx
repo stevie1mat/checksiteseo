@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Globe, BarChart3, Clock, Plus, ExternalLink, ArrowRight } from "lucide-react"
 import { AddSiteDialog } from "@/components/dashboard/AddSiteDialog"
 import Link from "next/link"
+import { RescanButton } from "@/components/dashboard/RescanButton"
 
 export default async function DashboardPage() {
     const supabase = createClient()
@@ -81,9 +82,9 @@ export default async function DashboardPage() {
                                             <h3 className="font-medium text-[#224034]">{site.url}</h3>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${site.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                        site.status === 'analyzing' ? 'bg-blue-100 text-blue-700' :
-                                                            site.status === 'error' ? 'bg-red-100 text-red-700' :
-                                                                'bg-yellow-100 text-yellow-700' // pending
+                                                    site.status === 'analyzing' ? 'bg-blue-100 text-blue-700' :
+                                                        site.status === 'error' ? 'bg-red-100 text-red-700' :
+                                                            'bg-yellow-100 text-yellow-700' // pending
                                                     }`}>
                                                     {site.status.charAt(0).toUpperCase() + site.status.slice(1)}
                                                 </span>
@@ -94,6 +95,9 @@ export default async function DashboardPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
+                                        {site.status !== 'completed' && (
+                                            <RescanButton siteId={site.id} url={site.url} />
+                                        )}
                                         <Link href={`/dashboard/sites/${site.id}`} className="text-sm font-medium text-[#224034] hover:text-[#8cd9b8] transition-colors flex items-center gap-2">
                                             View Report <ArrowRight className="w-4 h-4" />
                                         </Link>

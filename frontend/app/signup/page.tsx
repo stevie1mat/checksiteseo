@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link";
-import { Bot } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,7 +46,9 @@ export default function SignUpPage() {
         return (
             <div className="min-h-screen bg-[#224034] flex flex-col items-center justify-center p-4">
                 <div className="w-full max-w-md bg-[#2a4e40] rounded-2xl p-8 shadow-2xl border border-white/5 text-center">
-                    <Bot className="w-12 h-12 text-[#8cd9b8] mx-auto mb-4" />
+                    <div className="flex justify-center mb-6">
+                        <span className="font-serif text-2xl font-medium text-white">CheckSite AEO<span className="text-[#8cd9b8]">.</span></span>
+                    </div>
                     <h2 className="font-serif text-2xl text-white mb-4">Check your email</h2>
                     <p className="text-white/80 mb-8">
                         We've sent you a confirmation link. Please check your email to activate your account.

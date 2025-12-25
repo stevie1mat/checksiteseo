@@ -82,6 +82,11 @@ export function AuthDialog({ defaultView = "signin", trigger, open, onOpenChange
         <Dialog open={open} onOpenChange={onOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent className="sm:max-w-md bg-[#1d332b] border-[#2a4e40] text-white">
+                <div className="flex flex-col items-center justify-center pt-4">
+                    <span className="font-serif text-2xl font-medium text-white tracking-wide">
+                        CheckSite AEO<span className="text-[#8cd9b8]">.</span>
+                    </span>
+                </div>
                 <DialogHeader className="text-center">
                     <DialogTitle className="text-2xl font-serif text-white">
                         {view === "signin" ? "Welcome back" : "Create an account"}

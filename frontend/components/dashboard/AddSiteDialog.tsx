@@ -44,15 +44,27 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) throw new Error("Not authenticated")
 
-            const { error: insertError } = await supabase
+            const { data, error: insertError } = await supabase
                 .from('sites')
                 .insert({
                     url: url,
                     user_id: user.id,
                     status: 'pending'
                 })
+                .select()
 
             if (insertError) throw insertError
+
+            // Trigger Real Scan
+            if (data && data[0]) {
+                const siteId = data[0].id
+                // Trigger the scan
+                await fetch('/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ siteId, url })
+                })
+            }
 
             setOpen(false)
             setUrl("")
