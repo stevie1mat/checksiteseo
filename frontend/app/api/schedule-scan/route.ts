@@ -1,0 +1,30 @@
+import { NextResponse } from 'next/server'
+
+export async function POST(request: Request) {
+    try {
+        const body = await request.json()
+        const { site_id, url, email, delay_hours } = body
+
+        const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+        console.log(`[Schedule Scan API] Proxying to Backend for: ${url}`)
+
+        const apiResponse = await fetch(`${BACKEND_URL}/schedule-scan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ site_id, url, email, delay_hours }),
+            signal: AbortSignal.timeout(60000) // 60s timeout
+        });
+
+        // Forward the response status and body from the backend
+        const data = await apiResponse.json();
+        return NextResponse.json(data, { status: apiResponse.status });
+
+    } catch (error: any) {
+        console.error('[Schedule Scan API] Error:', error)
+        return NextResponse.json(
+            { error: error.message || 'Internal Server Error' },
+            { status: 500 }
+        )
+    }
+}

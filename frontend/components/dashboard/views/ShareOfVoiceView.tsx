@@ -18,8 +18,14 @@ import {
     ArrowLeft,
     Search,
     Plus,
-    X
+    X,
+    Database,
+    FileText,
+    BarChart3
 } from "lucide-react"
+
+import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
+import { createClient } from "@/lib/supabase/client"
 
 interface ShareOfVoiceViewProps {
     siteId: string
@@ -40,6 +46,43 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
     const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [planResult, setPlanResult] = useState<any>(null);
+
+    // Dialog Control State
+    const [scanDialogOpen, setScanDialogOpen] = useState(false);
+    const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle');
+    const [scanMessage, setScanMessage] = useState("");
+    const [userEmail, setUserEmail] = useState<string | null>(null);
+    const [hasPendingScan, setHasPendingScan] = useState(false);
+
+    // Fetch user and check pending scans on mount
+    React.useEffect(() => {
+        const init = async () => {
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user?.email) setUserEmail(user.email)
+
+            if (siteId) {
+                const { data } = await supabase
+                    .from('scheduled_scans')
+                    .select('*')
+                    .eq('site_id', siteId)
+                    .in('status', ['pending', 'processing'])
+
+                if (data && data.length > 0) {
+                    setHasPendingScan(true);
+                }
+            }
+        }
+        init()
+    }, [siteId])
+
+    // Custom Steps for Content Plan
+    const PLAN_STEPS = [
+        { label: "Initializing", icon: Search, threshold: 0 },
+        { label: "Competitor Analysis", icon: Database, threshold: 30 },
+        { label: "Strategy Generation", icon: FileText, threshold: 60 },
+        { label: "Finalizing Plan", icon: BarChart3, threshold: 90 },
+    ];
 
     // Merge live data if available, else use initial
     const activeData = report ? (report.competitors || initialData) : initialData
@@ -65,12 +108,12 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
         }
 
         setIsGenerating(true);
-        setPlanResult(null); // Reset previous result during generation
+        setPlanResult(null);
 
-        toast({
-            title: "Analyzing Content Strategy",
-            description: `Analyzing ${selectedCompetitor} against your domain...`,
-        });
+        // Open Dialog
+        setScanStatus('scanning');
+        setScanDialogOpen(true);
+        setScanMessage("");
 
         try {
             const response = await fetch('/api/generate-plan', {
@@ -86,19 +129,25 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
 
             const data = await response.json();
             setPlanResult(data);
-            toast({
-                title: "Plan Generated",
-                description: "Strategy analysis complete.",
-            });
 
-        } catch (error) {
+            // Animation delay for "Finalizing" step
+            setTimeout(() => {
+                setScanStatus('complete');
+                setTimeout(() => {
+                    setScanDialogOpen(false);
+                    setIsGenerating(false);
+                    toast({
+                        title: "Plan Generated",
+                        description: "Strategy analysis complete.",
+                    });
+                }, 1000);
+            }, 1000);
+
+        } catch (error: any) {
             console.error("Plan generation error:", error);
-            toast({
-                title: "Error",
-                description: "Failed to generate plan. This usually means the AI analysis timed out. Please try again.",
-                variant: "destructive",
-            });
-        } finally {
+            setScanStatus('error');
+            setScanMessage("Failed to generate plan. Please try again.");
+            // Kepp dialog open on error so user can see it failed
             setIsGenerating(false);
         }
     };
@@ -108,11 +157,66 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
         setSelectedCompetitor(null);
     };
 
-    const handleScheduleScan = () => {
-        toast({
-            title: "Scanning Scheduled",
-            description: "Deep scan scheduled! We will notify you in 24 hours.",
-        });
+    const [isScheduling, setIsScheduling] = useState(false);
+
+    const handleScheduleScan = async () => {
+        if (!userEmail) {
+            toast({
+                title: "Error",
+                description: "User email not found. Please log in again.",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        setIsScheduling(true);
+        try {
+            const res = await fetch('/api/schedule-scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: siteId,
+                    url: domain,
+                    email: userEmail || "steven@checksiteaeo.com", // Fallback to demo email if auth fails or not ready
+                    delay_hours: 24
+                })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                // Check if it's the "already scheduled" conflict
+                if (res.status === 409) {
+                    setHasPendingScan(true); // Sync state just in case
+                }
+                throw new Error(data.detail || data.error || "Failed to schedule");
+            }
+
+            setHasPendingScan(true); // Disable button locally
+            toast({
+                title: "Deep Scan Scheduled",
+                description: data.message || "We will notify you in 24 hours.",
+            });
+
+            if (data.mock_email) {
+                toast({
+                    title: "Mock Mode Active",
+                    description: "Emails are currently being logged to server console (No RESEND_API_KEY).",
+                    variant: "default",
+                    duration: 5000
+                });
+            }
+
+        } catch (error: any) {
+            console.error(error);
+            toast({
+                title: "Scheduling Failed",
+                description: error.message || "Could not schedule the scan. Please try again.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsScheduling(false);
+        }
     };
 
     const handleRemoveCompetitor = (compToRemove: string) => {
@@ -157,6 +261,18 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
 
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto pb-24 px-6 pt-6 animate-in fade-in duration-500">
+            <ScanProgressDialog
+                open={scanDialogOpen}
+                onOpenChange={(open) => {
+                    if (!isGenerating) setScanDialogOpen(open);
+                }}
+                siteUrl={selectedCompetitor || ""}
+                status={scanStatus}
+                message={scanMessage}
+                title="Generating Content Strategy"
+                steps={PLAN_STEPS}
+            />
+
             <Link href={`/dashboard/sites/${siteId}`} className="text-slate-500 hover:text-[#224034] transition-colors flex items-center gap-2 text-sm font-medium w-fit">
                 <ArrowLeft className="w-4 h-4" />
                 Back to Report
@@ -441,7 +557,14 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
                                     onClick={handleScheduleScan}
                                     className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-6 h-auto text-lg rounded-xl shadow-lg group"
                                 >
-                                    Schedule Deep Scan (24h)
+                                    {isScheduling ? (
+                                        <>
+                                            <Wand2 className="w-5 h-5 animate-spin mr-2" />
+                                            Scheduling...
+                                        </>
+                                    ) : (
+                                        "Schedule Deep Scan (24h)"
+                                    )}
                                 </Button>
                                 <div className="flex justify-center gap-4 text-xs text-slate-400 mt-8">
                                     <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Automated Monitoring</span>

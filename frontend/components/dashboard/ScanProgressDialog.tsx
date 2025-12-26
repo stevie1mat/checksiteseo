@@ -12,18 +12,23 @@ interface ScanProgressDialogProps {
     siteUrl: string
     status: 'idle' | 'scanning' | 'complete' | 'error'
     message?: string
+    title?: string // Optional custom title
+    steps?: { label: string, icon: any, threshold: number }[] // Optional custom steps
 }
 
-const STEPS = [
+const DEFAULT_STEPS = [
     { label: "Initializing", icon: Search, threshold: 0 },
     { label: "Crawling", icon: FileText, threshold: 25 },
     { label: "Analyzing", icon: Database, threshold: 50 },
     { label: "Finalizing", icon: BarChart3, threshold: 85 },
 ]
 
-export function ScanProgressDialog({ open, onOpenChange, siteUrl, status, message }: ScanProgressDialogProps) {
+export function ScanProgressDialog({ open, onOpenChange, siteUrl, status, message, title, steps }: ScanProgressDialogProps) {
     const [progress, setProgress] = useState(0)
     const [activeStep, setActiveStep] = useState(0)
+
+    // Use provided steps or default
+    const actualSteps = steps || DEFAULT_STEPS
 
     // Simulate progress when scanning
     useEffect(() => {
@@ -40,10 +45,15 @@ export function ScanProgressDialog({ open, onOpenChange, siteUrl, status, messag
                     const increment = Math.random() * (prev < 40 ? 4 : prev < 70 ? 2 : 0.5)
                     const next = prev + increment
 
-                    // Update active step based on progress thresholds
-                    if (next > 85) setActiveStep(3)
-                    else if (next > 50) setActiveStep(2)
-                    else if (next > 25) setActiveStep(1)
+                    // Update active step based on progress thresholds dynamically
+                    let currentStepIndex = 0;
+                    for (let i = actualSteps.length - 1; i >= 0; i--) {
+                        if (next > actualSteps[i].threshold) {
+                            currentStepIndex = i;
+                            break;
+                        }
+                    }
+                    setActiveStep(currentStepIndex)
 
                     return next
                 })
@@ -51,14 +61,14 @@ export function ScanProgressDialog({ open, onOpenChange, siteUrl, status, messag
 
         } else if (status === 'complete') {
             setProgress(100)
-            setActiveStep(3)
+            setActiveStep(actualSteps.length - 1)
         } else if (status === 'error') {
             setProgress(0)
             setActiveStep(0)
         }
 
         return () => clearInterval(interval)
-    }, [status])
+    }, [status, actualSteps])
 
     // Clean URL for display
     const displayUrl = siteUrl.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]
@@ -74,7 +84,9 @@ export function ScanProgressDialog({ open, onOpenChange, siteUrl, status, messag
 
                     <DialogHeader className="relative z-10">
                         <DialogTitle className="flex flex-col gap-3 font-serif">
-                            <span className="text-slate-400 text-xs uppercase tracking-wider font-sans font-medium">AEO Analysis in Progress</span>
+                            <span className="text-slate-400 text-xs uppercase tracking-wider font-sans font-medium">
+                                {title || "AEO Analysis in Progress"}
+                            </span>
                             <div className="flex items-center gap-3 text-2xl text-white">
                                 {status === 'scanning' && <Loader2 className="w-6 h-6 animate-spin text-[#8cd9b8]" />}
                                 {status === 'complete' && <CheckCircle2 className="w-6 h-6 text-[#8cd9b8]" />}
@@ -120,7 +132,7 @@ export function ScanProgressDialog({ open, onOpenChange, siteUrl, status, messag
                         {/* Connecting Line (Behind) */}
                         <div className="absolute top-4 left-0 w-full h-[1px] bg-[#1f362d] -z-10" />
 
-                        {STEPS.map((step, index) => {
+                        {actualSteps.map((step, index) => {
                             const isActive = index === activeStep
                             const isCompleted = index < activeStep || status === 'complete'
                             const Icon = step.icon
@@ -136,7 +148,7 @@ export function ScanProgressDialog({ open, onOpenChange, siteUrl, status, messag
                                         <Icon className="w-3.5 h-3.5" />
                                     </div>
                                     <span className={cn(
-                                        "text-[10px] uppercase tracking-wide font-medium transition-colors duration-300",
+                                        "text-[10px] uppercase tracking-wide font-medium transition-colors duration-300 text-center",
                                         isActive ? "text-[#8cd9b8]" :
                                             isCompleted ? "text-slate-300" :
                                                 "text-slate-600"

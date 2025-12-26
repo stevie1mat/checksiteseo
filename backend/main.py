@@ -6,6 +6,11 @@ import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from datetime import datetime, timedelta, timezone
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+import resend
+import logging
+from email_templates import get_email_html
 
 load_dotenv()
 
@@ -21,6 +26,26 @@ if SUPABASE_URL and SUPABASE_KEY:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception as e:
         print(f"Supabase init failed: {e}")
+
+# Email & Scheduler Setup
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL:
+    jobstores = {
+        'default': SQLAlchemyJobStore(url=DATABASE_URL)
+    }
+    scheduler = BackgroundScheduler(jobstores=jobstores)
+else:
+    print("WARNING: No DATABASE_URL found. Scheduler will run in-memory and lose jobs on restart.")
+    scheduler = BackgroundScheduler()
+
+scheduler.start()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # CORS Setup
 app.add_middleware(
@@ -116,6 +141,172 @@ async def analyze_url(request: AnalyzeRequest):
             pass
 
     return result
+
+# --- Scheduler & Notification Logic ---
+
+def send_email_notification(email: str, subject: str, headline: str, body: str, cta_text: str = None, cta_link: str = None):
+    if not email: return
+    
+    html_content = get_email_html(headline, body, cta_text, cta_link)
+
+    if RESEND_API_KEY:
+        try:
+            resend.Emails.send({
+                "from": "CheckSite AEO <onboarding@resend.dev>", 
+                "to": email,
+                "subject": subject,
+                "html": html_content
+            })
+            logger.info(f"Email sent to {email}")
+        except Exception as e:
+            logger.error(f"Failed to send email: {e}")
+    else:
+        logger.info(f"MOCK EMAIL to {email}: Subject: {subject} | Body: {body}")
+
+async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None, scan_id: str):
+    logger.info(f"Starting scheduled scan for {url} (Scan ID: {scan_id})")
+    
+    # 1. Update status to processing
+    if supabase:
+        supabase.table("scheduled_scans").update({"status": "processing"}).eq("id", scan_id).execute()
+
+    try:
+        # 2. Run Analysis
+        result = await analyze_readiness(url)
+        
+        # 3. Update Site Data (Reusing logic from analyze_url, ideally refactor to shared func)
+        # For MVP, we just update the scheduled_scans status and maybe site history
+        # (Assuming analyze_readiness doesn't update DB itself, checking code... main.py does it)
+        
+        # 3a. Update Sites Table (Copy-paste logic for safety/speed in MVP mode, 
+        # ideally we extract 'save_scan_results' function)
+        if site_id and supabase:
+             breakdown = result.get("breakdown", {})
+             tech_rob = breakdown.get("technical", {}).get("robots", {}).get("score", 0)
+             tech_sch = breakdown.get("technical", {}).get("schema", {}).get("score", 0)
+             cont_scs = [v.get("score", 0) for v in breakdown.get("content", {}).values() if isinstance(v, dict)]
+             cont_avg = sum(cont_scs) / len(cont_scs) if cont_scs else 0
+             
+             health = {
+                 "robots": get_status(tech_rob),
+                 "schema": get_status(tech_sch),
+                 "content": get_status(int(cont_avg))
+             }
+             
+             supabase.table("sites").update({
+                 "aeo_score": result.get("total_score", 0),
+                 "health_status": health,
+                 "competitors": result.get("competitors", {}),
+                 "last_scanned_at": datetime.now(timezone.utc).isoformat()
+             }).eq("id", site_id).execute()
+             
+             supabase.table("site_history").insert({
+                "site_id": site_id,
+                "aeo_score": result.get("total_score", 0)
+             }).execute()
+
+        # 4. Success Status
+        if supabase:
+            supabase.table("scheduled_scans").update({"status": "completed"}).eq("id", scan_id).execute()
+        
+        # 5. Notify
+        if user_email:
+            send_email_notification(
+                user_email, 
+                f"AEO Scan Complete for {url}",
+                "Your Deep Scan is Complete",
+                f"We have finished analyzing {url}. Your new AEO Score is {result.get('total_score')}/100. Log in now to view the full breakdown and updated competitors.",
+                "View Results",
+                f"https://checksiteaeo.com/dashboard/sites/{site_id}" # Ideally use env var for frontend URL
+            )
+
+    except Exception as e:
+        logger.error(f"Scheduled scan failed: {e}")
+        if supabase:
+            supabase.table("scheduled_scans").update({"status": "failed", "error": str(e)}).eq("id", scan_id).execute()
+        
+        if user_email:
+            send_email_notification(
+                user_email, 
+                f"AEO Scan Failed for {url}", 
+                "Scan Unable to Complete",
+                f"We encountered an error while scanning {url}. Please try again later.<br>Error details: {str(e)}"
+            )
+
+
+class ScheduleRequest(BaseModel):
+    site_id: str
+    url: str
+    email: str | None = None
+    delay_hours: int = 24
+
+@app.post("/schedule-scan")
+async def schedule_scan(request: ScheduleRequest):
+    # Check for existing pending scan
+    if supabase and request.site_id:
+        try:
+            existing = supabase.table("scheduled_scans").select("*") \
+                .eq("site_id", request.site_id) \
+                .in_("status", ["pending", "processing"]) \
+                .execute()
+            if existing.data and len(existing.data) > 0:
+                raise HTTPException(status_code=409, detail="A deep scan is already scheduled or in progress for this site.")
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            logger.error(f"Failed to check existing scans: {e}")
+
+    run_date = datetime.now(timezone.utc) + timedelta(hours=request.delay_hours)
+    
+    # Format date for human readability
+    # Convert to local time approximation if needed, or just keep UTC with timezone label
+    # User wanted "common man words". Let's format nicely.
+    # Note: run_date is UTC. Ideally we'd know user timezone, but we'll return generic readable format.
+    formatted_date = run_date.strftime("%A, %B %d at %I:%M %p UTC")
+
+    # Persist schedule
+    scan_id = None
+    if supabase:
+        try:
+            data = supabase.table("scheduled_scans").insert({
+                "site_id": request.site_id,
+                "url": request.url,
+                "user_email": request.email,
+                "scheduled_for": run_date.isoformat(),
+                "status": "pending"
+            }).execute()
+            if data.data:
+                scan_id = data.data[0]['id']
+        except Exception as e:
+            logger.error(f"Failed to insert scheduled scan: {e}")
+            pass
+
+    # Schedule Job
+    safe_scan_id = scan_id or "temp_id"
+    
+    # Send immediate confirmation email
+    if request.email:
+        send_email_notification(
+            request.email,
+            f"Deep Scan Scheduled: {request.url}",
+            "Deep Scan Scheduled Successfully",
+            f"We have scheduled a comprehensive AEO analysis for <strong>{request.url}</strong>.<br><br>The scan will execute automatically on <strong>{formatted_date}</strong>. You don't need to keep your browser open—we'll notify you when it's done.",
+            "Go to Dashboard",
+            "https://checksiteaeo.com/dashboard"
+        )
+
+    scheduler.add_job(
+        perform_scheduled_scan, 
+        'date', 
+        run_date=run_date, 
+        args=[request.site_id, request.url, request.email, safe_scan_id]
+    )
+    
+    return {
+        "message": f"Scan scheduled for {formatted_date}", 
+        "scan_id": scan_id,
+        "mock_email": not bool(RESEND_API_KEY)
+    }
 
 class PlanRequest(BaseModel):
     user_domain: str

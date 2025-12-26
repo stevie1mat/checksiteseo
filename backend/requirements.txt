@@ -7,3 +7,7 @@ textstat
 python-dotenv
 tiktoken
 supabase
+apscheduler
+resend
+sqlalchemy
+psycopg2-binary

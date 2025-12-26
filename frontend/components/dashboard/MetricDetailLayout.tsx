@@ -270,7 +270,7 @@ export function MetricDetailLayout({
                                                                 </div>
                                                                 <div className="font-mono text-xs text-emerald-300/90 leading-relaxed grow">
                                                                     # {title} Generator<br />
-                                                                    # Created by CheckSite.ai<br /><br />
+                                                                    # Created by CheckSiteAEO.com<br /><br />
                                                                     Title: [Waiting for input...]<br />
                                                                     Version: 1.0<br />
                                                                     Lang: en-US<br /><br />
