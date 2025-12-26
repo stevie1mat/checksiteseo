@@ -1,8 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { MetricDetailLayout } from '@/components/dashboard/MetricDetailLayout'
-import { RealtimeMetricView } from '@/components/dashboard/views/RealtimeMetricView'
-import { AEOReport } from '@/types/aeo'
+import { AnswerRateView } from '@/components/dashboard/views/AnswerRateView'
 
 export default async function AnswerRatePage({ params }: { params: { id: string } }) {
     const supabase = createClient()
@@ -19,83 +17,26 @@ export default async function AnswerRatePage({ params }: { params: { id: string 
     const latestScan = pages && pages[0];
     const breakdown = latestScan?.checklist || {};
 
-    // Initial Data Extraction (Raw Backend JSON structure)
-    // Note: The structure in DB 'checklist' might differ from AEOReport 'content.missingAnswers'.
-    // API Route maps: breakdown.content.gap.data -> missingAnswers
-    const initialQuestions = breakdown.content?.gap?.data || breakdown.content?.gap || [];
+    // Extract questions data
+    const questions = breakdown.content?.gap?.data || breakdown.content?.gap || [];
+
+    // Calculate answer rate
+    const answered = questions.filter((q: any) => q.status === 'Explicitly Stated').length;
+    const total = questions.length;
+    const rate = total > 0 ? Math.round((answered / total) * 100) : 0;
+
+    const answerRateData = {
+        rate,
+        answered,
+        total,
+        questions
+    };
 
     return (
-        <RealtimeMetricView
+        <AnswerRateView
             siteId={site.id}
             domain={site.url}
-            initialData={initialQuestions}
-            transform={(report: AEOReport) => {
-                // Map AEOReport back to the structure expected by the UI below
-                // AEOReport.content.missingAnswers = [{ query, status, draftAnswer }]
-                return report.content.missingAnswers || [];
-            }}
-        >
-            {(questions: any[]) => {
-                const answerRateScore = (() => {
-                    if (questions.length === 0) return 0;
-                    const answered = questions.filter((q: any) => q.status === 'Explicitly Stated').length;
-                    return Math.round((answered / questions.length) * 100);
-                })();
-
-                return (
-                    <MetricDetailLayout
-                        title="Answer Rate Analysis"
-                        status={answerRateScore < 50 ? 'critical' : answerRateScore < 80 ? 'warning' : 'pass'}
-                        impact={`${answerRateScore}% Questions Answered`}
-                        rawDiagnostic={JSON.stringify(questions, null, 2)}
-                        whatAndWhyContent={
-                            <div className="space-y-4 text-slate-600">
-                                <p>
-                                    <strong>What is Answer Rate?</strong><br />
-                                    Answer Rate refers to the percentage of core user questions (informational queries) that your content explicitly answers.
-                                </p>
-                                <p>
-                                    <strong>Why it matters:</strong><br />
-                                    Search engines and AI agents prioritize content that directly answers user intent. High answer rates translate to featured snippets and AI citations.
-                                </p>
-                            </div>
-                        }
-                    >
-                        <div className="space-y-4">
-                            <div className="bg-white rounded-lg border border-slate-200">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
-                                        <tr>
-                                            <th className="p-4">User Question</th>
-                                            <th className="p-4 w-32">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {questions.map((q: any, i: number) => (
-                                            <tr key={i} className="hover:bg-slate-50/50">
-                                                <td className="p-4 text-slate-800 font-medium">{q.query}</td>
-                                                <td className="p-4">
-                                                    <span className={`px-2 py-1 rounded text-xs font-bold ${q.status === 'Explicitly Stated' ? 'bg-green-100 text-green-700' :
-                                                        q.status === 'Implied' ? 'bg-yellow-100 text-yellow-700' :
-                                                            'bg-red-100 text-red-700'
-                                                        }`}>
-                                                        {q.status}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {questions.length === 0 && (
-                                            <tr>
-                                                <td colSpan={2} className="p-4 text-center text-slate-400">No questions analyzed yet.</td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </MetricDetailLayout>
-                )
-            }}
-        </RealtimeMetricView>
+            initialData={answerRateData}
+        />
     )
 }
