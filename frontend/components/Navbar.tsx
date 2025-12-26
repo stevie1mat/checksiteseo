@@ -15,7 +15,7 @@ export function Navbar() {
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
                     <span className="font-serif text-2xl font-medium text-white tracking-wide">
-                        CheckSite AEO<span className="text-[#8cd9b8]">.</span>
+                        CheckSite<span className="text-[#8cd9b8]">AEO</span>
                     </span>
                 </Link>
 

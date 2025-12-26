@@ -19,6 +19,7 @@ import {
     Search,
     Plus,
     X,
+    Check,
     Database,
     FileText,
     BarChart3
@@ -158,6 +159,38 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
     };
 
     const [isScheduling, setIsScheduling] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
+
+    const handleCancelScan = async () => {
+        setIsCancelling(true);
+        try {
+            const res = await fetch('/api/cancel-scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: siteId })
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.detail || data.error || "Failed to cancel");
+            }
+
+            setHasPendingScan(false);
+            toast({
+                title: "Scan Cancelled",
+                description: "The scheduled deep scan has been removed.",
+            });
+        } catch (error: any) {
+            console.error(error);
+            toast({
+                title: "Cancellation Failed",
+                description: error.message || "Could not cancel the scan.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsCancelling(false);
+        }
+    };
 
     const handleScheduleScan = async () => {
         if (!userEmail) {
@@ -178,7 +211,7 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
                     site_id: siteId,
                     url: domain,
                     email: userEmail || "steven@checksiteaeo.com", // Fallback to demo email if auth fails or not ready
-                    delay_hours: 24
+                    delay_hours: 24  // Production: scan every 24 hours
                 })
             });
 
@@ -195,17 +228,8 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
             setHasPendingScan(true); // Disable button locally
             toast({
                 title: "Deep Scan Scheduled",
-                description: data.message || "We will notify you in 24 hours.",
+                description: data.message || "We will notify you in 2 minutes.",
             });
-
-            if (data.mock_email) {
-                toast({
-                    title: "Mock Mode Active",
-                    description: "Emails are currently being logged to server console (No RESEND_API_KEY).",
-                    variant: "default",
-                    duration: 5000
-                });
-            }
 
         } catch (error: any) {
             console.error(error);
@@ -553,19 +577,54 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
                                         AI visibility takes time to update. We will schedule a re-scan of these keywords in 24 hours to check if your new content has been indexed.
                                     </p>
                                 </div>
-                                <Button
-                                    onClick={handleScheduleScan}
-                                    className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-6 h-auto text-lg rounded-xl shadow-lg group"
-                                >
-                                    {isScheduling ? (
-                                        <>
-                                            <Wand2 className="w-5 h-5 animate-spin mr-2" />
-                                            Scheduling...
-                                        </>
-                                    ) : (
-                                        "Schedule Deep Scan (24h)"
-                                    )}
-                                </Button>
+                                <div className="flex flex-col items-center space-y-4">
+                                    <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm">
+                                        <div className="flex flex-col items-start pr-8 border-r border-slate-200">
+                                            <span className="text-sm font-semibold text-slate-700">Deep Scan Monitoring</span>
+                                            <span className="text-xs text-slate-500">Auto-rescan every 24 hours</span>
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                if (hasPendingScan) {
+                                                    handleCancelScan();
+                                                } else {
+                                                    handleScheduleScan();
+                                                }
+                                            }}
+                                            disabled={isScheduling || isCancelling}
+                                            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${hasPendingScan ? "bg-emerald-500" : "bg-slate-300 hover:bg-slate-400"
+                                                } ${isScheduling || isCancelling ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                                        >
+                                            <span className="sr-only">Toggle deep scan</span>
+                                            <span
+                                                className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-300 ease-in-out ${hasPendingScan ? "translate-x-7" : "translate-x-1"
+                                                    } flex items-center justify-center`}
+                                            >
+                                                {(isScheduling || isCancelling) ? (
+                                                    <Wand2 className="w-3 h-3 text-emerald-500 animate-spin" />
+                                                ) : hasPendingScan ? (
+                                                    <Check className="w-4 h-4 text-emerald-500" />
+                                                ) : null}
+                                            </span>
+                                        </button>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-100 text-xs font-medium transition-all">
+                                        {hasPendingScan ? (
+                                            <>
+                                                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                                                <span className="text-emerald-700">Scan Scheduled (Next: 24h)</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="flex h-2 w-2 rounded-full bg-slate-300" />
+                                                <span className="text-slate-500">Monitoring Inactive</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <div className="flex justify-center gap-4 text-xs text-slate-400 mt-8">
                                     <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Automated Monitoring</span>
                                     <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Email Notification</span>

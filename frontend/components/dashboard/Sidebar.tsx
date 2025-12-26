@@ -31,7 +31,7 @@ export function SidebarContent() {
         <div className="flex h-full w-full flex-col bg-[#1A4036] text-white">
             <div className="p-6">
                 <Link href="/" className="flex items-center gap-2 text-white hover:opacity-80 transition-opacity">
-                    <span className="font-serif text-xl font-medium">CheckSite AEO<span className="text-[#8cd9b8]">.</span></span>
+                    <span className="font-serif text-xl font-medium">CheckSite<span className="text-[#8cd9b8]">AEO</span></span>
                 </Link>
             </div>
 

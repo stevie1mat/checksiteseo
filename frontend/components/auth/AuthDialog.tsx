@@ -84,7 +84,7 @@ export function AuthDialog({ defaultView = "signin", trigger, open, onOpenChange
             <DialogContent className="sm:max-w-md bg-[#1d332b] border-[#2a4e40] text-white">
                 <div className="flex flex-col items-center justify-center pt-4">
                     <span className="font-serif text-2xl font-medium text-white tracking-wide">
-                        CheckSite AEO<span className="text-[#8cd9b8]">.</span>
+                        CheckSite<span className="text-[#8cd9b8]">AEO</span>
                     </span>
                 </div>
                 <DialogHeader className="text-center">

@@ -1,3 +1,7 @@
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -6,10 +10,8 @@ import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from datetime import datetime, timedelta, timezone
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-import resend
-import logging
 from email_templates import get_email_html
 
 load_dotenv()
@@ -18,14 +20,14 @@ app = FastAPI(title="AEO Readiness Auditor")
 
 # Supabase Setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY") # Prefer service key, fallback to anon
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY")
 supabase: Client = None
 
 if SUPABASE_URL and SUPABASE_KEY:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception as e:
-        print(f"Supabase init failed: {e}")
+        logger.error(f"Supabase init failed: {e}")
 
 # Email & Scheduler Setup
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
@@ -37,15 +39,44 @@ if DATABASE_URL:
     jobstores = {
         'default': SQLAlchemyJobStore(url=DATABASE_URL)
     }
-    scheduler = BackgroundScheduler(jobstores=jobstores)
+    scheduler = AsyncIOScheduler(jobstores=jobstores, timezone=timezone.utc)
 else:
     print("WARNING: No DATABASE_URL found. Scheduler will run in-memory and lose jobs on restart.")
-    scheduler = BackgroundScheduler()
+    scheduler = AsyncIOScheduler(timezone=timezone.utc)
 
-scheduler.start()
+# Database Initialization (Ensure tables exist)
+from sqlalchemy import create_engine, text
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+def ensure_tables_exist():
+    if not DATABASE_URL:
+        return
+    
+    try:
+        engine = create_engine(DATABASE_URL)
+        with engine.connect() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS scheduled_scans (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    site_id UUID NOT NULL,
+                    url TEXT NOT NULL,
+                    user_email TEXT,
+                    scheduled_for TIMESTAMP WITH TIME ZONE NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                    error TEXT
+                );
+                
+                -- Grant permissions for PostgREST (Supabase API) access
+                GRANT SELECT ON scheduled_scans TO anon, authenticated;
+                GRANT ALL ON scheduled_scans TO service_role;
+                
+                -- Grant permissions for site_history table
+                GRANT INSERT, SELECT ON site_history TO anon, authenticated, service_role;
+            """))
+            conn.commit()
+            print("Database tables ensured.")
+    except Exception as e:
+        print(f"Database initialization failed: {e}")
 
 # CORS Setup
 app.add_middleware(
@@ -55,6 +86,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Startup event to ensure functions are defined before scheduler starts
+@app.on_event("startup")
+async def startup_event():
+    # Run DB init
+    ensure_tables_exist()
+    
+    scheduler.start()
+    print("🚀 Scheduler started with AsyncIOScheduler (UTC).")
+    
+    # Log pending jobs
+    for job in scheduler.get_jobs():
+        print(f"📌 PENDING JOB: {job.id} | Name: {job.name} | Next Run: {job.next_run_time}")
 
 class AnalyzeRequest(BaseModel):
     url: str
@@ -144,26 +188,49 @@ async def analyze_url(request: AnalyzeRequest):
 
 # --- Scheduler & Notification Logic ---
 
+# Email & Scheduler Setup
+MAILTRAP_HOST = os.getenv("MAILTRAP_HOST", "sandbox.smtp.mailtrap.io")
+MAILTRAP_PORT = int(os.getenv("MAILTRAP_PORT", "2525"))
+MAILTRAP_USERNAME = os.getenv("MAILTRAP_USERNAME")
+MAILTRAP_PASSWORD = os.getenv("MAILTRAP_PASSWORD")
+ENABLE_EMAIL_NOTIFICATIONS = os.getenv("ENABLE_EMAIL_NOTIFICATIONS", "true").lower() == "true"
+
 def send_email_notification(email: str, subject: str, headline: str, body: str, cta_text: str = None, cta_link: str = None):
     if not email: return
     
+    if not ENABLE_EMAIL_NOTIFICATIONS:
+        logger.info(f"EMAIL PAUSED: Would have sent to {email}. Subject: {subject}")
+        return
+
     html_content = get_email_html(headline, body, cta_text, cta_link)
 
-    if RESEND_API_KEY:
+    if MAILTRAP_USERNAME and MAILTRAP_PASSWORD:
         try:
-            resend.Emails.send({
-                "from": "CheckSite AEO <onboarding@resend.dev>", 
-                "to": email,
-                "subject": subject,
-                "html": html_content
-            })
-            logger.info(f"Email sent to {email}")
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            
+            msg = MIMEMultipart('alternative')
+            msg['From'] = "CheckSite AEO <noreply@checksiteaeo.com>"
+            msg['To'] = email
+            msg['Subject'] = subject
+            
+            html_part = MIMEText(html_content, 'html')
+            msg.attach(html_part)
+            
+            with smtplib.SMTP(MAILTRAP_HOST, MAILTRAP_PORT) as server:
+                server.starttls()
+                server.login(MAILTRAP_USERNAME, MAILTRAP_PASSWORD)
+                server.send_message(msg)
+            
+            logger.info(f"Email sent to {email} via Mailtrap")
         except Exception as e:
             logger.error(f"Failed to send email: {e}")
     else:
         logger.info(f"MOCK EMAIL to {email}: Subject: {subject} | Body: {body}")
 
 async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None, scan_id: str):
+    print(f"🔥 JOB TRIGGERED: Starting perform_scheduled_scan for {url}")
     logger.info(f"Starting scheduled scan for {url} (Scan ID: {scan_id})")
     
     # 1. Update status to processing
@@ -171,15 +238,28 @@ async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None,
         supabase.table("scheduled_scans").update({"status": "processing"}).eq("id", scan_id).execute()
 
     try:
+        # 1.1 Fetch previous score for delta calculation
+        old_score = 0
+        if supabase and site_id:
+            try:
+                prev_data = supabase.table("sites").select("aeo_score").eq("id", site_id).execute()
+                logger.info(f"Previous score fetch: data={prev_data.data}")
+                if prev_data.data and len(prev_data.data) > 0:
+                    old_score = prev_data.data[0].get("aeo_score", 0)
+                    logger.info(f"Extracted old_score: {old_score}")
+                else:
+                    logger.warning(f"No previous data found for site_id={site_id}")
+            except Exception as e:
+                logger.warning(f"Could not fetch previous score: {e}")
+
         # 2. Run Analysis
         result = await analyze_readiness(url)
+        new_score = result.get("total_score", 0)
+        delta = new_score - old_score
+        
+        logger.info(f"Score Calculation: old={old_score}, new={new_score}, delta={delta}")
         
         # 3. Update Site Data (Reusing logic from analyze_url, ideally refactor to shared func)
-        # For MVP, we just update the scheduled_scans status and maybe site history
-        # (Assuming analyze_readiness doesn't update DB itself, checking code... main.py does it)
-        
-        # 3a. Update Sites Table (Copy-paste logic for safety/speed in MVP mode, 
-        # ideally we extract 'save_scan_results' function)
         if site_id and supabase:
              breakdown = result.get("breakdown", {})
              tech_rob = breakdown.get("technical", {}).get("robots", {}).get("score", 0)
@@ -194,7 +274,7 @@ async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None,
              }
              
              supabase.table("sites").update({
-                 "aeo_score": result.get("total_score", 0),
+                 "aeo_score": new_score,
                  "health_status": health,
                  "competitors": result.get("competitors", {}),
                  "last_scanned_at": datetime.now(timezone.utc).isoformat()
@@ -202,7 +282,7 @@ async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None,
              
              supabase.table("site_history").insert({
                 "site_id": site_id,
-                "aeo_score": result.get("total_score", 0)
+                "aeo_score": new_score
              }).execute()
 
         # 4. Success Status
@@ -211,13 +291,26 @@ async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None,
         
         # 5. Notify
         if user_email:
+            if delta > 0:
+                # Score improved
+                headline = "🎉 Your AEO Score Improved!"
+                body = f"Great news! Your AEO Score for <strong>{url}</strong> has increased to <strong>{new_score}/100</strong> (up {delta} points!).<br><br>Your optimizations are working. Log in to see what's driving your success."
+            elif delta < 0:
+                # Score decreased
+                headline = "⚠️ Your AEO Score Decreased"
+                body = f"Your AEO Score for <strong>{url}</strong> has dropped to <strong>{new_score}/100</strong> (down {abs(delta)} points).<br><br>Don't worry—check your dashboard for specific recommendations to get back on track."
+            else:
+                # No change
+                headline = "✅ Your AEO Score Remains Stable"
+                body = f"Your AEO Score for <strong>{url}</strong> is holding steady at <strong>{new_score}/100</strong>.<br><br>Ready to improve? Check your dashboard for actionable suggestions to boost your visibility."
+            
             send_email_notification(
                 user_email, 
                 f"AEO Scan Complete for {url}",
-                "Your Deep Scan is Complete",
-                f"We have finished analyzing {url}. Your new AEO Score is {result.get('total_score')}/100. Log in now to view the full breakdown and updated competitors.",
-                "View Results",
-                f"https://checksiteaeo.com/dashboard/sites/{site_id}" # Ideally use env var for frontend URL
+                headline,
+                body,
+                "View Dashboard",
+                f"https://checksiteaeo.com/dashboard/sites/{site_id}"
             )
 
     except Exception as e:
@@ -238,7 +331,43 @@ class ScheduleRequest(BaseModel):
     site_id: str
     url: str
     email: str | None = None
-    delay_hours: int = 24
+    delay_hours: int | None = None
+    delay_minutes: int | None = None
+
+class CancelScanRequest(BaseModel):
+    site_id: str
+
+@app.post("/cancel-scan")
+async def cancel_scan(request: CancelScanRequest):
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not initialized")
+    
+    try:
+        # 1. Look for pending/processing job in DB
+        existing = supabase.table("scheduled_scans").select("*") \
+            .eq("site_id", request.site_id) \
+            .in_("status", ["pending", "processing"]) \
+            .execute()
+        
+        if not existing.data or len(existing.data) == 0:
+            return {"message": "No active scan found for this site."}
+        
+        scan_id = existing.data[0]['id']
+        
+        # 2. Update Supabase status
+        supabase.table("scheduled_scans").update({"status": "cancelled"}).eq("id", scan_id).execute()
+        
+        # 3. Remove from APScheduler
+        try:
+            scheduler.remove_job(request.site_id)
+        except:
+            # Maybe it wasn't there or had a different ID
+            pass
+            
+        return {"message": "Scan cancelled successfully."}
+    except Exception as e:
+        logger.error(f"Failed to cancel scan: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/schedule-scan")
 async def schedule_scan(request: ScheduleRequest):
@@ -256,30 +385,43 @@ async def schedule_scan(request: ScheduleRequest):
         except Exception as e:
             logger.error(f"Failed to check existing scans: {e}")
 
-    run_date = datetime.now(timezone.utc) + timedelta(hours=request.delay_hours)
+    # Determine interval for recurring scans
+    if request.delay_minutes is not None:
+        interval_minutes = request.delay_minutes
+        interval_hours = None
+    else:
+        interval_minutes = None
+        interval_hours = request.delay_hours if request.delay_hours is not None else 24
     
-    # Format date for human readability
-    # Convert to local time approximation if needed, or just keep UTC with timezone label
-    # User wanted "common man words". Let's format nicely.
-    # Note: run_date is UTC. Ideally we'd know user timezone, but we'll return generic readable format.
-    formatted_date = run_date.strftime("%A, %B %d at %I:%M %p UTC")
+    # Calculate first run time (same as before for initial delay)
+    if interval_minutes:
+        run_date = datetime.now(timezone.utc) + timedelta(minutes=interval_minutes)
+        formatted_date = run_date.strftime("%A, %B %d at %I:%M %p UTC")
+    else:
+        run_date = datetime.now(timezone.utc) + timedelta(hours=interval_hours)
+        formatted_date = run_date.strftime("%A, %B %d at %I:%M %p UTC")
 
     # Persist schedule
     scan_id = None
     if supabase:
         try:
-            data = supabase.table("scheduled_scans").insert({
+            payload = {
                 "site_id": request.site_id,
                 "url": request.url,
                 "user_email": request.email,
                 "scheduled_for": run_date.isoformat(),
                 "status": "pending"
-            }).execute()
+            }
+            
+            data = supabase.table("scheduled_scans").insert(payload).execute()
+            
             if data.data:
                 scan_id = data.data[0]['id']
         except Exception as e:
             logger.error(f"Failed to insert scheduled scan: {e}")
             pass
+    else:
+        logger.warning("Supabase client is not initialized. Skipping DB persistence.")
 
     # Schedule Job
     safe_scan_id = scan_id or "temp_id"
@@ -290,22 +432,45 @@ async def schedule_scan(request: ScheduleRequest):
             request.email,
             f"Deep Scan Scheduled: {request.url}",
             "Deep Scan Scheduled Successfully",
-            f"We have scheduled a comprehensive AEO analysis for <strong>{request.url}</strong>.<br><br>The scan will execute automatically on <strong>{formatted_date}</strong>. You don't need to keep your browser open—we'll notify you when it's done.",
+            f"We have scheduled a comprehensive AEO analysis for <strong>{request.url}</strong>.<br><br>The scan will execute automatically on <strong>{formatted_date}</strong>. You don't need to keep your browser open, we'll notify you when it's done.",
             "Go to Dashboard",
             "https://checksiteaeo.com/dashboard"
         )
 
-    scheduler.add_job(
-        perform_scheduled_scan, 
-        'date', 
-        run_date=run_date, 
-        args=[request.site_id, request.url, request.email, safe_scan_id]
-    )
+    print(f"🕐 SCHEDULING RECURRING JOB: interval={interval_minutes}m or {interval_hours}h, site_id={request.site_id}")
+    
+    # Use interval trigger for recurring scans
+    if interval_minutes:
+        scheduler.add_job(
+            perform_scheduled_scan, 
+            'interval', 
+            minutes=interval_minutes,
+            args=[request.site_id, request.url, request.email, safe_scan_id],
+            id=request.site_id,
+            replace_existing=True,
+            next_run_time=run_date,  # First run at the calculated time
+            misfire_grace_time=3600
+        )
+    else:
+        scheduler.add_job(
+            perform_scheduled_scan, 
+            'interval', 
+            hours=interval_hours,
+            args=[request.site_id, request.url, request.email, safe_scan_id],
+            id=request.site_id,
+            replace_existing=True,
+            next_run_time=run_date,
+            misfire_grace_time=3600
+        )
+    
+    # Debug: List all jobs
+    print("📋 ALL SCHEDULED JOBS:")
+    for job in scheduler.get_jobs():
+        print(f"  → {job.id} | {job.name} | Next Run: {job.next_run_time}")
     
     return {
-        "message": f"Scan scheduled for {formatted_date}", 
-        "scan_id": scan_id,
-        "mock_email": not bool(RESEND_API_KEY)
+        "message": f"Recurring scan enabled. First scan: {formatted_date}, then every {interval_minutes or (interval_hours * 60)} minutes", 
+        "scan_id": scan_id
     }
 
 class PlanRequest(BaseModel):
