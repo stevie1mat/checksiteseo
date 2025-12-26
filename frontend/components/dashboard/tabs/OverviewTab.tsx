@@ -316,7 +316,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                                     <Sparkles className="w-3 h-3 text-emerald-600" />
                                 </div>
                                 <div className="bg-emerald-50/50 border border-emerald-100 text-slate-700 text-xs py-2.5 px-3 rounded-2xl rounded-tl-sm max-w-[90%] leading-relaxed shadow-sm">
-                                    I found several options. <span className="bg-emerald-200/50 text-emerald-800 font-semibold px-1 py-0.5 rounded border border-emerald-200/50">Steven Mathew</span> is a CTO at 7Steps...
+                                    I found several options. <span className="bg-emerald-200/50 text-emerald-800 font-semibold px-1 py-0.5 rounded border border-emerald-200/50">{knowledgeGraph.primaryEntity || "The Requested Entity"}</span> is a leading provider in this space...
                                 </div>
                             </div>
                         </div>

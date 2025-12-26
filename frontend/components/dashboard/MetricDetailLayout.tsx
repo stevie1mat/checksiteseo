@@ -68,7 +68,7 @@ export function MetricDetailLayout({
                                 <div>
                                     <h1 className="text-2xl font-bold font-serif tracking-wide text-white mb-2">{title}</h1>
                                     <Badge className={`${currentStatusColor.badge} border-none px-3 py-1 text-xs font-bold uppercase tracking-widest`}>
-                                        {status === 'critical' ? 'Missing 🔴' : status === 'warning' ? 'Issue ⚠️' : 'Valid ✅'}
+                                        {status === 'critical' ? 'At Risk 🔴' : status === 'warning' ? 'Issue ⚠️' : 'Valid ✅'}
                                     </Badge>
                                 </div>
                                 <div className="p-3 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">

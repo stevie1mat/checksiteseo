@@ -27,7 +27,7 @@ export default async function DashboardPage() {
         .limit(30, { referencedTable: 'site_history' }) // Last 30 points per site
 
     const siteCount = sites?.length || 0
-    const FREE_PLAN_LIMIT = 1 // 1 site for free plan
+    const FREE_PLAN_LIMIT = 3 // 3 sites for free plan
 
     return (
         <div className="space-y-8 w-full">

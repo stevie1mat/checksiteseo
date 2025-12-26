@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Check, Sparkles, AlertCircle, Download, XCircle, Bot, FileText, Code, AlignLeft, Search, Lock } from "lucide-react"
-// Recharts import removed
 
 type AnalysisResult = {
     url: string
@@ -24,6 +23,7 @@ type AnalysisResult = {
             visual: { score: number; details: string[] }
             freshness: { score: number; details: string[] }
             word_count: { score: number; details: string[] }
+            gap?: { score: number; details: string[] } // Optional
         }
         authority: {
             eeat: { score: number; details: string[] }
@@ -60,15 +60,13 @@ export function HeroSection() {
         }
     }
 
-    // Chart Data logic removed as we switched to 3-column layout
-
-
     return (
         <section className={`relative min-h-[90vh] flex flex-col items-center pt-40 pb-20 px-6 bg-[#224034] text-white transition-all duration-700 overflow-hidden ${result ? 'min-h-screen' : ''}`}>
 
             {/* Background Details */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none -z-0" />
             <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-[#8cd9b8]/5 rounded-full blur-[100px] pointer-events-none -z-0" />
+
             {/* Grid Pattern */}
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none -z-0" />
 
@@ -121,11 +119,12 @@ export function HeroSection() {
                 {error && <p className="text-red-300 mt-4 text-sm bg-red-900/20 p-2 rounded">{error}</p>}
             </div>
 
-            {/* Hero Image / Dashboard Mockup Placeholder - REMOVED */}
-            {result && (
-                <div className="w-full max-w-6xl mt-16 bg-[#F8F9FA] rounded-2xl p-6 md:p-10 shadow-2xl animate-in slide-in-from-bottom-20 duration-1000">
-                    {/* ... Dashboard Content ... */}
-                    {/* ... Dashboard Content ... */}
+            {/* Result Dashboard */}
+            {/* Result Dashboard */}
+            {result && result.breakdown && (
+                <div className="w-full max-w-6xl mt-16 bg-[#F8F9FA] rounded-2xl p-6 md:p-10 shadow-2xl animate-in slide-in-from-bottom-20 duration-1000 text-slate-900">
+
+                    {/* Header */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 pb-8 border-b border-gray-100 gap-6">
                         <div className="space-y-4">
                             <div className="flex items-center gap-3">
@@ -162,7 +161,7 @@ export function HeroSection() {
                                     <p className="text-emerald-200/80 font-medium uppercase tracking-widest text-xs mb-3">Overall AEO Readiness</p>
                                     <div className="flex items-center justify-center gap-3">
                                         <div className="text-7xl md:text-8xl font-serif tracking-tighter leading-none">
-                                            {result.total_score}
+                                            {result.total_score || 0}
                                         </div>
                                         <div className="text-left space-y-1">
                                             <div className="text-xl font-light opacity-80">/ 100</div>
@@ -184,13 +183,13 @@ export function HeroSection() {
                                     <p className="text-emerald-200/80 font-medium uppercase tracking-widest text-xs mb-3">Authority / E-E-A-T</p>
                                     <div className="flex items-center justify-center gap-3">
                                         <div className="text-6xl md:text-7xl font-serif tracking-tighter leading-none">
-                                            {result.breakdown.authority.eeat.score}
+                                            {result.breakdown?.authority?.eeat?.score || 0}
                                         </div>
                                         <div className="text-left space-y-1">
                                             <div className="text-lg font-light opacity-80">/ 100</div>
-                                            <div className={`text-sm font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm ${result.breakdown.authority.eeat.score >= 80 ? 'bg-emerald-400/20 text-emerald-100' : 'bg-amber-500/20 text-amber-100'
+                                            <div className={`text-sm font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm ${(result.breakdown?.authority?.eeat?.score || 0) >= 80 ? 'bg-emerald-400/20 text-emerald-100' : 'bg-amber-500/20 text-amber-100'
                                                 }`}>
-                                                {result.breakdown.authority.eeat.score >= 100 ? 'High' : result.breakdown.authority.eeat.score >= 50 ? 'Medium' : 'Low'}
+                                                {(result.breakdown?.authority?.eeat?.score || 0) >= 80 ? 'High' : (result.breakdown?.authority?.eeat?.score || 0) >= 50 ? 'Medium' : 'Low'}
                                             </div>
                                         </div>
                                     </div>
@@ -217,31 +216,31 @@ export function HeroSection() {
                                 <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
                                     <div>
                                         <p className="font-semibold text-slate-700 text-sm">Robots.txt</p>
-                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown.technical.robots.details[0]}</p>
+                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.robots?.details?.[0] || "N/A"}</p>
                                     </div>
-                                    {result.breakdown.technical.robots.score > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
+                                    {(result.breakdown?.technical?.robots?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
                                 </div>
                                 {/* LLMs */}
                                 <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
                                     <div>
                                         <p className="font-semibold text-slate-700 text-sm">LLMs.txt</p>
-                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown.technical.llms.details[0]}</p>
+                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.llms?.details?.[0] || "N/A"}</p>
                                     </div>
-                                    {result.breakdown.technical.llms.score > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
+                                    {(result.breakdown?.technical?.llms?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
                                 </div>
                                 {/* Schema */}
                                 <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
                                     <div>
                                         <p className="font-semibold text-slate-700 text-sm">Schema.org</p>
-                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown.technical.schema.details[0]}</p>
+                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.schema?.details?.[0] || "N/A"}</p>
                                     </div>
-                                    {result.breakdown.technical.schema.score > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
+                                    {(result.breakdown?.technical?.schema?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
                                 </div>
                                 {/* Sitemap */}
                                 <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
                                     <div>
                                         <p className="font-semibold text-slate-700 text-sm">Sitemap.xml</p>
-                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown.technical.sitemap.details[0]}</p>
+                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.sitemap?.details?.[0] || "N/A"}</p>
                                     </div>
                                     <Check className="w-5 h-5 text-emerald-500" />
                                 </div>
@@ -249,7 +248,7 @@ export function HeroSection() {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="font-semibold text-slate-700 text-sm">HTTPS Secured</p>
-                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown.technical.https.details[0]}</p>
+                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.https?.details?.[0] || "N/A"}</p>
                                     </div>
                                     <Check className="w-5 h-5 text-emerald-500" />
                                 </div>
@@ -269,7 +268,9 @@ export function HeroSection() {
                                         <p className="font-semibold text-slate-700 text-sm">Question Targeting</p>
                                         <p className="text-xs text-slate-500 mt-0.5">Headers asking questions</p>
                                     </div>
-                                    <Badge variant="secondary" className="bg-slate-100 text-slate-700">{result.breakdown.content.questions.details[0].split('/')[0]} / 5</Badge>
+                                    <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                                        {result.breakdown?.content?.questions?.details?.[0]?.split('/')[0] || 0} / 5
+                                    </Badge>
                                 </div>
                                 {/* Readability */}
                                 <div className="pb-4 border-b border-gray-50">
@@ -278,11 +279,12 @@ export function HeroSection() {
                                             <p className="font-semibold text-slate-700 text-sm">Readability</p>
                                             <p className="text-xs text-slate-500 mt-0.5">Flesch-Kincaid Grade</p>
                                         </div>
-                                        <Badge variant="outline" className={`${result.breakdown.content.readability.details[0].includes('Complex') ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                                            {result.breakdown.content.readability.details[0].split('(')[0]}
+                                        <Badge variant="outline" className={`${(result.breakdown?.content?.readability?.details?.[0] || "").includes('Complex') ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                            }`}>
+                                            {(result.breakdown?.content?.readability?.details?.[0] || "N/A").split('(')[0]}
                                         </Badge>
                                     </div>
-                                    {result.breakdown.content.readability.details.find(d => d.startsWith("Suggestion:")) && (
+                                    {result.breakdown?.content?.readability?.details?.find(d => d.startsWith("Suggestion:")) && (
                                         <div className="mt-2 bg-orange-50/50 rounded-lg p-2 border border-orange-100 text-xs">
                                             <span className="font-bold text-orange-600 block mb-0.5">AI Rewrite Suggestion:</span>
                                             <span className="text-slate-600 italic">"{result.breakdown.content.readability.details.find(d => d.startsWith("Suggestion:"))?.replace("Suggestion:", "").trim()}"</span>
@@ -293,10 +295,10 @@ export function HeroSection() {
                                 <div className=" pb-4 border-b border-gray-50">
                                     <div className="flex justify-between mb-2">
                                         <p className="font-semibold text-slate-700 text-sm">Visual Context</p>
-                                        <p className="text-xs font-medium text-slate-600">{result.breakdown.content.visual.details[0]}</p>
+                                        <p className="text-xs font-medium text-slate-600">{result.breakdown?.content?.visual?.details?.[0] || "0% Alt Text"}</p>
                                     </div>
                                     <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-blue-500 rounded-full" style={{ width: result.breakdown.content.visual.details[0].split('%')[0] + '%' }}></div>
+                                        <div className="h-full bg-blue-500 rounded-full" style={{ width: (result.breakdown?.content?.visual?.details?.[0]?.split('%')[0] || "0") + '%' }}></div>
                                     </div>
                                 </div>
                                 {/* Freshness */}
@@ -305,21 +307,18 @@ export function HeroSection() {
                                         <p className="font-semibold text-slate-700 text-sm">Content Freshness</p>
                                         <p className="text-xs text-slate-500 mt-0.5">Dates validated in metadata</p>
                                     </div>
-                                    {result.breakdown.content.freshness.score > 0 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
+                                    {(result.breakdown?.content?.freshness?.score || 0) > 0 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
                                 </div>
                                 {/* Word Count */}
                                 <div className="flex justify-between items-center">
                                     <div>
                                         <p className="font-semibold text-slate-700 text-sm">Word Count</p>
-                                        <p className="text-xs text-slate-500 mt-0.5">{result.breakdown.content.word_count.details[0]}</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">{result.breakdown?.content?.word_count?.details?.[0] || "N/A"}</p>
                                     </div>
-                                    {result.breakdown.content.word_count.score > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
+                                    {(result.breakdown?.content?.word_count?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
                                 </div>
                             </div>
                         </div>
-
-                        {/* [NEW] Content Gap Analysis - Full Width */}
-                        {/* @ts-ignore */}
 
                         {/* Column 3: Authority Signals */}
                         <div className="space-y-6 md:row-span-2">
@@ -336,13 +335,13 @@ export function HeroSection() {
                                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                                         <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-3">Strengths</p>
                                         <ul className="space-y-3">
-                                            {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Pro:")).slice(0, 5).map((signal, i) => (
+                                            {result.breakdown?.authority?.eeat?.details?.filter(s => s.startsWith("Pro:")).slice(0, 5).map((signal, i) => (
                                                 <li key={i} className="flex items-start gap-3 text-sm text-slate-600 border-b border-gray-50 pb-2 last:border-0 last:pb-0">
                                                     <Check className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
                                                     <span className="text-sm leading-relaxed">{signal.replace("Pro:", "").trim()}</span>
                                                 </li>
                                             ))}
-                                            {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Pro:")).length > 5 && (
+                                            {(result.breakdown?.authority?.eeat?.details?.filter(s => s.startsWith("Pro:"))?.length || 0) > 5 && (
                                                 <li className="text-center pt-3 border-t border-gray-50 mt-1">
                                                     <button
                                                         onClick={() => setIsRegisterOpen(true)}
@@ -361,13 +360,13 @@ export function HeroSection() {
                                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                                         <p className="text-xs font-semibold text-red-500 uppercase tracking-wider mb-3">Weaknesses & Risks</p>
                                         <ul className="space-y-3">
-                                            {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Con:")).slice(0, 5).map((signal, i) => (
+                                            {result.breakdown?.authority?.eeat?.details?.filter(s => s.startsWith("Con:")).slice(0, 5).map((signal, i) => (
                                                 <li key={i} className="flex items-start gap-3 text-sm text-slate-600 border-b border-gray-50 pb-2 last:border-0 last:pb-0">
                                                     <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
                                                     <span className="text-sm leading-relaxed">{signal.replace("Con:", "").trim()}</span>
                                                 </li>
                                             ))}
-                                            {result.breakdown.authority.eeat.details.filter(s => s.startsWith("Con:")).length > 5 && (
+                                            {(result.breakdown?.authority?.eeat?.details?.filter(s => s.startsWith("Con:"))?.length || 0) > 5 && (
                                                 <li className="text-center pt-3 border-t border-gray-50 mt-1">
                                                     <button
                                                         onClick={() => setIsRegisterOpen(true)}
@@ -384,8 +383,7 @@ export function HeroSection() {
                         </div>
 
                         {/* [NEW] Content Gap Analysis - Full Width */}
-                        {/* @ts-ignore */}
-                        {result.breakdown.content.gap && result.breakdown.content.gap.details.length > 0 && (
+                        {result.breakdown?.content?.gap && (result.breakdown.content.gap.details?.length || 0) > 0 && (
                             <div className="md:col-span-2 bg-[#224034] rounded-xl p-8 text-white shadow-lg relative overflow-hidden group h-fit">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-emerald-500/20 transition-all duration-700" />
                                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#8cd9b8]/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
@@ -395,22 +393,16 @@ export function HeroSection() {
                                     <p className="text-emerald-200/80 font-medium uppercase tracking-widest text-xs mb-3">The Missing Answer</p>
                                     <div className="flex items-center justify-center gap-3">
                                         <div className="text-6xl md:text-7xl font-serif tracking-tighter leading-none">
-                                            {/* @ts-ignore */}
-                                            {Math.max(0, 100 - (result.breakdown.content.gap.details.length * 10))}
+                                            {Math.max(0, 100 - ((result.breakdown.content.gap?.details?.length || 0) * 10))}
                                         </div>
                                         <div className="text-left space-y-1">
                                             <div className="text-lg font-light opacity-80">/ 100</div>
-                                            <div className={`text-sm font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm ${
-                                                /* @ts-ignore */
-                                                result.breakdown.content.gap.details.length <= 3 ? 'bg-emerald-400/20 text-emerald-100' :
-                                                    /* @ts-ignore */
-                                                    result.breakdown.content.gap.details.length <= 5 ? 'bg-amber-500/20 text-amber-100' :
+                                            <div className={`text-sm font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm ${(result.breakdown.content.gap?.details?.length || 0) <= 3 ? 'bg-emerald-400/20 text-emerald-100' :
+                                                    (result.breakdown.content.gap?.details?.length || 0) <= 5 ? 'bg-amber-500/20 text-amber-100' :
                                                         'bg-red-500/20 text-red-100'
                                                 }`}>
-                                                {/* @ts-ignore */}
-                                                {result.breakdown.content.gap.details.length <= 3 ? 'Good' :
-                                                    /* @ts-ignore */
-                                                    result.breakdown.content.gap.details.length <= 5 ? 'Fair' :
+                                                {(result.breakdown.content.gap?.details?.length || 0) <= 3 ? 'Good' :
+                                                    (result.breakdown.content.gap?.details?.length || 0) <= 5 ? 'Fair' :
                                                         'Needs Work'}
                                             </div>
                                         </div>
@@ -424,8 +416,7 @@ export function HeroSection() {
                                 <div className="relative z-10 border-t border-emerald-500/20 pt-6">
                                     <p className="text-xs font-semibold text-emerald-200/80 uppercase tracking-wider mb-4">Missing Topics</p>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        {/* @ts-ignore */}
-                                        {result.breakdown.content.gap.details.map((topic: string, i: number) => (
+                                        {result.breakdown.content.gap?.details?.map((topic: string, i: number) => (
                                             <div key={i} className="bg-white/5 p-4 rounded-lg border border-emerald-500/20 hover:bg-white/10 transition-colors">
                                                 <span className="font-medium text-emerald-50 text-sm">{topic}</span>
                                             </div>
@@ -436,9 +427,6 @@ export function HeroSection() {
                         )}
 
                     </div>
-
-
-
                 </div>
             )}
 
@@ -463,7 +451,7 @@ export function HeroSection() {
 
                             <h3 className="text-2xl font-serif text-[#224034]">Unlock Full Analysis</h3>
                             <p className="text-slate-600 text-sm leading-relaxed">
-                                Get access to all <strong>{result?.breakdown.authority.eeat.details.length} authority signals</strong>, detailed competitor comparisons, and the full content gap report.
+                                Get access to all <strong>{result?.breakdown?.authority?.eeat?.details?.length || 0} authority signals</strong>, detailed competitor comparisons, and the full content gap report.
                             </p>
 
                             <div className="pt-2 space-y-3">

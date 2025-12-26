@@ -15,7 +15,10 @@ import {
     Clock,
     Wand2,
     ArrowRight,
-    ArrowLeft
+    ArrowLeft,
+    Search,
+    Plus,
+    X
 } from "lucide-react"
 
 interface ShareOfVoiceViewProps {
@@ -41,12 +44,15 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
     // Merge live data if available, else use initial
     const activeData = report ? (report.competitors || initialData) : initialData
 
-    // Use the data directly without fallbacks
-    const competitors = {
-        yourShare: activeData.yourShare || 0,
-        others: activeData.others || 100,
-        top_competitors: activeData.top_competitors || []
-    }
+    // Local State for Competitors (initialized from prop/report)
+    const [competitorList, setCompetitorList] = useState<string[]>(
+        activeData.top_competitors || []
+    );
+    const [isEditing, setIsEditing] = useState(false);
+    const [isAdding, setIsAdding] = useState(false);
+    const [newCompetitorUrl, setNewCompetitorUrl] = useState("");
+
+    const yourShare = activeData.yourShare || 0;
 
     const handleGeneratePlan = async () => {
         if (!selectedCompetitor) {
@@ -59,6 +65,8 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
         }
 
         setIsGenerating(true);
+        setPlanResult(null); // Reset previous result during generation
+
         toast({
             title: "Analyzing Content Strategy",
             description: `Analyzing ${selectedCompetitor} against your domain...`,
@@ -87,7 +95,7 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
             console.error("Plan generation error:", error);
             toast({
                 title: "Error",
-                description: "Failed to generate plan. Please try again.",
+                description: "Failed to generate plan. This usually means the AI analysis timed out. Please try again.",
                 variant: "destructive",
             });
         } finally {
@@ -107,6 +115,46 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
         });
     };
 
+    const handleRemoveCompetitor = (compToRemove: string) => {
+        setCompetitorList(prev => prev.filter(c => c !== compToRemove));
+        if (selectedCompetitor === compToRemove) {
+            setSelectedCompetitor(null);
+        }
+    };
+
+    const handleAddCompetitor = () => {
+        if (!newCompetitorUrl.trim()) return;
+
+        if (competitorList.length >= 5) {
+            toast({
+                title: "Limit Reached",
+                description: "You can only track up to 5 competitors.",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        // Simple domain extraction/cleanup
+        let cleanDomain = newCompetitorUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+        if (competitorList.includes(cleanDomain)) {
+            toast({
+                title: "Duplicate",
+                description: "This competitor is already in the list.",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        setCompetitorList(prev => [...prev, cleanDomain]);
+        setNewCompetitorUrl("");
+        setIsAdding(false);
+        toast({
+            title: "Competitor Added",
+            description: `${cleanDomain} added to list.`
+        });
+    };
+
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto pb-24 px-6 pt-6 animate-in fade-in duration-500">
             <Link href={`/dashboard/sites/${siteId}`} className="text-slate-500 hover:text-[#224034] transition-colors flex items-center gap-2 text-sm font-medium w-fit">
@@ -116,9 +164,9 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
 
             <MetricDetailLayout
                 title="Share of Voice Analysis"
-                status={competitors.yourShare < 20 ? 'critical' : 'pass'}
-                impact={`${competitors.yourShare}% Market Share`}
-                rawDiagnostic={JSON.stringify(competitors, null, 2)}
+                status={yourShare < 20 ? 'critical' : 'pass'}
+                impact={`${yourShare}% Market Share`}
+                rawDiagnostic={JSON.stringify({ yourShare, competitorList }, null, 2)}
                 customTabs={PRESET_TABS}
                 leftPanelTip={
                     <div className="mt-8 bg-[#8CD9B8]/10 border border-[#8CD9B8]/20 rounded-xl p-4 flex gap-3 text-emerald-100/80 text-sm">
@@ -146,13 +194,16 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
                             <div className="space-y-6 animate-in fade-in duration-300 slide-in-from-left-2 max-w-2xl">
                                 <div className="space-y-4">
                                     <h2 className="text-3xl font-serif text-slate-800 tracking-tight">Understanding Share of Voice</h2>
-                                    <p className="text-slate-600 text-lg leading-relaxed">
-                                        This component is critical for Agent Engine Optimization (AEO). Without it, AI agents may struggle to index your content correctly or understand the context of your data.
-                                    </p>
-                                </div>
+                                    <h3 className="text-xl text-emerald-800/80 font-medium">AEO Visibility Metric</h3>
 
-                                <div className="my-8 pl-6 border-l-4 border-[#8CD9B8] italic text-slate-600 py-1">
-                                    "Agents prefer structured, raw data over visual HTML. Providing this file gives you a direct line of communication to LLMs."
+                                    <div className="space-y-4 pt-1">
+                                        <p className="text-slate-600 text-lg leading-relaxed">
+                                            This metric is your ultimate scorecard for Agent Engine Optimization (AEO). It tracks how frequently AI models cite your brand compared to your competitors.
+                                        </p>
+                                        <p className="text-slate-600 text-lg leading-relaxed">
+                                            Unlike traditional SEO rankings, Share of Voice measures 'Brand Authority'—determining if AI agents view you as a trusted expert or ignore you entirely.
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-4 text-slate-600">
@@ -172,31 +223,118 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
                             <div className="animate-in fade-in duration-300 slide-in-from-right-2 h-full flex flex-col">
                                 {!planResult ? (
                                     <>
-                                        <div className="mb-6">
-                                            <h2 className="text-xl font-bold text-[#1A4036]">Competitor Gap Analysis</h2>
-                                            <p className="text-slate-500 text-sm mt-1">These domains are currently outpacing you in AI citations. Select one to analyze their content strategy.</p>
+                                        {/* Header & Edit Action */}
+                                        <div className="mb-6 flex items-start justify-between">
+                                            <div>
+                                                <h2 className="text-xl font-bold text-[#1A4036]">Competitor Gap Analysis</h2>
+                                                <p className="text-slate-500 text-sm mt-1">
+                                                    {competitorList.length > 0
+                                                        ? `Tracking ${competitorList.length}/5 competitors.`
+                                                        : "Add up to 5 competitors to analyze gaps."}
+                                                </p>
+                                            </div>
+                                            {competitorList.length > 0 && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setIsEditing(!isEditing)}
+                                                    className="text-slate-400 hover:text-slate-600 h-8 px-2"
+                                                >
+                                                    {isEditing ? "Done" : "Edit List"}
+                                                </Button>
+                                            )}
                                         </div>
 
                                         <div className="grow space-y-4">
                                             {/* Competitor List */}
-                                            <div className="grid gap-3">
-                                                {competitors.top_competitors?.map((comp: string, i: number) => (
-                                                    <div
-                                                        key={i}
-                                                        onClick={() => setSelectedCompetitor(comp)}
-                                                        className={`
-                                                            p-4 rounded-xl border flex items-center justify-between cursor-pointer transition-all duration-200 group
-                                                            ${selectedCompetitor === comp
-                                                                ? 'bg-[#1A4036] border-[#1A4036] text-white shadow-md scale-[1.01]'
-                                                                : 'bg-white border-slate-100 hover:border-[#8CD9B8] hover:shadow-sm text-slate-700'
-                                                            }
-                                                        `}
-                                                    >
-                                                        <span className="font-medium">{comp}</span>
-                                                        <ChevronRight className={`w-5 h-5 ${selectedCompetitor === comp ? 'text-[#8CD9B8]' : 'text-slate-300 group-hover:text-[#8CD9B8]'}`} />
+                                            {competitorList.length > 0 ? (
+                                                <div className="grid gap-3">
+                                                    {competitorList.map((comp, i) => (
+                                                        <div
+                                                            key={i}
+                                                            onClick={() => !isEditing && setSelectedCompetitor(comp)}
+                                                            className={`
+                                                                p-4 rounded-xl border flex items-center justify-between transition-all duration-200 group
+                                                                ${isEditing
+                                                                    ? 'bg-white border-slate-200 cursor-default'
+                                                                    : selectedCompetitor === comp
+                                                                        ? 'bg-[#1A4036] border-[#1A4036] text-white shadow-md scale-[1.01] cursor-pointer'
+                                                                        : 'bg-white border-slate-100 hover:border-[#8CD9B8] hover:shadow-sm text-slate-700 cursor-pointer'
+                                                                }
+                                                            `}
+                                                        >
+                                                            <span className="font-medium">{comp}</span>
+
+                                                            {isEditing ? (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleRemoveCompetitor(comp);
+                                                                    }}
+                                                                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full"
+                                                                >
+                                                                    <X className="w-4 h-4" />
+                                                                </Button>
+                                                            ) : (
+                                                                <ChevronRight className={`w-5 h-5 ${selectedCompetitor === comp ? 'text-[#8CD9B8]' : 'text-slate-300 group-hover:text-[#8CD9B8]'}`} />
+                                                            )}
+                                                        </div>
+                                                    ))}
+
+                                                    {/* Inline Add Button if valid list exists but user wants more */}
+                                                    {isEditing && (
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => { setIsEditing(false); setIsAdding(true); }}
+                                                            disabled={competitorList.length >= 5}
+                                                            className="w-full border-dashed border-slate-300 text-slate-500 hover:border-[#8CD9B8] hover:text-[#1A4036] disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            <Plus className="w-4 h-4 mr-2" />
+                                                            {competitorList.length >= 5 ? "Limit Reached (5/5)" : "Add Another"}
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                /* Empty State */
+                                                <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50">
+                                                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm border border-slate-100">
+                                                        <Search className="w-8 h-8 text-slate-300" />
                                                     </div>
-                                                )) || <div className="text-slate-500 italic">No competitors detected.</div>}
-                                            </div>
+                                                    <h3 className="text-lg font-semibold text-slate-700 mb-2">No competitors defined</h3>
+                                                    <p className="text-slate-500 max-w-xs mb-6 mx-auto">
+                                                        Add a competitor URL to generate a content strategy plan.
+                                                    </p>
+                                                    <Button
+                                                        onClick={() => setIsAdding(true)}
+                                                        className="bg-white text-slate-700 border border-slate-200 hover:border-[#8CD9B8] hover:text-[#1A4036] shadow-sm"
+                                                    >
+                                                        Add Competitor URL
+                                                    </Button>
+                                                </div>
+                                            )}
+
+                                            {/* Add Competitor Input UI */}
+                                            {isAdding && (
+                                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-top-2">
+                                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Competitor Domain</label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="e.g. competitor.com"
+                                                            value={newCompetitorUrl}
+                                                            onChange={(e) => setNewCompetitorUrl(e.target.value)}
+                                                            className="flex-1 px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8CD9B8]/50 text-sm"
+                                                            onKeyDown={(e) => e.key === 'Enter' && handleAddCompetitor()}
+                                                        />
+                                                        <Button onClick={handleAddCompetitor} className="bg-[#1A4036] text-white hover:bg-[#224034]">
+                                                            Add
+                                                        </Button>
+                                                        <Button variant="ghost" onClick={() => setIsAdding(false)}>Cancel</Button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Action Footer */}
@@ -204,7 +342,7 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
                                             <Button
                                                 onClick={handleGeneratePlan}
                                                 disabled={isGenerating || !selectedCompetitor}
-                                                className="bg-gradient-to-r from-[#224034] to-[#1A3027] hover:from-[#1A3027] hover:to-[#224034] text-white pl-8 pr-6 py-6 h-auto text-lg rounded-xl shadow-lg hover:shadow-xl shadow-[#224034]/20 group transition-all duration-300 border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="w-full bg-gradient-to-r from-[#224034] to-[#1A3027] hover:from-[#1A3027] hover:to-[#224034] text-white py-4 h-auto text-lg rounded-xl shadow-lg hover:shadow-xl shadow-[#224034]/20 group transition-all duration-300 border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 {isGenerating ? (
                                                     <>
@@ -222,6 +360,7 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
                                         </div>
                                     </>
                                 ) : (
+                                    // Plan Result UI (Same as before)
                                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
                                         <div className="flex items-center justify-between mb-4">
                                             <div>

@@ -65,7 +65,7 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
     };
 
     return (
-        <div className="space-y-8 max-w-6xl mx-auto pb-24">
+        <div className="space-y-8 w-full pb-24">
             {/* Header / Nav */}
             <div className="flex flex-col gap-4">
                 <Link href="/dashboard" className="text-slate-500 hover:text-[#224034] transition-colors flex items-center gap-2 text-sm font-medium w-fit">

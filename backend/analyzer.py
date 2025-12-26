@@ -10,6 +10,94 @@ import textstat
 load_dotenv()
 
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# --- AI Helper Function ---
+
+async def query_llm(prompt: str, json_mode: bool = True, temperature: float = 0.3) -> dict | str | None:
+    """
+    Queries Gemini 2.0 Flash first, then falls back to Mistral.
+    Returns a dict if json_mode is True, otherwise a string.
+    Returns None if both fail.
+    """
+    
+    # 1. Try Gemini
+    if GEMINI_API_KEY:
+        print(f"🤖 [AI] Using Gemini 2.0 Flash...")
+        try:
+            url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+            headers = {
+                "Content-Type": "application/json",
+                "X-goog-api-key": GEMINI_API_KEY
+            }
+            
+            payload = {
+                "contents": [{
+                    "parts": [{"text": prompt}]
+                }],
+                "generationConfig": {
+                    "temperature": temperature
+                }
+            }
+            
+            if json_mode:
+                payload["generationConfig"]["response_mime_type"] = "application/json"
+
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.post(url, json=payload, headers=headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                text_content = data['candidates'][0]['content']['parts'][0]['text']
+                if json_mode:
+                    # Clean markdown code blocks if present (Gemini sometimes adds ```json ... ``` even with mime type)
+                    cleaned = text_content.replace('```json', '').replace('```', '').strip()
+                    return json.loads(cleaned)
+                return text_content
+            else:
+                print(f"Gemini Error {response.status_code}: {response.text}")
+
+        except Exception as e:
+            print(f"Gemini Exception: {e}")
+            pass # Fallthrough to Mistral
+
+    # 2. Try Mistral (Fallback)
+    if MISTRAL_API_KEY:
+        print(f"⚠️ [AI] Falling back to Mistral...")
+        try:
+            url = "https://api.mistral.ai/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {MISTRAL_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": "mistral-small-latest",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": temperature,
+            }
+
+            if json_mode:
+                 payload["response_format"] = {"type": "json_object"}
+
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.post(url, json=payload, headers=headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                content = data['choices'][0]['message']['content']
+                if json_mode:
+                    return json.loads(content)
+                return content
+            else:
+                 print(f"Mistral Error {response.status_code}: {response.text}")
+                 
+        except Exception as e:
+            print(f"Mistral Exception: {e}")
+            pass
+
+    return None
+
 
 # --- Check Functions ---
 
@@ -115,16 +203,7 @@ def check_question_targeting(soup) -> dict:
     }
 
 async def analyze_eeat_via_llm(text_content: str) -> dict:
-    """Uses Mistral API to analyze E-E-A-T signals."""
-    if not MISTRAL_API_KEY:
-        return {"score": 0, "details": ["API Key Missing"]}
-
-    url = "https://api.mistral.ai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
+    """Uses Gemini/Mistral to analyze E-E-A-T signals."""
     prompt = f"""
     You are an expert SEO Quality Rater. Analyze the content for E-E-A-T signals AND Hallucination Risks.
     
@@ -133,8 +212,8 @@ async def analyze_eeat_via_llm(text_content: str) -> dict:
     
     Return a JSON object with:
     - score: 0-100 integer
-    - pros: List of specific strengths found
-    - cons: List of specific weaknesses
+    - pros: List of specific strengths found [String]
+    - cons: List of specific weaknesses [String]
     - hallucination_risk: {{
         "level": "Low" | "Medium" | "High",
         "reason": "Explain why (e.g. 'Vague temporal claims found')",
@@ -145,68 +224,25 @@ async def analyze_eeat_via_llm(text_content: str) -> dict:
     {text_content[:2000]}...
     """
     
-    payload = {
-        "model": "mistral-small-latest",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.2,
-        "response_format": {"type": "json_object"}
-    }
+    result = await query_llm(prompt, json_mode=True)
     
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
+    if result:
+        # Normalize
+        pros = [f"Pro: {p}" for p in result.get("pros", [])]
+        cons = [f"Con: {c}" for c in result.get("cons", [])]
         
-        if response.status_code == 200:
-            data = response.json()
-            content = data['choices'][0]['message']['content']
-            result = json.loads(content)
-            
-            # Normalize to match frontend expected structure (details array for compatibility or specific fields)
-            # We will pack pros/cons into 'details' for now, or update frontend to read pros/cons.
-            # Let's pack them into details strings for backwards compat, but marked.
-            
-            pros = [f"Pro: {p}" for p in result.get("pros", [])]
-            cons = [f"Con: {c}" for c in result.get("cons", [])]
-            
-            return {
-                "score": result.get("score", 50),
-                "details": pros + cons,
-                "hallucination_risk": result.get("hallucination_risk", {})
-            }
-        else:
-            return {"score": 0, "details": [f"AI Error: {response.status_code}"]}
-            
-    except Exception as e:
-        return {"score": 0, "details": [f"AI Error: {str(e)}"]}
+        return {
+            "score": result.get("score", 50),
+            "details": pros + cons,
+            "hallucination_risk": result.get("hallucination_risk", {})
+        }
+    
+    return {"score": 0, "details": ["AI Analysis Failed"]}
 
 async def analyze_content_gap(text_content: str) -> dict:
-    """Asks AI what is missing from the page."""
-    if not MISTRAL_API_KEY:
-        return {"score": 0, "details": ["API Key Missing"]}
-
-    url = "https://api.mistral.ai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    prompt = f"""
-    Analyze this website homepage content. 
-    Based STRICTLY on what the specific page is about (e.g. a Portfolio, a SaaS, a Blog), what important information is MISSING?
-
-    Do NOT use generic examples like "Pricing" or "API Docs" unless they are actually relevant to this specific entity.
-    For a portfolio, look for "Case Studies", "Resume/CV", "Tech Stack", "Project Details", "Contact Info", "Testimonials", "About/Bio", "Skills", "Experience Timeline".
-    For a SaaS, look for "Pricing", "Features", "Use Cases", "Integrations", "Security/Compliance", "Customer Reviews", "API Documentation", "Comparison Chart".
-    For a blog/content site, look for "Author Bio", "Categories", "Newsletter", "Social Links", "Popular Posts", "About Page".
-    
-    Return a JSON object with:
-    - missing_topics: List of 6-9 key short missing items that are RELEVANT and SPECIFIC to this entity. Be comprehensive but focused.
-    
-    Content:
-    {text_content[:2000]}...
-    """
-    
-    return {"score": 0, "details": ["AI Check Failed"]}
+    # NOTE: This function seems unused or duplicate of analyze_failed_queries in user flow, 
+    # but I will update it just in case.
+    return {"score": 0, "details": ["Legacy Function"]}
 
 def calculate_agent_economics(text_content: str, raw_html_len: int) -> dict:
     """Calculates token usage and estimated cost."""
@@ -218,16 +254,14 @@ def calculate_agent_economics(text_content: str, raw_html_len: int) -> dict:
         # Fallback if tiktoken fails
         token_count = len(text_content.split()) * 1.3
         
-    # Boilerplate estimation (very rough: difference between raw HTML size and clean text size)
+    # Boilerplate estimation
     clean_len = len(text_content)
     boilerplate_ratio = round((1 - (clean_len / max(raw_html_len, 1))) * 100, 1)
 
-    # HTML vs Content Ratio (Signal-to-Noise)
-    # Ratio of Clean Text to Raw HTML. 
-    # E.g. 500 chars text / 8000 chars HTML = 0.0625 (1:16 ratio)
+    # HTML vs Content Ratio
     ratio = clean_len / max(raw_html_len, 1)
     
-    # Cost: $2.50 / 1M input tokens (GPT-4o rough avg) -> $0.0000025 per token
+    # Cost: $2.50 / 1M input tokens (approx)
     cost_est = (token_count / 1_000_000) * 2.50
     
     # Interpretation
@@ -249,15 +283,6 @@ def calculate_agent_economics(text_content: str, raw_html_len: int) -> dict:
 
 async def analyze_failed_queries(text_content: str) -> dict:
     """Simulates user questions that the site might fail to answer."""
-    if not MISTRAL_API_KEY:
-        return {"score": 0, "details": [], "data": []}
-
-    url = "https://api.mistral.ai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
     prompt = f"""
     Analyze the following website content. Act as a potential client looking to hire a developer or buy a service.
     
@@ -280,48 +305,24 @@ async def analyze_failed_queries(text_content: str) -> dict:
     {text_content[:3000]}...
     """
 
-    payload = {
-        "model": "mistral-small-latest",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.2,
-        "response_format": {"type": "json_object"}
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
+    result = await query_llm(prompt, json_mode=True, temperature=0.2)
+    
+    if result:
+        queries = result.get("queries", [])
+        # Score based on how many are NOT missing
+        found_count = sum(1 for q in queries if q["status"] == "Explicitly Stated")
+        score = int((found_count / max(len(queries), 1)) * 100)
         
-        if response.status_code == 200:
-            data = response.json()
-            result = json.loads(data['choices'][0]['message']['content'])
-            queries = result.get("queries", [])
-            
-            # Score based on how many are NOT missing
-            found_count = sum(1 for q in queries if q["status"] == "Explicitly Stated")
-            score = int((found_count / max(len(queries), 1)) * 100)
-            
-            return {
-                "score": score,
-                "details": [f"{q['question']} ({q['status']})" for q in queries],
-                "data": queries
-            }
-    except Exception as e:
-        print(f"Failed Query Analysis Error: {e}")
-        pass
+        return {
+            "score": score,
+            "details": [f"{q['question']} ({q['status']})" for q in queries],
+            "data": queries
+        }
         
     return {"score": 0, "details": ["AI Check Failed"], "data": []}
 
 async def extract_entities(text_content: str) -> dict:
     """Extracts named entities for the Knowledge Graph."""
-    if not MISTRAL_API_KEY:
-        return {"score": 0, "details": [], "data": {}}
-
-    url = "https://api.mistral.ai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
     prompt = f"""
     Analyze the text for the PRIMARY entity (Person or Organization).
     1. Identify the Name and Type (Person/Org).
@@ -344,145 +345,82 @@ async def extract_entities(text_content: str) -> dict:
     {text_content[:2000]}...
     """
 
-    payload = {
-        "model": "mistral-small-latest",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.1,
-        "response_format": {"type": "json_object"}
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-        
-        if response.status_code == 200:
-            data = response.json()
-            result = json.loads(data['choices'][0]['message']['content'])
-            
-            # Simple scoring: do we have at least one Person/Org/Skill?
-            has_data = any(v and v != 'None Detected' for v in result.values())
-            
-            return {
-                "score": 100 if has_data else 0,
-                "details": ["Entities Extracted" if has_data else "No Entities Found"],
-                "data": result
-            }
-    except:
-        pass
+    result = await query_llm(prompt, json_mode=True, temperature=0.1)
+    
+    if result:
+        # Simple scoring: do we have at least one Person/Org/Skill?
+        has_data = any(v and v != 'None Detected' for v in result.values())
+        return {
+            "score": 100 if has_data else 0,
+            "details": ["Entities Extracted" if has_data else "No Entities Found"],
+            "data": result
+        }
         
     return {"score": 0, "details": ["AI Check Failed"], "data": {}}
 
 async def get_ai_rewrite(text_snippet: str) -> str:
     """Asks AI to rewrite complex text."""
-    if not MISTRAL_API_KEY: return "AI unavailable"
-    
-    url = "https://api.mistral.ai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {MISTRAL_API_KEY}", "Content-Type": "application/json"}
-    
     prompt = f"Rewrite this complex sentence to be Grade 8 readability level:\n\n{text_snippet}"
-    
-    payload = {
-        "model": "mistral-small-latest",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.1
-    }
-    
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-        if response.status_code == 200:
-            return response.json()['choices'][0]['message']['content'].strip()
-    except:
-        pass
-    return "Could not generate rewrite."
+    result = await query_llm(prompt, json_mode=False, temperature=0.1)
+    return result if result else "Could not generate rewrite."
 
 async def analyze_competitors(text_content: str, url: str) -> dict:
-    """Uses Mistral AI to identify competitors and estimate share of voice."""
-    if not MISTRAL_API_KEY:
-        return {
-            "yourShare": 15,
-            "others": 85,
-            "top_competitors": ["Competitor A", "Competitor B", "Competitor C"]
-        }
-
-    api_url = "https://api.mistral.ai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
+    """Uses LLM to identify competitors and estimate share of voice."""
     # Extract domain for context
     domain = urlparse(url).netloc
     
     prompt = f"""
-    Analyze this website content and identify its top 3-5 REAL competitors.
+    Analyze this website content and identify its top 3-5 REAL, EXISTING competitors.
     
-    Website: {domain}
+    Target Website: {domain}
     
-    Based on the content, industry, and services described:
-    1. Identify 3-5 actual competitor domains (real websites, not generic names)
-    2. Estimate this site's "Share of Voice" (0-100%) - how visible/authoritative it appears compared to competitors
-    3. Consider factors: content depth, SEO quality, brand mentions, specificity
+    TASK: Act as a Google Search Engine. what websites would appear next to {domain} in search results for its main keywords?
+    
+    RULES:
+    1. OUTPUT REAL DOMAINS ONLY. Do NOT invent generic names like "competitor1.com" or "example-rival.com". 
+    2. If the site is a personal portfolio (e.g., "stevenmathew.com"), find OTHER famous portfolios or agencies in that niche (e.g. "awwwards.com", "malt.com", "upwork.com" or specific famous designer sites).
+    3. If the site is a SaaS, find actual SaaS competitors.
     
     Return a JSON object with:
-    - yourShare: integer 0-100 (realistic estimate based on content quality)
+    - yourShare: integer 0-100 (Be harsh. Unless it's Amazon/Google, score < 20)
     - others: integer (100 - yourShare)
-    - top_competitors: list of 3-5 real competitor domain names (e.g. ["competitor1.com", "competitor2.io"])
-    
-    Be realistic. Most sites have 10-25% share unless they're industry leaders.
+    - top_competitors: list of 3-5 REAL domain names (e.g. ["competitor.com", "famous-rival.io"])
     
     Content (truncated):
-    {text_content[:2000]}...
+    {text_content[:2500]}...
     """
     
-    payload = {
-        "model": "mistral-small-latest",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.3,
-        "response_format": {"type": "json_object"}
-    }
+    result = await query_llm(prompt, json_mode=True, temperature=0.3)
     
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(api_url, json=payload, headers=headers)
+    if result:
+        your_share = min(max(result.get("yourShare", 10), 0), 100)
+        competitors = result.get("top_competitors", [])
         
-        if response.status_code == 200:
-            data = response.json()
-            result = json.loads(data['choices'][0]['message']['content'])
-            
-            # Validate and normalize
-            your_share = min(max(result.get("yourShare", 15), 0), 100)
-            competitors = result.get("top_competitors", [])
-            
-            # Ensure we have at least some competitors
-            if not competitors or len(competitors) == 0:
-                competitors = ["Competitor A", "Competitor B", "Competitor C"]
-            
-            return {
-                "yourShare": your_share,
-                "others": 100 - your_share,
-                "top_competitors": competitors[:5]  # Cap at 5
-            }
-    except Exception as e:
-        print(f"Competitor Analysis Error: {e}")
-        pass
+        # Filter out obvious fakes if AI hallucinates
+        competitors = [c for c in competitors if "competitor" not in c.lower() and "example" not in c.lower()]
+        
+        # Ensure we have at least some competitors
+        if not competitors or len(competitors) == 0:
+            # Fallback to broader niche leaders if specific ones fail
+            competitors = ["wikipedia.org", "linkedin.com", "medium.com"]
+        
+        return {
+            "yourShare": your_share,
+            "others": 100 - your_share,
+            "top_competitors": competitors[:5]
+        }
         
     # Fallback
     return {
-        "yourShare": 15,
-        "others": 85,
-        "top_competitors": ["Competitor A", "Competitor B", "Competitor C"]
+        "yourShare": 10,
+        "others": 90,
+        "top_competitors": ["wikipedia.org", "linkedin.com", "medium.com"]
     }
 
 
 async def check_eeat(soup) -> dict:
-    # 1. Regex Fallback Check
-    if MISTRAL_API_KEY:
-        text = soup.get_text(separator=' ', strip=True)
-        return await analyze_eeat_via_llm(text)
-
-    # ... (Keep existing regex fallback logic if needed, but for now we assume AI is primary)
-    return {"score": 0, "details": ["AI Key Missing"]}
+    text = soup.get_text(separator=' ', strip=True)
+    return await analyze_eeat_via_llm(text)
 
 async def check_readability_async(text: str) -> dict:
     if not text:
@@ -581,7 +519,7 @@ async def analyze_page_content(html: str) -> dict:
     return {
         "technical": {
             "schema": {"score": 100 if has_schema else 0, "details": [f"Found: {', '.join(schema_types)}" if has_schema else "Missing"]},
-            "https": {"score": 100, "details": ["Secured"]}, # Assumed if we are here
+            "https": {"score": 100, "details": ["Secured"]}, 
             "agent_economics": calculate_agent_economics(main_text, len(html))
         },
         "content": {
@@ -590,7 +528,7 @@ async def analyze_page_content(html: str) -> dict:
             "visual": check_visual_context(soup),
             "freshness": check_freshness(soup),
             "word_count": {"score": 100 if len(main_text.split()) > 300 else 50, "details": [f"{len(main_text.split())} words"]},
-            "gap": await analyze_failed_queries(main_text[:5000]), # Replaces old gap analysis
+            "gap": await analyze_failed_queries(main_text[:5000]),
             "basic_seo": check_basic_seo(soup)
         },
         "authority": {
@@ -623,7 +561,6 @@ async def analyze_readiness(url: str):
         if page.status_code == 200:
             page_data = await analyze_page_content(page.text)
             
-            # Extract text for competitor analysis
             soup = BeautifulSoup(page.text, "html.parser")
             main_text = soup.get_text(separator=' ', strip=True)
             
@@ -632,15 +569,13 @@ async def analyze_readiness(url: str):
             results["technical"]["https"] = {"score": 100, "details": ["Valid HTTPS"]}
             
             results["content"] = page_data["content"]
-            # Expose basic_seo at top level for easy access if needed, or stick to content structure
-            # Frontend expects it in 'checklist' derived from this.
             results["authority"] = page_data["authority"]
             
         else:
-            pass # Keep defaults
+            pass
             
     except Exception as e:
-        pass # Keep defaults
+        pass
 
     # Run Competitor Analysis
     competitors_data = await analyze_competitors(main_text[:3000] if main_text else "", url)
@@ -657,17 +592,12 @@ async def analyze_readiness(url: str):
         "url": url,
         "total_score": total,
         "breakdown": results,
-        "competitors": competitors_data  # Add competitors at top level
+        "competitors": competitors_data  
     }
 
 async def generate_content_strategy(user_domain: str, competitor_domain: str) -> dict:
     """Generates a content plan to compete against a specific domain."""
-    if not MISTRAL_API_KEY:
-        return {
-            "pillars": ["Technical SEO", "Content Depth", "Authority Building"],
-            "titles": [f"Why {user_domain} is better than {competitor_domain}", f"Top alternatives to {competitor_domain}"]
-        }
-
+    
     # 1. Try to scrape competitor for context (lightweight)
     competitor_content = ""
     target_url = competitor_domain if competitor_domain.startswith("http") else f"https://{competitor_domain}"
@@ -677,7 +607,6 @@ async def generate_content_strategy(user_domain: str, competitor_domain: str) ->
             resp = await client.get(target_url)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
-                # Get headers and first few paragraphs
                 texts = []
                 for h in soup.find_all(['h1', 'h2', 'h3'])[:10]:
                     texts.append(h.get_text(strip=True))
@@ -687,12 +616,6 @@ async def generate_content_strategy(user_domain: str, competitor_domain: str) ->
         pass
 
     # 2. Prompt LLM
-    url = "https://api.mistral.ai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
     prompt = f"""
     Act as a Content Strategist. Create a "Gap Analysis & Content Plan" for {user_domain} to outrank {competitor_domain}.
     
@@ -714,23 +637,10 @@ async def generate_content_strategy(user_domain: str, competitor_domain: str) ->
     }}
     """
     
-    payload = {
-        "model": "mistral-small-latest",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.4,
-        "response_format": {"type": "json_object"}
-    }
+    result = await query_llm(prompt, json_mode=True, temperature=0.4)
     
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-        
-        if response.status_code == 200:
-            data = response.json()
-            return json.loads(data['choices'][0]['message']['content'])
-            
-    except Exception as e:
-        print(f"Strategy Gen Error: {e}")
+    if result:
+        return result
         
     return {
         "pillars": ["Comparison Strategy", "Feature Gap Filling", "User Guide Expansion"],
