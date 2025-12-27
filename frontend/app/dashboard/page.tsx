@@ -4,7 +4,7 @@ import { Globe, BarChart3, Clock, Plus, ExternalLink, ArrowRight } from "lucide-
 import { AddSiteDialog } from "@/components/dashboard/AddSiteDialog"
 import Link from "next/link"
 import { RescanButton } from "@/components/dashboard/RescanButton"
-import { ClientHealthGrid } from "@/components/dashboard/views/ClientHealthGrid"
+import { SiteHealthGrid } from "@/components/dashboard/views/SiteHealthGrid"
 import { DashboardStats } from "@/components/dashboard/views/DashboardStats"
 
 export default async function DashboardPage() {
@@ -46,13 +46,13 @@ export default async function DashboardPage() {
                 {/* Active Top Cards */}
                 <DashboardStats siteCount={siteCount} maxSites={FREE_PLAN_LIMIT} sites={sites || []} />
 
-                {/* Client Health Grid */}
+                {/* Site Health Grid */}
                 {sites && sites.length > 0 ? (
-                    <ClientHealthGrid sites={sites} />
+                    <SiteHealthGrid sites={sites} />
                 ) : (
                     <Card className="border-slate-200 shadow-xs min-h-[400px]">
                         <CardHeader>
-                            <CardTitle className="text-[#224034] font-serif">Client Health Grid</CardTitle>
+                            <CardTitle className="text-[#224034] font-serif">Site Health Grid</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="h-64 flex flex-col items-center justify-center text-center">

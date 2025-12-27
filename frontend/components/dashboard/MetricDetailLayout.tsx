@@ -20,6 +20,8 @@ interface MetricDetailLayoutProps {
     customTabs?: { id: string; label: string; icon: any }[];
     renderTabContent?: (activeTab: string) => React.ReactNode;
     leftPanelTip?: React.ReactNode; // Optional override for the bottom tip box
+    pullQuote?: string;
+    actionLabel?: string;
 }
 
 export function MetricDetailLayout({
@@ -32,7 +34,9 @@ export function MetricDetailLayout({
     whatAndWhyContent,
     customTabs,
     renderTabContent,
-    leftPanelTip
+    leftPanelTip,
+    pullQuote,
+    actionLabel
 }: MetricDetailLayoutProps) {
     const defaultTabs = [
         { id: 'what-why', label: 'What & Why', icon: Lightbulb },
@@ -159,7 +163,7 @@ export function MetricDetailLayout({
                                             </div>
 
                                             <div className="my-8 pl-6 border-l-4 border-[#8CD9B8] italic text-slate-600 py-1">
-                                                "Agents prefer structured, raw data over visual HTML. Providing this file gives you a direct line of communication to LLMs."
+                                                "{pullQuote || "Agents prefer structured, raw data over visual HTML. Providing this file gives you a direct line of communication to LLMs."}"
                                             </div>
 
                                             {/* Default Content if none provided */}
@@ -209,7 +213,7 @@ export function MetricDetailLayout({
                                                     className="bg-gradient-to-r from-[#224034] to-[#1A3027] hover:from-[#1A3027] hover:to-[#224034] text-white pl-16 pr-12 py-3 h-auto text-lg rounded-xl shadow-lg hover:shadow-xl shadow-[#224034]/20 group transition-all duration-300 border border-white/10"
                                                 >
                                                     <Wand2 className="mr-3 w-5 h-5 text-emerald-200" />
-                                                    Open Generator
+                                                    {actionLabel || "Open Generator"}
                                                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                                 </Button>
                                             </div>

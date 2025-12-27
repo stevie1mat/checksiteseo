@@ -11,7 +11,6 @@ import {
     Sliders,
     Lightbulb,
     CheckCircle2,
-    Clock,
     Wand2,
     ArrowRight,
     ArrowLeft,
@@ -26,7 +25,6 @@ import {
 } from "lucide-react"
 
 import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
-import { createClient } from "@/lib/supabase/client"
 
 interface AnswerRateViewProps {
     siteId: string
@@ -38,7 +36,6 @@ interface AnswerRateViewProps {
 const PRESET_TABS = [
     { id: 'what-why', label: 'What & Why', icon: Lightbulb },
     { id: 'strategy', label: 'Strategy Builder', icon: Sliders },
-    { id: 'track', label: 'Track Progress', icon: Clock },
 ];
 
 export function AnswerRateView({ siteId, domain, initialData }: AnswerRateViewProps) {
@@ -48,33 +45,10 @@ export function AnswerRateView({ siteId, domain, initialData }: AnswerRateViewPr
     const [planResult, setPlanResult] = useState<any>(null);
 
     // Dialog Control State
+    // Dialog Control State
     const [scanDialogOpen, setScanDialogOpen] = useState(false);
     const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle');
     const [scanMessage, setScanMessage] = useState("");
-    const [userEmail, setUserEmail] = useState<string | null>(null);
-    const [hasPendingScan, setHasPendingScan] = useState(false);
-
-    // Fetch user and check pending scans on mount
-    React.useEffect(() => {
-        const init = async () => {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user?.email) setUserEmail(user.email)
-
-            if (siteId) {
-                const { data } = await supabase
-                    .from('scheduled_scans')
-                    .select('*')
-                    .eq('site_id', siteId)
-                    .in('status', ['pending', 'processing'])
-
-                if (data && data.length > 0) {
-                    setHasPendingScan(true);
-                }
-            }
-        }
-        init()
-    }, [siteId])
 
     // Custom Steps for Content Plan
     const PLAN_STEPS = [
@@ -102,18 +76,19 @@ export function AnswerRateView({ siteId, domain, initialData }: AnswerRateViewPr
         setScanMessage("");
 
         try {
-            // Simulate generation for now or call API if ready
-            // const res = await fetch('/api/generate-plan', ...);
-
-            // Simulating a delay for the UI experience since this runs locally for now
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Mock result for now, update with real API call later
-            setPlanResult({
-                pillars: ["Structure FAQs", "Direct Answers", "Schema Markup"],
-                tactics: ["Add FAQPage schema", "Keep answers under 50 words", "Use list format"],
-                titles: ["What is [Service]?", "How much does [Service] cost?", "Best [Service] in [Location]"]
+            const res = await fetch('/api/generate-answer-plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_domain: domain })
             });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || "Failed to generate plan");
+            }
+
+            const data = await res.json();
+            setPlanResult(data);
 
             // Animation delay for "Finalizing" step
             setTimeout(() => {
@@ -140,89 +115,7 @@ export function AnswerRateView({ siteId, domain, initialData }: AnswerRateViewPr
         setPlanResult(null);
     };
 
-    const [isScheduling, setIsScheduling] = useState(false);
-    const [isCancelling, setIsCancelling] = useState(false);
 
-    const handleCancelScan = async () => {
-        setIsCancelling(true);
-        try {
-            const res = await fetch('/api/cancel-scan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ site_id: siteId })
-            });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.detail || data.error || "Failed to cancel");
-            }
-
-            setHasPendingScan(false);
-            toast({
-                title: "Scan Cancelled",
-                description: "The scheduled deep scan has been removed.",
-            });
-        } catch (error: any) {
-            console.error(error);
-            toast({
-                title: "Cancellation Failed",
-                description: error.message || "Could not cancel the scan.",
-                variant: "destructive"
-            });
-        } finally {
-            setIsCancelling(false);
-        }
-    };
-
-    const handleScheduleScan = async () => {
-        if (!userEmail) {
-            toast({
-                title: "Error",
-                description: "User email not found. Please log in again.",
-                variant: "destructive"
-            });
-            return;
-        }
-
-        setIsScheduling(true);
-        try {
-            const res = await fetch('/api/schedule-scan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    site_id: siteId,
-                    url: domain,
-                    email: userEmail || "steven@checksiteaeo.com",
-                    delay_hours: 24
-                })
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                if (res.status === 409) {
-                    setHasPendingScan(true);
-                }
-                throw new Error(data.detail || data.error || "Failed to schedule");
-            }
-
-            setHasPendingScan(true);
-            toast({
-                title: "Deep Scan Scheduled",
-                description: data.message || "We will notify you in 2 minutes.",
-            });
-
-        } catch (error: any) {
-            console.error(error);
-            toast({
-                title: "Scheduling Failed",
-                description: error.message || "Could not schedule the scan. Please try again.",
-                variant: "destructive"
-            });
-        } finally {
-            setIsScheduling(false);
-        }
-    };
 
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto pb-24 px-6 pt-6 animate-in fade-in duration-500">
@@ -484,71 +377,7 @@ export function AnswerRateView({ siteId, domain, initialData }: AnswerRateViewPr
                             </div>
                         )}
 
-                        {activeTab === 'track' && (
-                            <div className="space-y-8 animate-in fade-in duration-300 slide-in-from-right-2 text-center py-12">
-                                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                                    <Clock className="w-8 h-8 text-slate-300 ml-1" />
-                                </div>
-                                <div className="max-w-md mx-auto space-y-2">
-                                    <h3 className="text-lg font-bold text-slate-700">Verify Improvements</h3>
-                                    <p className="text-slate-500 leading-relaxed">
-                                        Answer Rate takes time to reflect changes. Schedule a re-scan to check if your new answers are being picked up.
-                                    </p>
-                                </div>
-                                <div className="flex flex-col items-center space-y-4">
-                                    <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm">
-                                        <div className="flex flex-col items-start pr-8 border-r border-slate-200">
-                                            <span className="text-sm font-semibold text-slate-700">Deep Scan Monitoring</span>
-                                            <span className="text-xs text-slate-500">Auto-rescan every 24 hours</span>
-                                        </div>
 
-                                        <button
-                                            onClick={() => {
-                                                if (hasPendingScan) {
-                                                    handleCancelScan();
-                                                } else {
-                                                    handleScheduleScan();
-                                                }
-                                            }}
-                                            disabled={isScheduling || isCancelling}
-                                            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${hasPendingScan ? "bg-emerald-500" : "bg-slate-300 hover:bg-slate-400"
-                                                } ${isScheduling || isCancelling ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                                        >
-                                            <span className="sr-only">Toggle deep scan</span>
-                                            <span
-                                                className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-300 ease-in-out ${hasPendingScan ? "translate-x-7" : "translate-x-1"
-                                                    } flex items-center justify-center`}
-                                            >
-                                                {(isScheduling || isCancelling) ? (
-                                                    <Wand2 className="w-3 h-3 text-emerald-500 animate-spin" />
-                                                ) : hasPendingScan ? (
-                                                    <Check className="w-4 h-4 text-emerald-500" />
-                                                ) : null}
-                                            </span>
-                                        </button>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-100 text-xs font-medium transition-all">
-                                        {hasPendingScan ? (
-                                            <>
-                                                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                                                <span className="text-emerald-700">Scan Scheduled (Next: 24h)</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className="flex h-2 w-2 rounded-full bg-slate-300" />
-                                                <span className="text-slate-500">Monitoring Inactive</span>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-center gap-4 text-xs text-slate-400 mt-8">
-                                    <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Automated Monitoring</span>
-                                    <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Email Notification</span>
-                                </div>
-                            </div>
-                        )}
                     </>
                 )}
             />

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Progress } from "@/components/ui/progress"
-import { BarChart3, Info, FileText, AlertCircle, Share2, Sparkles, Code, Search, Check } from "lucide-react"
+import { BarChart3, Info, FileText, AlertCircle, Share2, Sparkles, Code, Search, Check, Clock } from "lucide-react"
 import { AEOReport } from "@/types/aeo"
 
 interface OverviewTabProps {
@@ -12,23 +12,188 @@ interface OverviewTabProps {
     siteId?: string
 }
 
+// Imports needed for state
+import React, { useState, useEffect } from "react"
+import { Wand2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { createClient } from "@/lib/supabase/client"
+
+// ... imports remain the same
+
 export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabProps) {
+    const { toast } = useToast()
     const aeoScore = activeReport.scores?.overall || 0
+    // ... scores logic remains same
     const techScore = activeReport.scores?.technical || 0
     const contentScore = activeReport.scores?.content || 0
-
-    // Safely access properties
     const failedQueries = activeReport.content?.missingAnswers || []
-    const knowledgeGraph = activeReport.knowledgeGraph || {}
+    // Unified Knowledge Graph Data (Merge backend snake_case with legacy structure)
+    const rawKG = activeReport.authority?.knowledge_graph?.data;
+    const knowledgeGraph = {
+        primaryEntity: rawKG?.primary_entity || activeReport.knowledgeGraph?.primaryEntity,
+        nodes: activeReport.knowledgeGraph?.nodes ? [...activeReport.knowledgeGraph.nodes] : []
+    }
+
+    // Generate nodes dynamically if missing
+    if (knowledgeGraph.nodes.length === 0 && rawKG?.relationships) {
+        const rels = rawKG.relationships;
+        if (rels.worksFor && rels.worksFor !== 'None Detected' && rels.worksFor !== 'None') {
+            knowledgeGraph.nodes.push({ label: rels.worksFor, type: "Org" });
+        }
+        if (rels.jobTitle && rels.jobTitle !== 'None Detected' && rels.jobTitle !== 'None') {
+            knowledgeGraph.nodes.push({ label: rels.jobTitle, type: "Role" });
+        }
+        if (Array.isArray(rels.knowsAbout)) {
+            rels.knowsAbout.slice(0, 3).forEach(skill => {
+                if (skill && skill.length < 20) knowledgeGraph.nodes.push({ label: skill, type: "Topic" });
+            });
+        }
+        // Org specific
+        if (rels.location && rels.location !== 'None' && rels.location.length < 20) {
+            knowledgeGraph.nodes.push({ label: rels.location, type: "Loc" });
+        }
+        if (Array.isArray(rels.products)) {
+            rels.products.slice(0, 2).forEach(prod => {
+                if (prod && prod.length < 15) knowledgeGraph.nodes.push({ label: prod, type: "Prod" });
+            });
+        }
+        if (Array.isArray(rels.founders)) {
+            rels.founders.slice(0, 1).forEach(f => {
+                if (f && f.length < 20) knowledgeGraph.nodes.push({ label: f, type: "Person" });
+            });
+        }
+    }
     const hallucinationLevel = activeReport.authority?.eeat?.hallucination_risk?.level || 'Low'
+
+    // -- Scheduling State --
+    const [userEmail, setUserEmail] = useState<string | null>(null);
+    const [hasPendingScan, setHasPendingScan] = useState(false);
+    const [isScheduling, setIsScheduling] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
+    const [domain, setDomain] = useState<string>(""); // Need domain for scheduling
+
+    // Fetch user and check pending scans on mount
+    useEffect(() => {
+        const init = async () => {
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user?.email) setUserEmail(user.email)
+
+            if (siteId) {
+                // Get domain from site details if needed, or from report if available
+                // Ideally this prop would be passed, but let's try to get it from DB or report
+                // ... logic to get domain ...
+                // Quick fix: fetch site url
+                const { data: site } = await supabase.from('sites').select('url').eq('id', siteId).single()
+                if (site) setDomain(site.url)
+
+                const { data } = await supabase
+                    .from('scheduled_scans')
+                    .select('*')
+                    .eq('site_id', siteId)
+                    .in('status', ['pending', 'processing'])
+
+                if (data && data.length > 0) {
+                    setHasPendingScan(true);
+                }
+            }
+        }
+        init()
+    }, [siteId])
+
+    const handleCancelScan = async () => {
+        setIsCancelling(true);
+        try {
+            const res = await fetch('/api/cancel-scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: siteId })
+            });
+            if (!res.ok) throw new Error("Failed to cancel");
+            setHasPendingScan(false);
+            toast({ title: "Scan Cancelled", description: "Deep scan monitoring disabled." });
+        } catch (error: any) {
+            toast({ title: "Error", description: "Could not cancel scan.", variant: "destructive" });
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
+    const handleScheduleScan = async () => {
+        if (!userEmail || !domain) return;
+        setIsScheduling(true);
+        try {
+            const res = await fetch('/api/schedule-scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: siteId,
+                    url: domain,
+                    email: userEmail,
+                    delay_hours: 24,
+                    scan_type: 'full' // Always full scan from dashboard
+                })
+            });
+            if (!res.ok && res.status !== 409) throw new Error("Failed to schedule");
+            setHasPendingScan(true);
+            toast({ title: "Monitoring Enabled", description: "We will scan this site every 24 hours." });
+        } catch (error: any) {
+            toast({ title: "Error", description: "Could not enable monitoring.", variant: "destructive" });
+        } finally {
+            setIsScheduling(false);
+        }
+    };
+
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
             {/* 1. Top Level KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+
+                {/* KPI 0: Deep Scan Monitoring (New) */}
+                <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
+                            <Clock className="w-4 h-4" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Monitoring</span>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="max-w-xs">Automatic 24-hour deep scans to track your progress.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <span className={`text-sm font-medium ${hasPendingScan ? 'text-emerald-700' : 'text-slate-600'}`}>
+                                {hasPendingScan ? "Active" : "Inactive"}
+                            </span>
+                            <button
+                                onClick={() => hasPendingScan ? handleCancelScan() : handleScheduleScan()}
+                                disabled={isScheduling || isCancelling}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${hasPendingScan ? 'bg-emerald-500' : 'bg-slate-200'} ${(isScheduling || isCancelling) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            >
+                                <span className={`${hasPendingScan ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200`} />
+                            </button>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <div className={`w-2 h-2 rounded-full ${hasPendingScan ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                            {hasPendingScan ? "Next scan in ~24h" : "Auto-scan disabled"}
+                        </div>
+                    </div>
+                </div>
+
                 <TooltipProvider>
                     {/* KPI 1: Share of Voice (Competitor Widget) */}
                     <Link href={siteId ? `/dashboard/sites/${siteId}/share-of-voice` : '#'} className="block">
+                        {/* ... existing Share of Voice Card content ... */}
                         <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
                             <div className="flex items-center gap-2 mb-3">
                                 <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
@@ -164,10 +329,31 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                                     <div className="z-10 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg shadow-emerald-900/50 border border-emerald-400">
                                         {knowledgeGraph.primaryEntity ? knowledgeGraph.primaryEntity.substring(0, 15) : 'Entity'}
                                     </div>
-                                    {/* Satellite Nodes */}
-                                    <div className="absolute top-0 right-4 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-float" style={{ animationDelay: '0s' }}>CTO</div>
-                                    <div className="absolute bottom-1 left-4 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-float" style={{ animationDelay: '2s' }}>Code</div>
-                                    <div className="absolute bottom-4 right-8 bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-float" style={{ animationDelay: '4s' }}>AI</div>
+                                    {/* Satellite Nodes (Dynamic) */}
+                                    {knowledgeGraph.nodes.slice(0, 3).map((node, i) => {
+                                        const positions = [
+                                            "top-0 right-4",
+                                            "bottom-1 left-4",
+                                            "bottom-4 right-8"
+                                        ];
+                                        const delays = ['0s', '2s', '4s'];
+                                        return (
+                                            <div
+                                                key={i}
+                                                className={`absolute ${positions[i]} bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-float`}
+                                                style={{ animationDelay: delays[i] }}
+                                            >
+                                                {node.label.length > 12 ? node.label.substring(0, 12) + '...' : node.label}
+                                            </div>
+                                        )
+                                    })}
+
+                                    {/* Fallback if no nodes found (e.g. empty scan) */}
+                                    {knowledgeGraph.nodes.length === 0 && (
+                                        <div className="absolute bottom-1 left-4 bg-[#224034]/50 text-emerald-300/50 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/10 border-dashed">
+                                            No Data
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

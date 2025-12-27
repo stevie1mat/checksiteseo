@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from analyzer import analyze_readiness, generate_content_strategy
+from analyzer import analyze_readiness, generate_content_strategy, generate_answer_strategy, analyze_ambiguity_issues
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -137,7 +137,7 @@ async def analyze_url(request: AnalyzeRequest):
             print(f"Rate limit check failed: {e}")
 
     # 2. Perform Analysis
-    result = await analyze_readiness(request.url)
+    result = await analyze_readiness(request.url, scan_mode="full") # Regular analysis is always full
 
     # 3. Update Database
     if request.site_id and supabase:
@@ -229,8 +229,8 @@ def send_email_notification(email: str, subject: str, headline: str, body: str, 
     else:
         logger.info(f"MOCK EMAIL to {email}: Subject: {subject} | Body: {body}")
 
-async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None, scan_id: str):
-    print(f"🔥 JOB TRIGGERED: Starting perform_scheduled_scan for {url}")
+async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None, scan_id: str, scan_type: str = "full"):
+    print(f"🔥 JOB TRIGGERED: Starting perform_scheduled_scan for {url} (Type: {scan_type})")
     logger.info(f"Starting scheduled scan for {url} (Scan ID: {scan_id})")
     
     # 1. Update status to processing
@@ -253,7 +253,7 @@ async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None,
                 logger.warning(f"Could not fetch previous score: {e}")
 
         # 2. Run Analysis
-        result = await analyze_readiness(url)
+        result = await analyze_readiness(url, scan_mode=scan_type)
         new_score = result.get("total_score", 0)
         delta = new_score - old_score
         
@@ -333,6 +333,7 @@ class ScheduleRequest(BaseModel):
     email: str | None = None
     delay_hours: int | None = None
     delay_minutes: int | None = None
+    scan_type: str | None = "full" # 'full', 'answers', 'sov'
 
 class CancelScanRequest(BaseModel):
     site_id: str
@@ -445,7 +446,7 @@ async def schedule_scan(request: ScheduleRequest):
             perform_scheduled_scan, 
             'interval', 
             minutes=interval_minutes,
-            args=[request.site_id, request.url, request.email, safe_scan_id],
+            args=[request.site_id, request.url, request.email, safe_scan_id, request.scan_type or "full"],
             id=request.site_id,
             replace_existing=True,
             next_run_time=run_date,  # First run at the calculated time
@@ -456,7 +457,7 @@ async def schedule_scan(request: ScheduleRequest):
             perform_scheduled_scan, 
             'interval', 
             hours=interval_hours,
-            args=[request.site_id, request.url, request.email, safe_scan_id],
+            args=[request.site_id, request.url, request.email, safe_scan_id, request.scan_type or "full"],
             id=request.site_id,
             replace_existing=True,
             next_run_time=run_date,
@@ -481,3 +482,31 @@ class PlanRequest(BaseModel):
 async def generate_plan(request: PlanRequest):
     plan = await generate_content_strategy(request.user_domain, request.competitor_domain)
     return plan
+
+class AnswerPlanRequest(BaseModel):
+    user_domain: str
+
+@app.post("/generate-answer-plan")
+async def generate_answer_plan(request: AnswerPlanRequest):
+    plan = await generate_answer_strategy(request.user_domain)
+    return plan
+@app.post("/analyze-ambiguity")
+async def analyze_ambiguity(request: AnswerPlanRequest): # Reusing AnswerPlanRequest which has user_domain
+    # Fetch content
+    url = request.user_domain
+    if not url.startswith("http"): url = "https://" + url
+    
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            page = await client.get(url)
+            if page.status_code == 200:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(page.text, "html.parser")
+                text = soup.get_text(separator=' ', strip=True)
+                return await analyze_ambiguity_issues(text)
+    except Exception as e:
+        print(f"Ambiguity analysis failed: {e}")
+        pass
+        
+    return {"improvements": []}

@@ -239,6 +239,52 @@ async def analyze_eeat_via_llm(text_content: str) -> dict:
     
     return {"score": 0, "details": ["AI Analysis Failed"]}
 
+async def analyze_ambiguity_issues(text_content: str) -> dict:
+    """Uses Gemini/Mistral to find specific ambiguity issues using the AEO Copy Editor persona."""
+    prompt = f"""
+    **Role:** You are an AEO (Answer Engine Optimization) Copy Editor. Your goal is to eliminate "Fluff" and "Ambiguity" from website content to prevent AI hallucinations.
+
+    **Input Context:**
+    Analyze the following website content.
+
+    **Your Task:**
+    1.  **Analyze** the text for "Vague Signals" (e.g., words like "extensive," "many," "world-class," "experienced," "soon," "fast").
+    2.  **Rewrite** the string to be "AEO Compliant" by inserting **[PLACEHOLDERS]** where specific data should be.
+    3.  **Categorize** the improvement type (e.g., "Adding Social Proof," "Defining Timeline," "Quantifying Volume").
+
+    **Transformation Rules:**
+    * Never repeat the vague word.
+    * If the text says "Extensive experience," rewrite to "Over **[NUMBER]** years of experience."
+    * If the text says "Global reach," rewrite to "Serving clients in **[NUMBER]** countries."
+    * If the text says "Fast delivery," rewrite to "Delivered in under **[NUMBER]** hours."
+    * If the text says "Huge library," rewrite to "Access to **[NUMBER]+** resources."
+
+    **Output Format:**
+    Return a JSON object containing an array of improvements (limit to top 5 most critical):
+    ```json
+    {{
+      "improvements": [
+        {{
+          "originalText": "Join the most extensive Bible Quiz Competition ever!",
+          "suggestedFix": "Join the competition hosting **[NUMBER]+** players daily",
+          "category": "Social Proof"
+        }}
+      ]
+    }}
+    ```
+
+    Content (truncated):
+    {text_content[:4000]}...
+    """
+    
+    result = await query_llm(prompt, json_mode=True, temperature=0.1)
+    
+    if result:
+        # Ensure we return the expected structure even if LLM varies slightly
+        return result
+    
+    return {"improvements": []}
+
 async def analyze_content_gap(text_content: str) -> dict:
     # NOTE: This function seems unused or duplicate of analyze_failed_queries in user flow, 
     # but I will update it just in case.
@@ -337,7 +383,10 @@ async def extract_entities(text_content: str) -> dict:
         "jobTitle": "...",
         "alumniOf": "...",
         "knowsAbout": ["...", "..."],
-        "sameAs": ["...", "..."] (Social links)
+        "sameAs": ["...", "..."], 
+        "location": "...",        # For Org
+        "products": ["...", "..."], # For Org/Person
+        "founders": ["...", "..."]  # For Org
     }}
     - missing_critical: List of fields that are missing (e.g. ["alumniOf", "sameAs"])
     
@@ -537,54 +586,70 @@ async def analyze_page_content(html: str) -> dict:
         }
     }
 
-async def analyze_readiness(url: str):
+async def analyze_readiness(url: str, scan_mode: str = "full"):
     if not url.startswith("http"): url = "https://" + url
     
     # Init Results Structure
     results = {
-        "technical": {
-            "robots": await check_robots_txt(url),
-            "llms": await check_llms_txt(url),
-            "sitemap": await check_sitemap(url),
-        },
+        "technical": {},
         "content": {}, 
         "authority": {} 
     }
     
-    # For competitor analysis
+    # Full Mode or Technical Mode
+    if scan_mode == "full" or scan_mode == "technical":
+        results["technical"] = {
+            "robots": await check_robots_txt(url),
+            "llms": await check_llms_txt(url),
+            "sitemap": await check_sitemap(url),
+        }
+
+    # For page processing
     main_text = ""
-    
+    competitors_data = {}
+
     try:
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             page = await client.get(url)
             
         if page.status_code == 200:
-            page_data = await analyze_page_content(page.text)
-            
             soup = BeautifulSoup(page.text, "html.parser")
             main_text = soup.get_text(separator=' ', strip=True)
-            
-            # Merge Results
-            results["technical"]["schema"] = page_data["technical"]["schema"]
-            results["technical"]["https"] = {"score": 100, "details": ["Valid HTTPS"]}
-            
-            results["content"] = page_data["content"]
-            results["authority"] = page_data["authority"]
-            
+
+            if scan_mode == "full":
+                # Run Everything
+                page_data = await analyze_page_content(page.text)
+                results["technical"]["schema"] = page_data["technical"]["schema"]
+                results["technical"]["https"] = {"score": 100, "details": ["Valid HTTPS"]}
+                results["content"] = page_data["content"]
+                results["authority"] = page_data["authority"]
+                
+            elif scan_mode == "answers":
+                # Only analyze questions/gaps
+                results["content"]["gap"] = await analyze_failed_queries(main_text[:5000])
+                results["content"]["questions"] = check_question_targeting(soup)
+                # Keep basic stats for context
+                results["content"]["word_count"] = {"score": 100 if len(main_text.split()) > 300 else 50, "details": [f"{len(main_text.split())} words"]}
+
+            # Add more modes as needed (e.g. 'sov')
+
         else:
             pass
             
     except Exception as e:
+        print(f"Analysis failed: {e}")
         pass
 
-    # Run Competitor Analysis
-    competitors_data = await analyze_competitors(main_text[:3000] if main_text else "", url)
+    # Competitor Analysis (Only for full or sov mode)
+    if scan_mode == "full" or scan_mode == "sov":
+        competitors_data = await analyze_competitors(main_text[:3000] if main_text else "", url)
 
     # Calculate Total Score
     flat_scores = []
     for cat in results.values():
         for metric in cat.values():
-            flat_scores.append(metric["score"])
+            if isinstance(metric, dict) and "score" in metric:
+                flat_scores.append(metric["score"])
             
     total = int(sum(flat_scores) / len(flat_scores)) if flat_scores else 0
     
@@ -592,7 +657,8 @@ async def analyze_readiness(url: str):
         "url": url,
         "total_score": total,
         "breakdown": results,
-        "competitors": competitors_data  
+        "competitors": competitors_data,
+        "scan_mode": scan_mode
     }
 
 async def generate_content_strategy(user_domain: str, competitor_domain: str) -> dict:
@@ -652,4 +718,42 @@ async def generate_content_strategy(user_domain: str, competitor_domain: str) ->
             f"Advanced features in {user_domain} you missed"
         ],
         "tactics": ["Create a direct comparison landing page", "Target their long-tail help queries", "Bid on their brand keywords"]
+    }
+
+async def generate_answer_strategy(user_domain: str) -> dict:
+    """Generates a strategy to improve Answer Rate (answering user questions)."""
+    
+    prompt = f"""
+    Act as an AEO (Answer Engine Optimization) Specialist. Create a strategy for {user_domain} to better answer user questions and appear in AI snapshots.
+    
+    Goal: Increase 'Answer Rate' by providing direct, concise answers to common queries in this niche.
+    
+    Return a JSON object with:
+    1. "pillars": List of 3 core content pillars to focus on (e.g. "Pricing Transparency", "Technical Documentation", "Use Case Guides").
+    2. "titles": List of 5 specific question-based article titles (e.g. "How much does X cost?", "Is X compatible with Y?").
+    3. "tactics": List of 3 specific technical or content tactics (e.g. "Implement FAQ Schema", "Add 'Key Takeaways' summary at top of posts").
+    
+    Format:
+    {{
+        "pillars": ["...", "...", "..."],
+        "titles": ["...", "...", ...],
+        "tactics": ["...", ...]
+    }}
+    """
+    
+    result = await query_llm(prompt, json_mode=True, temperature=0.4)
+    
+    if result:
+        return result
+        
+    return {
+        "pillars": ["FAQ Expansion", "Definition Libraries", "How-to Guides"],
+        "titles": [
+            f"What is {user_domain}?",
+            f"How to use {user_domain} for beginners",
+            f"{user_domain} Pricing and Plans Explained",
+            f"Common problems with {user_domain} and fixes",
+            f"Best practices for {user_domain}"
+        ],
+        "tactics": ["Add FAQPage schema markup", "Start articles with direct answer paragraphs", "Use list definitions for glossary terms"]
     }

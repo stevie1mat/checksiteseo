@@ -13,11 +13,11 @@ import { useRouter } from "next/navigation"
 import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
 import { cn } from "@/lib/utils"
 
-interface ClientHealthGridProps {
+interface SiteHealthGridProps {
     sites: Site[]
 }
 
-export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
+export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
     const router = useRouter()
 
     // Dialog State
@@ -109,7 +109,7 @@ export function ClientHealthGrid({ sites }: ClientHealthGridProps) {
             <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
                 <CardHeader className="py-4 px-6 border-b border-slate-100 bg-white">
                     <div className="flex items-center justify-between">
-                        <CardTitle className="text-[#224034] font-serif text-lg tracking-wide">Client Health Grid</CardTitle>
+                        <CardTitle className="text-[#224034] font-serif text-lg tracking-wide">Site Health Grid</CardTitle>
                         {/* More button removed to keep it clean */}
                     </div>
                 </CardHeader>

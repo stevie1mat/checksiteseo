@@ -56,6 +56,18 @@ export interface AEOReport {
         knowledge_graph?: {
             data: {
                 primary_entity?: string;
+                type?: string;
+                relationships?: {
+                    worksFor?: string;
+                    jobTitle?: string;
+                    alumniOf?: string;
+                    knowsAbout?: string[];
+                    sameAs?: string[];
+                    location?: string;
+                    products?: string[];
+                    founders?: string[];
+                };
+                missing_critical?: string[];
             }
         }
     };
