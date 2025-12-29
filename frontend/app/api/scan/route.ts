@@ -58,86 +58,8 @@ export async function POST(request: Request) {
 
             const data = await apiResponse.json();
 
-            // 4. Save FULL result
-            const fullBreakdown = data.breakdown || {};
-            const basicSeo = fullBreakdown.content?.basic_seo?.data || {};
-
-            // Extract Competitors
-            const competitors = data.competitors || { yourShare: 0, others: 100, top_competitors: [] };
-
-            // Extract Health Status from Technical/Content checks
-            // Logic:
-            // Robots: 'healthy' if status available and == 100, else warning/critical based on score
-            // Schema: 'healthy' if types > 0
-            // Content: 'healthy' if score > 80
-
-            const getStatus = (score: number) => {
-                if (score >= 90) return 'healthy';
-                if (score >= 60) return 'warning';
-                return 'critical';
-            };
-
-            const robotsScore = fullBreakdown.technical?.robots?.score || 0;
-            const schemaScore = fullBreakdown.technical?.schema?.score || 0;
-            const contentScore = data.total_score || 0; // Use overall score as proxy for content health for now, or drill down
-
-            const healthStatus = {
-                robots: getStatus(robotsScore),
-                schema: getStatus(schemaScore),
-                content: getStatus(contentScore)
-            };
-
-            // We store the ENTIRE breakdown in 'checklist' so page.tsx can access deep details
-            const checklist = {
-                ...fullBreakdown,
-                competitors: competitors,
-                has_h1: basicSeo.has_h1 || false,
-                has_schema: fullBreakdown.technical?.schema?.score > 0,
-                has_meta_desc: basicSeo.has_meta_desc || false,
-                meta_desc_length: basicSeo.meta_desc_length || 0,
-                has_og: basicSeo.has_og || false,
-            };
-
-            const aeoScore = data.total_score || 0;
-            const now = new Date().toISOString();
-
-            const pageRecord = {
-                site_id: siteId,
-                url: data.url || url,
-                aeo_score: aeoScore,
-                checklist: checklist,
-                status: 'completed',
-                last_scanned_at: now
-            };
-
-            // 5. Insert into Pages
-            const { error: insertError } = await supabase.from('pages').insert([pageRecord]);
-            if (insertError) throw insertError;
-
-            // 6. Update Site Status AND Real-time Fields
-            const { error: updateError } = await supabase.from('sites').update({
-                status: 'completed',
-                aeo_score: aeoScore,
-                health_status: healthStatus,
-                competitors: competitors,
-                last_scanned_at: now
-            }).eq('id', siteId);
-
-            if (updateError) throw updateError;
-
-            // 7. Insert History Record
-            const { error: historyError } = await supabase.from('site_history').insert([{
-                site_id: siteId,
-                aeo_score: aeoScore,
-                created_at: now
-            }]);
-
-            if (historyError) {
-                console.error("[Scan API] Failed to save history:", historyError)
-                // Non-blocking error, continue
-            }
-
-            return NextResponse.json({ success: true, data: pageRecord });
+            // 4. Return Success (Data is now persisted by Backend)
+            return NextResponse.json({ success: true });
 
         } catch (backendError: any) {
             console.error("[Scan API] Backend Proxy Error:", backendError);

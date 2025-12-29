@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { RealtimeMetricView } from "@/components/dashboard/views/RealtimeMetricView"
 import { MetricDetailLayout } from "@/components/dashboard/MetricDetailLayout"
 import { AEOReport } from "@/types/aeo"
+import { SchemaFixer } from "@/components/dashboard/views/SchemaFixer"
 
 interface KnowledgeGraphViewProps {
     siteId: string
@@ -19,16 +20,14 @@ interface KnowledgeGraphViewProps {
 
 const KG_TABS = [
     { id: 'what-why', label: 'What & Why', icon: Lightbulb },
-    { id: 'visualizer', label: 'Entity Visualizer', icon: Network }, // Network icon for graph
-    { id: 'schema', label: 'Schema Audit', icon: FileCode },
+    { id: 'visualizer', label: 'Entity Visualizer', icon: Network },
+    { id: 'schema', label: 'Schema Builder', icon: FileCode },
 ];
 
 export function KnowledgeGraphView({ siteId, domain, initialData }: KnowledgeGraphViewProps) {
-    const { toast } = useToast()
 
     // transform logic extracted for reuse
     const transformReport = (report: AEOReport) => {
-        // Unified logic: Try finding data in authority.eeat.knowledge_graph (backend) or root (legacy/api)
         const rawKG = report.authority?.knowledge_graph?.data;
         const rootKG = report.knowledgeGraph;
 
@@ -178,9 +177,8 @@ export function KnowledgeGraphView({ siteId, domain, initialData }: KnowledgeGra
 
                                                     {/* Orbiting Nodes */}
                                                     {nodes.map((node, i) => {
-                                                        // Calculate position on a circle
                                                         const angle = (i / nodes.length) * 2 * Math.PI;
-                                                        const radius = 160; // Distance from center
+                                                        const radius = 160;
                                                         const x = Math.cos(angle) * radius;
                                                         const y = Math.sin(angle) * radius;
 
@@ -192,8 +190,6 @@ export function KnowledgeGraphView({ siteId, domain, initialData }: KnowledgeGra
                                                                     transform: `translate(${x}px, ${y}px)`,
                                                                 }}
                                                             >
-                                                                {/* Connection Line (Pseudo-element approach hard in React inline, using SVG line instead) */}
-
                                                                 <div className={`w-12 h-12 ${node.color} rounded-full flex items-center justify-center border-4 border-[#0f1f1a] shadow-lg`}>
                                                                     <Share2 className="w-5 h-5 text-white opacity-80" />
                                                                 </div>
@@ -207,7 +203,7 @@ export function KnowledgeGraphView({ siteId, domain, initialData }: KnowledgeGra
                                                         )
                                                     })}
 
-                                                    {/* SVG Lines for connections */}
+                                                    {/* SVG Lines */}
                                                     <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
                                                         <g transform="translate(50%, 50%)" className="overflow-visible">
                                                             {nodes.map((_, i) => {
@@ -243,55 +239,13 @@ export function KnowledgeGraphView({ siteId, domain, initialData }: KnowledgeGra
                                 )}
 
                                 {activeTab === 'schema' && (
-                                    <div className="space-y-6 animate-in fade-in duration-300">
-                                        <div className="flex items-center justify-between">
-                                            <h2 className="text-xl font-bold text-[#1A4036]">Schema Validation</h2>
-                                            <Badge variant={missing.length > 0 ? "destructive" : "outline"} className="gap-1">
-                                                {missing.length > 0 ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
-                                                {missing.length > 0 ? `${missing.length} Missing Fields` : "All Critical Fields Found"}
-                                            </Badge>
-                                        </div>
-
-                                        <div className="grid md:grid-cols-2 gap-6">
-                                            {/* Missing Fields */}
-                                            <Card className="p-4 border-red-100 bg-red-50/50">
-                                                <h3 className="font-bold text-red-900 mb-3 flex items-center gap-2">
-                                                    <AlertTriangle className="w-4 h-4" /> Missing Attributes
-                                                </h3>
-                                                {missing.length > 0 ? (
-                                                    <ul className="space-y-2">
-                                                        {missing.map((m: string, i: number) => (
-                                                            <li key={i} className="flex items-center gap-2 text-sm text-red-800 bg-white p-2 rounded border border-red-100">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                                                {m}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                ) : (
-                                                    <p className="text-sm text-slate-500 italic">None. Good job!</p>
-                                                )}
-                                            </Card>
-
-                                            {/* Found Fields */}
-                                            <Card className="p-4 border-slate-200">
-                                                <h3 className="font-bold text-slate-700 mb-3 flex items-center gap-2">
-                                                    <Database className="w-4 h-4" /> Extracted Properties
-                                                </h3>
-                                                <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-                                                    {Object.entries(rels).map(([k, v], i) => (
-                                                        <div key={i} className="flex flex-col gap-0.5 text-sm p-2 hover:bg-slate-50 rounded border border-transparent hover:border-slate-100 transition-colors">
-                                                            <span className="font-mono text-xs text-slate-400 font-bold uppercase">{k}</span>
-                                                            <span className="text-slate-700 truncate font-medium">
-                                                                {Array.isArray(v) ? v.join(", ") : String(v)}
-                                                            </span>
-                                                        </div>
-                                                    ))}
-                                                    {!rels || Object.keys(rels).length === 0 && (
-                                                        <div className="text-sm text-slate-400 text-center py-4">No specific properties extracted.</div>
-                                                    )}
-                                                </div>
-                                            </Card>
-                                        </div>
+                                    <div className="h-full">
+                                        <SchemaFixer
+                                            domain={domain}
+                                            entityType={kg.type || "Organization"}
+                                            primaryEntity={kg.primary_entity !== 'Not found' ? kg.primary_entity : ""}
+                                            missingAttributes={missing}
+                                        />
                                     </div>
                                 )}
                             </>

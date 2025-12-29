@@ -183,8 +183,8 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
                     },
 
                     competitors: {
-                        yourShare: 12,
-                        others: 60
+                        yourShare: site.competitors?.yourShare || 0,
+                        others: site.competitors?.others || 100
                     }
                 }} />
             )}

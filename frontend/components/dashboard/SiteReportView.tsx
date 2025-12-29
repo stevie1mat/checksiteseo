@@ -17,6 +17,12 @@ interface SiteReportViewProps {
 
 export function SiteReportView({ domain, initialReport, siteId }: SiteReportViewProps) {
     const { report, isLoading } = useAEOScan(domain, siteId)
+    const [activeTab, setActiveTabState] = useState<'overview' | 'technical' | 'content' | 'authority'>('overview');
+
+    const setActiveTab = (tab: any) => {
+        setActiveTabState(tab);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     // Use live report if available, otherwise initial
     const activeReport = report || initialReport
@@ -64,12 +70,7 @@ export function SiteReportView({ domain, initialReport, siteId }: SiteReportView
     // If report is still processing (from polling), show scanning UI or just skeletons
     // For now we assume completed or failed
 
-    const [activeTab, setActiveTabState] = useState<'overview' | 'technical' | 'content' | 'authority'>('overview');
 
-    const setActiveTab = (tab: any) => {
-        setActiveTabState(tab);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
 
     // Derived Scores
     const overallScore = Math.round(activeReport.scores.overall);

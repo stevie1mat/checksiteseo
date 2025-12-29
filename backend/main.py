@@ -12,6 +12,7 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+import resend
 from email_templates import get_email_html
 
 load_dotenv()
@@ -71,7 +72,19 @@ def ensure_tables_exist():
                 GRANT ALL ON scheduled_scans TO service_role;
                 
                 -- Grant permissions for site_history table
+                -- Grant permissions for site_history table
                 GRANT INSERT, SELECT ON site_history TO anon, authenticated, service_role;
+
+                CREATE TABLE IF NOT EXISTS pages (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    site_id UUID NOT NULL,
+                    url TEXT,
+                    checklist JSONB,
+                    aeo_score INTEGER,
+                    last_scanned_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+                );
+                
+                GRANT ALL ON pages TO anon, authenticated, service_role;
             """))
             conn.commit()
             print("Database tables ensured.")
@@ -169,6 +182,7 @@ async def analyze_url(request: AnalyzeRequest):
                 "aeo_score": aeo_score,
                 "health_status": health_status,
                 "competitors": competitors,
+                "status": "completed",
                 "last_scanned_at": datetime.now(timezone.utc).isoformat()
             }).eq("id", request.site_id).execute()
 
@@ -176,6 +190,15 @@ async def analyze_url(request: AnalyzeRequest):
             supabase.table("site_history").insert({
                 "site_id": request.site_id,
                 "aeo_score": aeo_score
+            }).execute()
+
+            # Insert into pages (Critical for Frontend Details)
+            supabase.table("pages").insert({
+                "site_id": request.site_id,
+                "url": request.url,
+                "checklist": result.get("breakdown", {}),
+                "aeo_score": aeo_score,
+                "last_scanned_at": datetime.now(timezone.utc).isoformat()
             }).execute()
             
         except Exception as e:
@@ -283,6 +306,15 @@ async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None,
              supabase.table("site_history").insert({
                 "site_id": site_id,
                 "aeo_score": new_score
+             }).execute()
+             
+             # Insert into pages for Frontend Details
+             supabase.table("pages").insert({
+                "site_id": site_id,
+                "url": url,
+                "checklist": breakdown,
+                "aeo_score": new_score,
+                "last_scanned_at": datetime.now(timezone.utc).isoformat()
              }).execute()
 
         # 4. Success Status

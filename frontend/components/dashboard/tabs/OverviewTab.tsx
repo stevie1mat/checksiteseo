@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Progress } from "@/components/ui/progress"
-import { BarChart3, Info, FileText, AlertCircle, Share2, Sparkles, Code, Search, Check, Clock } from "lucide-react"
+import { BarChart3, Info, FileText, AlertCircle, Share2, Sparkles, Code, Search, Check, Clock, Cpu } from "lucide-react"
 import { AEOReport } from "@/types/aeo"
 
 interface OverviewTabProps {
@@ -395,6 +395,26 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                                 </div>
                             )}
 
+                            {/* Action 1.5: Payload Efficiency Check */}
+                            {activeReport.agentEconomics?.codeToTextRatio < 0.15 && (
+                                <div className="p-5 flex gap-4 hover:bg-slate-50 transition-colors">
+                                    <div className="mt-1">
+                                        <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
+                                            <Cpu className="w-4 h-4 text-red-500" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-slate-700">Code Bloat Detected</h4>
+                                        <p className="text-sm text-slate-500 mt-1 max-w-xl">
+                                            Your site has a low signal-to-noise ratio. AEO Agents may time out or truncate your content.
+                                        </p>
+                                        <Link href={`/dashboard/sites/${siteId}/payload-efficiency`} className="text-xs text-blue-600 font-medium mt-2 hover:underline">
+                                            View Payload Efficiency →
+                                        </Link>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Action 2: Content Gaps */}
                             {failedQueries.length > 0 && failedQueries.some((q: any) => q.status !== 'Explicitly Stated') && (
                                 <div className="p-5 flex gap-4 hover:bg-slate-50 transition-colors">
@@ -453,6 +473,10 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                                 <span className="text-xs text-slate-400 mb-1">/ 100</span>
                             </div>
                             <Progress value={techScore} className="h-1.5" indicatorClassName={techScore > 80 ? "bg-emerald-500" : techScore > 50 ? "bg-amber-400" : "bg-red-400"} />
+                            <Link href={`/dashboard/sites/${siteId}/payload-efficiency`} className="text-[10px] text-slate-400 mt-3 flex items-center gap-1 hover:text-emerald-600 transition-colors group">
+                                <Cpu className="w-3 h-3 group-hover:text-emerald-500" />
+                                Check Payload Efficiency
+                            </Link>
                         </div>
                         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                             <p className="text-xs font-bold text-slate-400 uppercase mb-2">Content</p>

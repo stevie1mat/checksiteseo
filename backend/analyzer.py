@@ -11,7 +11,6 @@ load_dotenv()
 
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
 # --- AI Helper Function ---
 
 async def query_llm(prompt: str, json_mode: bool = True, temperature: float = 0.3) -> dict | str | None:
@@ -134,7 +133,7 @@ async def check_robots_txt(base_url: str) -> dict:
         score = 0
         details.append("Error checking")
 
-    return {"score": score, "details": details}
+    return {"score": score, "details": details, "status": "valid" if score == 100 else "error"}
 
 async def check_sitemap(base_url: str) -> dict:
     """Checks for sitemap in robots.txt or common paths."""
@@ -170,9 +169,9 @@ async def check_sitemap(base_url: str) -> dict:
                     continue
     
     if sitemap_url:
-        return {"score": 100, "details": details}
+        return {"score": 100, "details": details, "status": "valid", "url": sitemap_url}
     else:
-        return {"score": 0, "details": ["Not found in robots.txt or common paths"]}
+        return {"score": 0, "details": ["Not found in robots.txt or common paths"], "status": "missing", "url": None}
 
 async def check_llms_txt(base_url: str) -> dict:
     llms_url = urljoin(base_url, "/llms.txt")
@@ -180,10 +179,10 @@ async def check_llms_txt(base_url: str) -> dict:
         async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
             response = await client.get(llms_url)
         if response.status_code == 200 and len(response.text) > 0:
-            return {"score": 100, "details": ["Found"]}
-        return {"score": 0, "details": ["Missing"]}
+            return {"score": 100, "details": ["Found"], "status": "valid"}
+        return {"score": 0, "details": ["Missing"], "status": "missing"}
     except:
-        return {"score": 0, "details": ["Error"]}
+        return {"score": 0, "details": ["Error"], "status": "error"}
 
 def check_question_targeting(soup) -> dict:
     # Scan H2/H3 for question marks or question words
@@ -285,47 +284,62 @@ async def analyze_ambiguity_issues(text_content: str) -> dict:
     
     return {"improvements": []}
 
-async def analyze_content_gap(text_content: str) -> dict:
-    # NOTE: This function seems unused or duplicate of analyze_failed_queries in user flow, 
-    # but I will update it just in case.
-    return {"score": 0, "details": ["Legacy Function"]}
 
-def calculate_agent_economics(text_content: str, raw_html_len: int) -> dict:
-    """Calculates token usage and estimated cost."""
-    try:
-        import tiktoken
-        encoding = tiktoken.get_encoding("cl100k_base")
-        token_count = len(encoding.encode(text_content))
-    except ImportError:
-        # Fallback if tiktoken fails
-        token_count = len(text_content.split()) * 1.3
-        
-    # Boilerplate estimation
-    clean_len = len(text_content)
-    boilerplate_ratio = round((1 - (clean_len / max(raw_html_len, 1))) * 100, 1)
 
-    # HTML vs Content Ratio
-    ratio = clean_len / max(raw_html_len, 1)
+def calculate_agent_economics(html: str, soup: BeautifulSoup) -> dict:
+    """
+    Calculates key 'Tokenomics' for AEO agents.
+    1. Total Tokens (Heuristic: 4 chars = 1 token)
+    2. Semantic Signal (visible text vs html tags)
+    3. Estimated Cost (based on GPT-4o input pricing: $5.00 / 1M tokens)
+    """
+    if not html:
+        return {
+            "total_tokens": 0,
+            "estimated_cost": 0,
+            "html_ratio": 0,
+            "code_bloat_score": "Unknown",
+            "boilerplate_ratio": 0
+        }
+
+    # 1. Total Tokens
+    total_chars = len(html)
+    total_tokens = int(total_chars / 4)
+
+    # 2. Semantic Signal
+    # Create a copy so we don't modify the main soup for other checks
+    soup_clone = BeautifulSoup(html, "html.parser")
+    for script in soup_clone(["script", "style", "nav", "footer", "header", "noscript", "svg"]):
+        script.extract()
     
-    # Cost: $2.50 / 1M input tokens (approx)
-    cost_est = (token_count / 1_000_000) * 2.50
+    text_content = soup_clone.get_text(separator=' ', strip=True)
+    text_length = len(text_content)
     
-    # Interpretation
-    code_bloat_score = "Good"
-    if ratio < 0.10: # Less than 10% content
-        code_bloat_score = "Critical Bloat"
-    elif ratio < 0.25:
-        code_bloat_score = "Moderate Bloat"
+    # Calculate Ratio (avoid div by zero)
+    html_ratio = text_length / total_chars if total_chars > 0 else 0
+    boilerplate_ratio = 1.0 - html_ratio
+
+    # 3. Estimated Cost
+    # $5.00 per 1M tokens -> $0.000005 per token
+    cost_per_token = 0.000005
+    estimated_cost = total_tokens * cost_per_token
+
+    # 4. Bloat Status
+    if html_ratio > 0.15:
+        bloat_status = "Healthy"
+    elif html_ratio > 0.08:
+        bloat_status = "Moderate Bloat"
+    else:
+        bloat_status = "Critical Bloat"
 
     return {
-        "total_tokens": int(token_count),
-        "boilerplate_ratio": boilerplate_ratio,
-        "estimated_cost": f"${cost_est:.4f}",
-        "html_ratio": f"{ratio:.1%}",
-        "code_bloat_score": code_bloat_score,
-        "raw_text_len": clean_len,
-        "raw_html_len": raw_html_len
+        "total_tokens": total_tokens,
+        "estimated_cost": estimated_cost,
+        "html_ratio": html_ratio,
+        "code_bloat_score": bloat_status,
+        "boilerplate_ratio": boilerplate_ratio
     }
+
 
 async def analyze_failed_queries(text_content: str) -> dict:
     """Simulates user questions that the site might fail to answer."""
@@ -567,9 +581,9 @@ async def analyze_page_content(html: str) -> dict:
     
     return {
         "technical": {
-            "schema": {"score": 100 if has_schema else 0, "details": [f"Found: {', '.join(schema_types)}" if has_schema else "Missing"]},
+            "schema": {"score": 100 if has_schema else 0, "details": [f"Found: {', '.join(schema_types)}" if has_schema else "Missing"], "types": schema_types},
             "https": {"score": 100, "details": ["Secured"]}, 
-            "agent_economics": calculate_agent_economics(main_text, len(html))
+            "agent_economics": calculate_agent_economics(html, soup)
         },
         "content": {
             "questions": check_question_targeting(soup),
