@@ -36,10 +36,7 @@ export function TechnicalTab({ activeReport, setActiveTab, siteId }: TechnicalTa
                         </div>
                         {activeReport.technical.llmsTxt ?
                             <Check className="w-5 h-5 text-emerald-500" /> :
-                            <div className="flex items-center gap-2">
-                                <XCircle className="w-5 h-5 text-red-400" />
-                                <button className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded">Generate</button>
-                            </div>
+                            <XCircle className="w-5 h-5 text-red-400" />
                         }
                     </div>
                     {/* Schema */}
@@ -49,10 +46,7 @@ export function TechnicalTab({ activeReport, setActiveTab, siteId }: TechnicalTa
                             <p className="text-sm text-slate-500 mt-1">{activeReport.technical.schema.join(', ') || 'None Detected'}</p>
                         </div>
                         {activeReport.technical.schema.length > 0 ? <Check className="w-5 h-5 text-emerald-500" /> :
-                            <div className="flex items-center gap-2">
-                                <AlertCircle className="w-5 h-5 text-amber-400" />
-                                <button className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded">Generate</button>
-                            </div>
+                            <AlertCircle className="w-5 h-5 text-amber-400" />
                         }
                     </div>
                     {/* Sitemap */}
@@ -83,9 +77,7 @@ export function TechnicalTab({ activeReport, setActiveTab, siteId }: TechnicalTa
                                 We detected 0 tokens. This often happens with <strong>Single Page Apps (SPA)</strong>.
                                 Your site might be invisible to basic crawlers.
                             </p>
-                            <button className="mt-2 text-xs bg-amber-200 text-amber-900 px-2 py-1 rounded hover:bg-amber-300 transition-colors">
-                                Try "Headless Browser" Scan
-                            </button>
+
                         </div>
                     )}
 

@@ -48,9 +48,7 @@ export function ContentTab({ activeReport, activeReport: { content }, siteId }: 
                                 `}>
                                     Grade {content.readabilityGrade}
                                 </Badge>
-                                {content.readabilityGrade > 12 &&
-                                    <button className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded">Simplify</button>
-                                }
+
                             </div>
                         </div>
                         {/* Rewrite Suggestion (Legacy Array Support) */}

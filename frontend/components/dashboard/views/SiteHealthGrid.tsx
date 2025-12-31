@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
-import { Globe, ArrowRight, ArrowUpRight, ArrowDownRight, Activity, CheckCircle, AlertTriangle, Zap, MoreHorizontal, Clock, Loader2 } from "lucide-react"
+import { Globe, ArrowRight, ArrowUpRight, ArrowDownRight, Activity, CheckCircle, AlertTriangle, Zap, MoreHorizontal, Clock, Loader2, Minus } from "lucide-react"
 import Link from "next/link"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -26,15 +26,6 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
     const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle')
     const [scanMessage, setScanMessage] = useState("")
     const [scanningId, setScanningId] = useState<string | null>(null)
-
-    // Helper to calculate trend from site history
-    const getTrend = (site: Site) => {
-        if (!site.site_history || site.site_history.length === 0) return 'neutral';
-        if (site.site_history.length === 1) return 'new';
-        const current = site.site_history[0].aeo_score;
-        const previous = site.site_history[1].aeo_score;
-        return current > previous ? 'up' : current < previous ? 'down' : 'neutral';
-    }
 
     const handleQuickScan = async (site: Site) => {
         if (scanningId) return
@@ -74,6 +65,117 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
         }
     }
 
+    // Smoothed SVG Path Generator
+    const getSmoothPath = (data: number[], width: number, height: number, max: number, min: number) => {
+        if (data.length === 0) return "";
+
+        const points = data.map((val, i) => {
+            const x = (i / (data.length - 1)) * width;
+            const y = height - ((val - min) / (max - min)) * height;
+            return [x, y];
+        });
+
+        // Helper to get control point
+        const controlPoint = (current: number[], previous: number[], next: number[], reverse?: boolean) => {
+            const p = previous || current;
+            const n = next || current;
+            const smoothing = 0.2;
+            const line = [n[0] - p[0], n[1] - p[1]];
+            const angle = Math.atan2(line[1], line[0]) + (reverse ? Math.PI : 0);
+            const length = Math.sqrt(Math.pow(line[0], 2) + Math.pow(line[1], 2)) * smoothing;
+            return [current[0] + Math.cos(angle) * length, current[1] + Math.sin(angle) * length];
+        };
+
+        const d = points.reduce((acc, point, i, a) => {
+            if (i === 0) return `M ${point[0]},${point[1]}`;
+            const [cpsX, cpsY] = controlPoint(a[i - 1], a[i - 2], point);
+            const [cpeX, cpeY] = controlPoint(point, a[i - 1], a[i + 1], true);
+            return `${acc} C ${cpsX},${cpsY} ${cpeX},${cpeY} ${point[0]},${point[1]}`;
+        }, "");
+
+        return d;
+    };
+
+    // Mini Sparkline Component
+    const Sparkline = ({ data }: { data: number[] }) => {
+        if (data.length < 2) return <div className="h-8 w-24 bg-slate-50 rounded flex items-center justify-center text-[10px] text-slate-300">Not enough data</div>;
+
+        const height = 32;
+        const width = 96;
+        const max = 100;
+        const min = 0;
+
+        // Color Logic: Last Point vs First Point
+        const first = data[0];
+        const last = data[data.length - 1];
+        const isGrowth = last > first;
+        const isDecline = last < first;
+
+        const color = isGrowth ? "#10b981" : isDecline ? "#f43f5e" : "#94a3b8"; // emerald-500, rose-500, slate-400
+
+        // Generate Smooth Path
+        const pathD = getSmoothPath(data, width, height, max, min);
+
+        return (
+            <svg width={width} height={height} className="overflow-visible">
+                <path
+                    d={pathD}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+                {/* End Dot */}
+                <circle
+                    cx={width}
+                    cy={height - ((last - min) / (max - min)) * height}
+                    r="2.5"
+                    fill={color}
+                    className="animate-pulse"
+                />
+            </svg>
+        );
+    };
+
+    // Circular Score Ring Component
+    const ScoreRing = ({ score }: { score: number }) => {
+        const radius = 18;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (score / 100) * circumference;
+
+        const color = score >= 80 ? "text-emerald-500" : score >= 50 ? "text-amber-500" : "text-rose-500";
+
+        return (
+            <div className="relative w-12 h-12 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90">
+                    <circle
+                        cx="24"
+                        cy="24"
+                        r={radius}
+                        fill="transparent"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        className="text-slate-100"
+                    />
+                    <circle
+                        cx="24"
+                        cy="24"
+                        r={radius}
+                        fill="transparent"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
+                        className={`${color} transition-all duration-1000 ease-out`}
+                        strokeLinecap="round"
+                    />
+                </svg>
+                <span className={`absolute text-[10px] font-bold ${color}`}>{Math.round(score)}</span>
+            </div>
+        )
+    }
+
     const StatusBadge = ({ status, label }: { status: string, label: string }) => {
         const safeStatus = status || 'neutral';
 
@@ -110,7 +212,6 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
                 <CardHeader className="py-4 px-6 border-b border-slate-100 bg-white">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-[#224034] font-serif text-lg tracking-wide">Site Health Grid</CardTitle>
-                        {/* More button removed to keep it clean */}
                     </div>
                 </CardHeader>
                 <div className="p-0">
@@ -125,45 +226,35 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {sites.map((site) => {
+                            {sites.map((site, index) => {
                                 const isScanning = scanningId === site.id
 
-                                // Enhanced History Logic:
-                                // If history is empty but we have a score (first scan before fix), use current score as history point.
+                                // History Logic
                                 let graphHistory = [...(site.site_history || [])].reverse();
-                                if (graphHistory.length === 0 && site.aeo_score > 0) {
-                                    graphHistory = [{ id: 'synthetic-now', site_id: site.id, aeo_score: site.aeo_score, created_at: site.last_scanned_at || new Date().toISOString() }];
+
+                                // --- MOCK DATA INJECTION FOR DEMO ---
+                                // Different mock patterns based on index to show variety
+                                let sparklineData: number[] = [];
+
+                                if (graphHistory.length < 2) {
+                                    if (index === 0) sparklineData = [65, 68, 72, 70, 75, 82, 85, 90]; // Growth
+                                    else if (index === 1) sparklineData = [80, 78, 75, 76, 72, 68, 65, 60]; // Decline
+                                    else if (index === 2) sparklineData = [50, 55, 52, 58, 54, 56, 55, 55]; // Stable/Fluctuating
+                                    else sparklineData = [40, 42, 45, 48, 50, 52, 55, 65]; // Default Growth
+
+                                    // Override score for demo consistency if needed, or just display sparkline
+                                } else {
+                                    sparklineData = graphHistory.map(h => h.aeo_score);
                                 }
+                                // -------------------------------------
 
                                 const health = site.health_status || { robots: 'neutral', schema: 'neutral', content: 'neutral' };
 
-                                // Recalculate trend with potentially synthetic history
-                                const getDisplayTrend = () => {
-                                    if (graphHistory.length === 0) return 'neutral';
-                                    if (graphHistory.length === 1) return 'new';
-                                    const current = graphHistory[graphHistory.length - 1].aeo_score; // Last item in our graph array (which is reversed history)
-                                    const previous = graphHistory[graphHistory.length - 2].aeo_score;
-                                    // Wait, graphHistory is [...history].reverse(). 
-                                    // Original logic: site.site_history[0] is newest. 
-                                    // So graphHistory[0] is OLDEST. graphHistory[length-1] is NEWEST.
-
-                                    // Let's stick to using the sorted array directly for trend to be safe
-                                    // But graphHistory is easier for graph.
-
-                                    // Re-evaluating based on original "getTrend":
-                                    // original: site.site_history[0] (newest) vs [1] (older)
-                                    // graphHistory above (reversed): [0] (oldest) ... [last] (newest)
-
-                                    if (graphHistory.length < 2) return 'new';
-                                    const curr = graphHistory[graphHistory.length - 1].aeo_score;
-                                    const prev = graphHistory[graphHistory.length - 2].aeo_score;
-                                    return curr > prev ? 'up' : curr < prev ? 'down' : 'neutral';
-                                };
-
-                                const trend = getDisplayTrend();
-
-                                // Prepare data for sparkline (normalize to 0-100)
-                                const sparklineData = graphHistory.map(h => h.aeo_score);
+                                // Trend Calculation for Arrow logic (based on Sparkline Data now)
+                                const first = sparklineData[0] || 0;
+                                const last = sparklineData[sparklineData.length - 1] || 0;
+                                const trendValue = last - first;
+                                const trendDirection = trendValue > 0 ? 'up' : trendValue < 0 ? 'down' : 'neutral';
 
                                 return (
                                     <TableRow key={site.id} className="group border-slate-100 hover:bg-slate-50 transition-all duration-200">
@@ -187,69 +278,82 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
                                         </TableCell>
                                         <TableCell className="py-4">
                                             <div className="flex items-center gap-4">
-                                                <div className="h-8 w-24 flex items-end gap-[3px]">
-                                                    {graphHistory.length > 0 ? (
-                                                        graphHistory.map((h, i) => {
-                                                            const height = Math.max(15, h.aeo_score);
-                                                            // Opacity: 100% if single item, otherwise distributed
-                                                            const opacity = graphHistory.length === 1 ? 1 : 0.3 + ((i / (graphHistory.length - 1)) * 0.7);
-
-                                                            return (
-                                                                <div
-                                                                    key={h.id}
-                                                                    className="w-1.5 rounded-t-[1px] bg-[#224034]"
-                                                                    style={{
-                                                                        height: `${height}%`,
-                                                                        opacity: opacity
-                                                                    }}
-                                                                />
-                                                            )
-                                                        })
-                                                    ) : (
-                                                        /* Empty state line if absolutely no data (should be rare/impossible with fallback) */
-                                                        <div className="w-full h-[1px] bg-slate-200"></div>
-                                                    )}
+                                                {/* Sparkline Visualization */}
+                                                <div className="h-8 w-24 flex items-center justify-start">
+                                                    <Sparkline data={sparklineData} />
                                                 </div>
 
-                                                {trend === 'up' ? (
-                                                    <ArrowUpRight className="w-4 h-4 text-emerald-600" />
-                                                ) : trend === 'down' ? (
-                                                    <ArrowDownRight className="w-4 h-4 text-rose-600" />
-                                                ) : trend === 'new' ? (
-                                                    <span className="text-[10px] font-medium text-[#224034] bg-[#224034]/10 px-1.5 py-0.5 rounded">NEW</span>
+                                                {/* Direction Indicator */}
+                                                {trendDirection !== 'neutral' ? (
+                                                    <div className={cn("flex items-center text-xs font-bold", trendDirection === 'up' ? "text-emerald-600" : "text-rose-600")}>
+                                                        {trendDirection === 'up' ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
+                                                        {Math.abs(trendValue).toFixed(0)}%
+                                                    </div>
                                                 ) : (
-                                                    <span className="text-xs text-slate-400">-</span>
+                                                    <span className="text-xs text-slate-400 font-medium">-</span>
                                                 )}
                                             </div>
                                         </TableCell>
 
                                         <TableCell className="py-4">
-                                            <div className="flex gap-2">
-                                                <StatusBadge status={health.robots} label="Robots" />
-                                                <StatusBadge status={health.schema} label="Schema" />
-                                                <StatusBadge status={health.content} label="Content" />
+                                            <div className="flex items-center gap-3">
+                                                {/* Circular Score */}
+                                                <ScoreRing score={site.aeo_score} />
+
+                                                <div className="flex flex-col gap-1.5">
+                                                    {/* Voice Ready Badge */}
+                                                    {site.aeo_score >= 90 && (
+                                                        <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] px-1.5 py-0 w-fit gap-1">
+                                                            <Activity className="w-3 h-3" /> Voice Ready
+                                                        </Badge>
+                                                    )}
+                                                    {/* Snippet Opportunity Badge */}
+                                                    {site.aeo_score >= 70 && site.aeo_score < 90 && (
+                                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0 w-fit gap-1">
+                                                            <Zap className="w-3 h-3" /> Snippet Opp.
+                                                        </Badge>
+                                                    )}
+                                                    {/* Fallback Badge if score is low */}
+                                                    {site.aeo_score < 70 && (
+                                                        <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 text-[10px] px-1.5 py-0 w-fit">
+                                                            Needs Optimization
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </div>
                                         </TableCell>
                                         <TableCell className="py-4">
                                             <div className="flex flex-col gap-0.5">
-                                                {/* LAST CHANGE COLUMN: Delta */}
-                                                {(graphHistory.length > 1 && trend !== 'new') ? (
-                                                    (() => {
-                                                        const current = graphHistory[graphHistory.length - 1].aeo_score;
-                                                        const previous = graphHistory[graphHistory.length - 2].aeo_score;
-                                                        const delta = current - previous;
+                                                {/* LAST CHANGE Logic */}
+                                                {(() => {
+                                                    // We use the same history/sparkline data for consistency in delta?
+                                                    // Or strictly utilize last two points of sparklineData
+                                                    if (sparklineData.length < 2) {
+                                                        return <span className="text-xs text-slate-400 font-medium">First Scan</span>;
+                                                    }
+
+                                                    const current = sparklineData[sparklineData.length - 1];
+                                                    const previous = sparklineData[sparklineData.length - 2];
+                                                    const delta = current - previous;
+
+                                                    if (delta === 0) {
                                                         return (
-                                                            <span className={cn(
-                                                                "text-sm font-bold",
-                                                                delta > 0 ? "text-emerald-600" : delta < 0 ? "text-rose-600" : "text-slate-600"
-                                                            )}>
-                                                                {delta > 0 ? '+' : ''}{delta}%
+                                                            <span className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                                                                <Clock className="w-3 h-3" />
+                                                                {site.last_scanned_at ? formatDistanceToNow(new Date(site.last_scanned_at), { addSuffix: true }) : 'Just now'}
                                                             </span>
                                                         )
-                                                    })()
-                                                ) : (
-                                                    <span className="text-sm font-medium text-slate-400">First Scan</span>
-                                                )}
+                                                    }
+
+                                                    return (
+                                                        <span className={cn(
+                                                            "text-sm font-bold flex items-center gap-1",
+                                                            delta > 0 ? "text-emerald-600" : "text-rose-600"
+                                                        )}>
+                                                            {delta > 0 ? '+' : ''}{delta}%
+                                                        </span>
+                                                    )
+                                                })()}
 
                                                 <span className="text-[10px] text-slate-400 uppercase tracking-wider">
                                                     Since last scan

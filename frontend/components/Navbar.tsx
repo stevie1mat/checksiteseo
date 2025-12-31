@@ -33,9 +33,7 @@ export function Navbar() {
                     <Link href="#faq" className="text-sm font-medium text-white/80 hover:text-white transition-colors">
                         FAQ
                     </Link>
-                    <Link href="https://github.com/stevie1mat/checksiteseo" className="text-sm font-medium text-white/80 hover:text-white transition-colors">
-                        Docs
-                    </Link>
+
                 </div>
 
 
@@ -83,9 +81,7 @@ export function Navbar() {
                     <Link href="#faq" className="block text-sm font-medium text-white hover:text-white/80 transition-colors">
                         FAQ
                     </Link>
-                    <Link href="https://github.com/stevie1mat/checksiteseo" className="block text-sm font-medium text-white hover:text-white/80 transition-colors">
-                        Docs
-                    </Link>
+
                     <div className="pt-4 border-t border-white/20 space-y-3">
                         <AuthDialog
                             defaultView="signin"

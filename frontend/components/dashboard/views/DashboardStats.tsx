@@ -2,7 +2,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Globe, Activity, TrendingUp } from "lucide-react"
+import { Globe, Activity, TrendingUp, AlertTriangle } from "lucide-react"
+import Link from "next/link"
+import { cn } from "@/lib/utils"
 
 interface DashboardStatsProps {
     siteCount: number
@@ -39,19 +41,35 @@ export function DashboardStats({ siteCount, maxSites, sites }: DashboardStatsPro
     return (
         <div className="grid gap-6 md:grid-cols-3">
             {/* Portfolio Usage */}
-            <Card className="border-slate-200 shadow-xs bg-white">
+            <Card className={cn(
+                "shadow-xs bg-white transition-all duration-300",
+                siteCount >= maxSites ? "border-amber-200 ring-4 ring-amber-50" : "border-slate-200"
+            )}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-slate-500">Portfolio Usage</CardTitle>
-                    <Globe className="h-4 w-4 text-slate-400" />
+                    {siteCount >= maxSites ? (
+                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    ) : (
+                        <Globe className="h-4 w-4 text-slate-400" />
+                    )}
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-end justify-between mb-2">
                         <div className="text-2xl font-bold text-[#224034]">{siteCount} <span className="text-sm font-normal text-slate-400">/ {maxSites} Sites</span></div>
                     </div>
-                    <Progress value={(siteCount / maxSites) * 100} className="h-2" />
-                    <p className="text-xs text-slate-500 mt-2">
-                        {siteCount >= maxSites ? 'Limit reached' : `${maxSites - siteCount} slots remaining`}
-                    </p>
+                    <Progress value={(siteCount / maxSites) * 100} className={cn("h-2", siteCount >= maxSites ? "bg-amber-100" : "")} indicatorClassName={siteCount >= maxSites ? "bg-amber-500" : ""} />
+
+                    <div className="flex items-center justify-between mt-3">
+                        <p className={cn("text-xs", siteCount >= maxSites ? "text-amber-600 font-medium" : "text-slate-500")}>
+                            {siteCount >= maxSites ? 'Limit reached' : `${maxSites - siteCount} slots remaining`}
+                        </p>
+                        {siteCount >= maxSites && (
+                            <Link href="/#pricing" className="text-[10px] font-bold uppercase tracking-wider text-amber-600 hover:text-amber-700 hover:underline">
+                                Upgrade Plan
+                            </Link>
+                        )}
+                    </div>
+
                 </CardContent>
             </Card>
 

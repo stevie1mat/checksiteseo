@@ -19,45 +19,41 @@ export function PricingSection() {
             popular: false
         },
         {
-            name: "Pro",
-            price: "$49",
+            name: "Plus",
+            price: "$15",
             period: "per month",
-            description: "For growing teams and agencies",
+            description: "For serious content creators",
             features: [
-                "Unlimited URL scans",
+                "50 URL scans per month",
                 "Full AEO analysis suite",
                 "AI content gap detection",
-                "E-E-A-T authority scoring",
-                "Priority support",
-                "API access",
+                "Priority email support",
                 "Weekly reports",
-                "Custom integrations"
+                "Content optimization tools"
             ],
             cta: "Start 14-Day Trial",
             popular: true
         },
         {
-            name: "Enterprise",
-            price: "Custom",
-            period: "contact us",
-            description: "For large organizations",
+            name: "Pro",
+            price: "$25",
+            period: "per month",
+            description: "For agencies and businesses",
             features: [
-                "Everything in Pro",
-                "Dedicated account manager",
-                "Custom AI model training",
-                "White-label reports",
-                "SLA guarantees",
-                "Advanced security",
-                "Bulk domain management",
+                "Unlimited URL scans",
+                "Everything in Plus",
+                "E-E-A-T authority scoring",
+                "API access",
+                "Competitor analysis",
                 "Custom integrations"
             ],
-            cta: "Contact Sales",
+            cta: "Start 14-Day Trial",
             popular: false
         }
     ];
 
     return (
-        <section className="py-24 bg-[#F9FBFA]">
+        <section id="pricing" className="py-24 bg-[#F9FBFA]">
             <div className="max-w-7xl mx-auto px-6">
                 <div className="text-center mb-16">
                     <div className="inline-block px-4 py-1 rounded-full border border-emerald-200 text-xs font-bold tracking-widest uppercase text-emerald-700 mb-6 bg-white">
@@ -76,8 +72,8 @@ export function PricingSection() {
                         <div
                             key={index}
                             className={`relative bg-white rounded-2xl p-8 border-2 transition-all duration-300 ${plan.popular
-                                    ? 'border-[#8cd9b8] shadow-xl shadow-[#8cd9b8]/20 scale-105'
-                                    : 'border-gray-100 hover:border-[#8cd9b8]/50 hover:shadow-lg'
+                                ? 'border-[#8cd9b8] shadow-xl shadow-[#8cd9b8]/20 scale-105'
+                                : 'border-gray-100 hover:border-[#8cd9b8]/50 hover:shadow-lg'
                                 }`}
                         >
                             {plan.popular && (
@@ -108,8 +104,8 @@ export function PricingSection() {
 
                             <Button
                                 className={`w-full h-12 text-base font-semibold ${plan.popular
-                                        ? 'bg-[#224034] hover:bg-[#1a3329] text-white shadow-lg'
-                                        : 'bg-white hover:bg-[#224034] text-[#224034] hover:text-white border-2 border-[#224034]'
+                                    ? 'bg-[#224034] hover:bg-[#1a3329] text-white shadow-lg'
+                                    : 'bg-white hover:bg-[#224034] text-[#224034] hover:text-white border-2 border-[#224034]'
                                     }`}
                             >
                                 {plan.cta}
