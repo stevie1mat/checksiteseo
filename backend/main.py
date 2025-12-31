@@ -542,3 +542,45 @@ async def analyze_ambiguity(request: AnswerPlanRequest): # Reusing AnswerPlanReq
         pass
         
     return {"improvements": []}
+
+class ContactRequest(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    message: str
+
+@app.post("/contact")
+async def contact_form(request: ContactRequest):
+    if not RESEND_API_KEY:
+        # Fallback if no API key
+        print(f"MOCK CONTACT FORM: {request}")
+        return {"message": "Message received (Mock)"}
+
+    try:
+        subject = f"New Contact: {request.first_name} {request.last_name}"
+        html_content = f"""
+        <h1>New Contact Form Submission</h1>
+        <p><strong>Name:</strong> {request.first_name} {request.last_name}</p>
+        <p><strong>Email:</strong> {request.email}</p>
+        <p><strong>Message:</strong></p>
+        <div style="background:#f4f4f4; padding:15px; border-radius:10px;">
+            {request.message}
+        </div>
+        """
+        
+        # Using the verified sender or default
+        sender_email = "CheckSite AEO <noreply@checksiteaeo.com>"
+        # Note: If domain isn't verified in Resend, this might fail unless using 'onboarding@resend.dev'
+        # I'll default to a safe value or the user's config if evident, but 'noreply' is standard.
+        # Ideally, we check if the user has a specific sender. I'll use a generic one.
+        
+        r = resend.Emails.send({
+            "from": sender_email,
+            "to": "mathewsteven1996@gmail.com",
+            "subject": subject,
+            "html": html_content
+        })
+        return {"message": "Message sent successfully", "id": r.get("id")}
+    except Exception as e:
+        logger.error(f"Failed to send contact email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

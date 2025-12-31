@@ -1,4 +1,5 @@
-import { Share2, FileText, Zap } from "lucide-react";
+import { Share2, FileText, Zap, ShieldCheck, Search, Database, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 export function FeaturesSection() {
     return (
@@ -60,6 +61,55 @@ export function FeaturesSection() {
                             </p>
                         </div>
                     </div>
+
+                    {/* Feature 4: Entity Validation */}
+                    <div className="flex flex-col items-center space-y-6">
+                        <div className="w-12 h-12 flex items-center justify-center text-[#224034]">
+                            <ShieldCheck className="w-10 h-10" strokeWidth={1.5} />
+                        </div>
+                        <div>
+                            <h3 className="font-serif text-2xl text-[#224034] mb-3">Entity Validation</h3>
+                            <p className="text-slate-500 leading-relaxed text-sm max-w-xs mx-auto">
+                                Verify your brand's presence in the Knowledge Graph to ensure authoritative citations.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Feature 5: Content Gap Analysis */}
+                    <div className="flex flex-col items-center space-y-6">
+                        <div className="w-12 h-12 flex items-center justify-center text-[#224034]">
+                            <Search className="w-10 h-10" strokeWidth={1.5} />
+                        </div>
+                        <div>
+                            <h3 className="font-serif text-2xl text-[#224034] mb-3">Content Gap Analysis</h3>
+                            <p className="text-slate-500 leading-relaxed text-sm max-w-xs mx-auto">
+                                Identify missing topics that prevent your site from being the single source of truth.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Feature 6: Smart Schema */}
+                    <div className="flex flex-col items-center space-y-6">
+                        <div className="w-12 h-12 flex items-center justify-center text-[#224034]">
+                            <Database className="w-10 h-10" strokeWidth={1.5} />
+                        </div>
+                        <div>
+                            <h3 className="font-serif text-2xl text-[#224034] mb-3">Smart Schema</h3>
+                            <p className="text-slate-500 leading-relaxed text-sm max-w-xs mx-auto">
+                                Auto-generate JSON-LD structured data that feeds AI models the exact context they need.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-20 text-center">
+                    <Link
+                        href="/dashboard"
+                        className="inline-flex items-center gap-2 px-8 py-4 bg-[#224034] text-white rounded-full font-medium hover:bg-[#1a3329] transition-all duration-300 shadow-lg hover:shadow-xl group"
+                    >
+                        Start Free Scan
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </Link>
                 </div>
             </div>
         </section>

@@ -1,16 +1,19 @@
+"use client";
+
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, MessageSquare, Phone } from "lucide-react";
+import { Mail, MessageSquare } from "lucide-react";
+import { useState } from "react";
 
 export default function ContactPage() {
     return (
-        <main className="min-h-screen bg-slate-50">
+        <main className="min-h-screen bg-[#224034] relative overflow-hidden" style={{ backgroundColor: '#224034' }}>
             <Navbar />
 
-            <div className="bg-[#224034] text-white pt-32 pb-12 px-6">
+            <div className="relative z-10 text-white pt-48 pb-12 px-6">
                 <div className="max-w-4xl mx-auto text-center">
                     <h1 className="font-serif text-4xl md:text-5xl mb-4">Get in touch</h1>
                     <p className="text-white/80">We'd love to hear from you. Our team is always here to chat.</p>
@@ -21,56 +24,97 @@ export default function ContactPage() {
                 <div className="grid md:grid-cols-3 gap-12">
                     {/* Contact Info Cards */}
                     <div className="md:col-span-1 space-y-6">
-                        <div className="bg-white p-6 rounded-xl border border-slate-200">
-                            <MessageSquare className="w-6 h-6 text-[#224034] mb-4" />
-                            <h3 className="font-semibold text-[#224034]">Chat with us</h3>
-                            <p className="text-sm text-slate-500 mb-2">Speak to our friendly team.</p>
-                            <a href="#" className="text-[#224034] font-medium hover:underline">Start a live chat</a>
+                        <div className="bg-white/5 backdrop-blur-md p-6 rounded-2xl border border-white/10 group hover:bg-white/10 hover:border-emerald-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-900/20">
+                            <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-emerald-500/20 transition-colors">
+                                <MessageSquare className="w-6 h-6 text-emerald-400" />
+                            </div>
+                            <h3 className="font-semibold text-lg text-white mb-1">Chat with us</h3>
+                            <p className="text-sm text-white/60 mb-4">Speak to our friendly team.</p>
+                            <a href="#" className="inline-flex items-center text-emerald-400 font-medium hover:text-emerald-300 transition-colors group/link">
+                                Start a live chat <span className="ml-2 group-hover/link:translate-x-1 transition-transform">→</span>
+                            </a>
                         </div>
-                        <div className="bg-white p-6 rounded-xl border border-slate-200">
-                            <Mail className="w-6 h-6 text-[#224034] mb-4" />
-                            <h3 className="font-semibold text-[#224034]">Email us</h3>
-                            <p className="text-sm text-slate-500 mb-2">We'll respond within 24 hours.</p>
-                            <a href="mailto:hello@checksiteaeo.com" className="text-[#224034] font-medium hover:underline">hello@checksiteaeo.com</a>
-                        </div>
-                        <div className="bg-white p-6 rounded-xl border border-slate-200">
-                            <Phone className="w-6 h-6 text-[#224034] mb-4" />
-                            <h3 className="font-semibold text-[#224034]">Call us</h3>
-                            <p className="text-sm text-slate-500 mb-2">Mon-Fri from 8am to 5pm.</p>
-                            <a href="tel:+15550000000" className="text-[#224034] font-medium hover:underline">+1 (555) 000-0000</a>
+                        <div className="bg-white/5 backdrop-blur-md p-6 rounded-2xl border border-white/10 group hover:bg-white/10 hover:border-emerald-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-900/20">
+                            <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-emerald-500/20 transition-colors">
+                                <Mail className="w-6 h-6 text-emerald-400" />
+                            </div>
+                            <h3 className="font-semibold text-lg text-white mb-1">Email us</h3>
+                            <p className="text-sm text-white/60 mb-4">We'll respond within 24 hours.</p>
+                            <a href="mailto:hello@checksiteaeo.com" className="inline-flex items-center text-emerald-400 font-medium hover:text-emerald-300 transition-colors group/link">
+                                hello@checksiteaeo.com <span className="ml-2 group-hover/link:translate-x-1 transition-transform">→</span>
+                            </a>
                         </div>
                     </div>
 
                     {/* Contact Form */}
-                    <div className="md:col-span-2 bg-white rounded-2xl p-12 border border-slate-200">
-                        <form className="space-y-8">
-                            <div className="grid md:grid-cols-2 gap-8">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-700">First name</label>
-                                    <Input placeholder="First name" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-700">Last name</label>
-                                    <Input placeholder="Last name" />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">Email</label>
-                                <Input type="email" placeholder="you@company.com" />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">Message</label>
-                                <Textarea placeholder="Leave us a message..." className="min-h-[150px]" />
-                            </div>
-                            <Button className="w-full bg-[#224034] hover:bg-[#1a332a] text-white">
-                                Send Message
-                            </Button>
-                        </form>
+                    <div className="md:col-span-2 bg-white/5 backdrop-blur-md rounded-2xl p-8 md:p-12 border border-white/10 relative z-10 shadow-2xl">
+                        <ContactForm />
                     </div>
                 </div>
             </div>
 
             <Footer />
         </main>
+    );
+}
+
+function ContactForm() {
+    const [loading, setLoading] = useState(false);
+
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        setLoading(true);
+
+        const formData = new FormData(e.currentTarget);
+        const data = {
+            first_name: formData.get("first_name"),
+            last_name: formData.get("last_name"),
+            email: formData.get("email"),
+            message: formData.get("message"),
+        };
+
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/contact`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+            });
+
+            if (!res.ok) throw new Error("Failed to send message");
+
+            alert("Message sent successfully!");
+            (e.target as HTMLFormElement).reset();
+        } catch (error) {
+            alert("Failed to send message. Please try again.");
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-emerald-200">First name</label>
+                    <Input name="first_name" placeholder="First name" required className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:bg-white/10 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/50 transition-all h-12" />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-emerald-200">Last name</label>
+                    <Input name="last_name" placeholder="Last name" required className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:bg-white/10 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/50 transition-all h-12" />
+                </div>
+            </div>
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-emerald-200">Email</label>
+                <Input name="email" type="email" placeholder="you@company.com" required className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:bg-white/10 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/50 transition-all h-12" />
+            </div>
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-emerald-200">Message</label>
+                <Textarea name="message" placeholder="Leave us a message..." required className="min-h-[150px] bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:bg-white/10 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/50 transition-all resize-none" />
+            </div>
+            <Button disabled={loading} className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white py-6 text-lg font-medium shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all duration-300 border border-white/10">
+                {loading ? "Sending..." : "Send Message"}
+            </Button>
+        </form>
     );
 }

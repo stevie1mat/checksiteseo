@@ -1,4 +1,5 @@
-import { FileCode, BrainCircuit, Share2 } from "lucide-react";
+import { FileCode, BrainCircuit, Share2, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 export function HowItWorksSection() {
     return (
@@ -44,7 +45,7 @@ export function HowItWorksSection() {
 
                         {/* STEP 1: The Input */}
                         <div className="relative z-10 flex flex-col items-center group cursor-default">
-                            <div className="w-24 h-24 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center mb-6 shadow-xl relative overflow-hidden group-hover:border-emerald-400/50 group-hover:bg-white/10 transition-all duration-500">
+                            <div className="w-24 h-24 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center mb-14 shadow-xl relative overflow-hidden group-hover:border-emerald-400/50 group-hover:bg-white/10 transition-all duration-500">
                                 {/* Code Rain Effect inside Card */}
                                 <div className="absolute inset-0 opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay" />
                                 <div className="absolute inset-0 flex flex-col text-[8px] font-mono text-emerald-300/30 p-2 overflow-hidden leading-tight animate-marquee">
@@ -65,8 +66,14 @@ export function HowItWorksSection() {
                             {/* Pulse Effect for Brain */}
                             <div className="absolute top-[3.5rem] md:top-12 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-emerald-500/10 rounded-full blur-xl animate-pulse" />
 
-                            <div className="w-28 h-28 rounded-full bg-[#1a3329] border-2 border-emerald-500/30 flex items-center justify-center mb-6 shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)] relative z-10 animate-pulse-ring">
-                                <BrainCircuit className="w-12 h-12 text-emerald-400" />
+                            <div className="relative mb-14">
+                                {/* PING Animation Ring */}
+                                <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping duration-[3000ms]" />
+
+                                {/* Stable Icon */}
+                                <div className="w-28 h-28 rounded-full bg-[#1a3329] border-2 border-emerald-500/30 flex items-center justify-center shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)] relative z-10">
+                                    <BrainCircuit className="w-12 h-12 text-emerald-400" />
+                                </div>
                             </div>
                             <h3 className="text-white font-serif text-xl mb-2">LLM Simulation</h3>
                             <p className="text-white/50 text-sm text-center max-w-[200px] md:max-w-[180px]">Reconstructing content through the "eyes" of an AI agent.</p>
@@ -74,7 +81,7 @@ export function HowItWorksSection() {
 
                         {/* STEP 3: The Output */}
                         <div className="relative z-10 flex flex-col items-center group cursor-default">
-                            <div className="w-24 h-24 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center mb-6 shadow-xl relative overflow-hidden group-hover:border-emerald-400/50 group-hover:bg-white/10 transition-all duration-500">
+                            <div className="w-24 h-24 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center mb-14 shadow-xl relative overflow-hidden group-hover:border-emerald-400/50 group-hover:bg-white/10 transition-all duration-500">
                                 {/* Graph Nodes Background */}
                                 <div className="absolute inset-0 opacity-20 flex items-center justify-center">
                                     <div className="w-16 h-16 border border-emerald-400/30 rounded-full flex items-center justify-center">
@@ -87,6 +94,16 @@ export function HowItWorksSection() {
                             <p className="text-white/50 text-sm text-center max-w-[200px] md:max-w-[180px]">Structured knowledge graph ready for citation.</p>
                         </div>
 
+                    </div>
+
+                    <div className="mt-20 text-center relative z-10">
+                        <Link
+                            href="/dashboard"
+                            className="inline-flex items-center gap-2 px-8 py-4 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full font-medium hover:bg-white/20 transition-all duration-300 shadow-lg hover:shadow-xl group"
+                        >
+                            Analyze Your Site
+                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </Link>
                     </div>
                 </div>
             </div>
