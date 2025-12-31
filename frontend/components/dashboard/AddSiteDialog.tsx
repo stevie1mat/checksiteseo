@@ -84,12 +84,37 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
                     throw new Error("Scan initiation failed")
                 }
 
-                setScanStatus('complete')
-                setTimeout(() => {
-                    setScanDialogOpen(false)
-                    setUrl("")
-                    router.refresh()
-                }, 2000)
+                // Polling for completion
+                let attempts = 0;
+                const maxAttempts = 60; // 2 minutes approx
+
+                while (attempts < maxAttempts) {
+                    const { data: site } = await supabase
+                        .from('sites')
+                        .select('status')
+                        .eq('id', siteId)
+                        .single();
+
+                    if (site?.status === 'completed') {
+                        setScanStatus('complete');
+                        setTimeout(() => {
+                            setScanDialogOpen(false)
+                            setUrl("")
+                            router.refresh()
+                        }, 2000);
+                        return;
+                    }
+
+                    if (site?.status === 'error') {
+                        throw new Error("Analysis failed. Please try again.");
+                    }
+
+                    // Wait 2s
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    attempts++;
+                }
+
+                throw new Error("Analysis took too long. It may finish in the background.");
             } else {
                 setOpen(false)
                 setUrl("")

@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 from dotenv import load_dotenv
 import httpx
 from bs4 import BeautifulSoup
@@ -579,6 +580,27 @@ async def analyze_page_content(html: str) -> dict:
         if "FAQ" in str(schemas): schema_types.append("FAQ")
         if not schema_types: schema_types.append("Generic")
     
+    # Run independent tasks concurrently
+    p_readability, p_gap, p_eeat, p_kg = await asyncio.gather(
+        check_readability_async(main_text[:5000]),
+        analyze_failed_queries(main_text[:5000]),
+        check_eeat(soup),
+        extract_entities(main_text[:4000]),
+        return_exceptions=True
+    )
+
+    # Handle potential exceptions from gather
+    def handle_result(res, default):
+        if isinstance(res, Exception):
+            print(f"Task failed: {res}")
+            return default
+        return res
+
+    p_readability = handle_result(p_readability, {"score": 0, "details": ["Analysis Error"]})
+    p_gap = handle_result(p_gap, {"score": 0, "details": ["Analysis Error"], "data": []})
+    p_eeat = handle_result(p_eeat, {"score": 0, "details": ["Analysis Error"]})
+    p_kg = handle_result(p_kg, {"score": 0, "details": ["Analysis Error"], "data": {}})
+
     return {
         "technical": {
             "schema": {"score": 100 if has_schema else 0, "details": [f"Found: {', '.join(schema_types)}" if has_schema else "Missing"], "types": schema_types},
@@ -587,16 +609,16 @@ async def analyze_page_content(html: str) -> dict:
         },
         "content": {
             "questions": check_question_targeting(soup),
-            "readability": await check_readability_async(main_text[:5000]), 
+            "readability": p_readability, 
             "visual": check_visual_context(soup),
             "freshness": check_freshness(soup),
             "word_count": {"score": 100 if len(main_text.split()) > 300 else 50, "details": [f"{len(main_text.split())} words"]},
-            "gap": await analyze_failed_queries(main_text[:5000]),
+            "gap": p_gap,
             "basic_seo": check_basic_seo(soup)
         },
         "authority": {
-            "eeat": await check_eeat(soup),
-            "knowledge_graph": await extract_entities(main_text[:4000])
+            "eeat": p_eeat,
+            "knowledge_graph": p_kg
         }
     }
 
@@ -631,13 +653,40 @@ async def analyze_readiness(url: str, scan_mode: str = "full"):
             main_text = soup.get_text(separator=' ', strip=True)
 
             if scan_mode == "full":
-                # Run Everything
-                page_data = await analyze_page_content(page.text)
-                results["technical"]["schema"] = page_data["technical"]["schema"]
-                results["technical"]["https"] = {"score": 100, "details": ["Valid HTTPS"]}
-                results["content"] = page_data["content"]
-                results["authority"] = page_data["authority"]
+                # Run Page Content & Competitor Analysis Concurrently
+                # This is critical because both use LLMs and might hit rate limits/timeouts.
+                # Running them in parallel reduces total wait time significantly.
                 
+                # Prepare tasks
+                task_content = analyze_page_content(page.text)
+                task_competitors = analyze_competitors(main_text[:3000] if main_text else "", url)
+                
+                # Execute
+                p_content, p_competitors = await asyncio.gather(
+                    task_content,
+                    task_competitors,
+                    return_exceptions=True
+                )
+                
+                # Handle Content Result
+                if isinstance(p_content, Exception):
+                    print(f"Page analysis failed: {p_content}")
+                    p_content = {"technical": {}, "content": {}, "authority": {}} # Empty fallback
+                
+                # Handle Competitors Result
+                if isinstance(p_competitors, Exception):
+                    print(f"Competitor analysis failed: {p_competitors}")
+                    p_competitors = {"yourShare": 0, "others": 0, "top_competitors": []}
+                
+                # Assign to results
+                page_data = p_content
+                results["technical"]["schema"] = page_data.get("technical", {}).get("schema", {})
+                results["technical"]["https"] = {"score": 100, "details": ["Valid HTTPS"]}
+                results["content"] = page_data.get("content", {})
+                results["authority"] = page_data.get("authority", {})
+                
+                competitors_data = p_competitors
+
             elif scan_mode == "answers":
                 # Only analyze questions/gaps
                 results["content"]["gap"] = await analyze_failed_queries(main_text[:5000])
@@ -645,18 +694,17 @@ async def analyze_readiness(url: str, scan_mode: str = "full"):
                 # Keep basic stats for context
                 results["content"]["word_count"] = {"score": 100 if len(main_text.split()) > 300 else 50, "details": [f"{len(main_text.split())} words"]}
 
-            # Add more modes as needed (e.g. 'sov')
+            elif scan_mode == "sov": 
+                 # Just competitors
+                 try:
+                    competitors_data = await analyze_competitors(main_text[:3000] if main_text else "", url)
+                 except Exception:
+                    competitors_data = {}
 
-        else:
-            pass
-            
     except Exception as e:
         print(f"Analysis failed: {e}")
         pass
 
-    # Competitor Analysis (Only for full or sov mode)
-    if scan_mode == "full" or scan_mode == "sov":
-        competitors_data = await analyze_competitors(main_text[:3000] if main_text else "", url)
 
     # Calculate Total Score
     flat_scores = []

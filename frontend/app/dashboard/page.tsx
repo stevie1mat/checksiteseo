@@ -7,6 +7,8 @@ import { RescanButton } from "@/components/dashboard/RescanButton"
 import { SiteHealthGrid } from "@/components/dashboard/views/SiteHealthGrid"
 import { DashboardStats } from "@/components/dashboard/views/DashboardStats"
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser() // User is guaranteed by layout but good to have safety

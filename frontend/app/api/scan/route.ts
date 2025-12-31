@@ -48,7 +48,7 @@ export async function POST(request: Request) {
             const apiResponse = await fetch(`${BACKEND_URL}/analyze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: url }),
+                body: JSON.stringify({ url: url, site_id: siteId }),
                 signal: AbortSignal.timeout(60000) // 60s timeout
             });
 

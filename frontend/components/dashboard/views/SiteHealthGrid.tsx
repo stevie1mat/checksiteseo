@@ -18,7 +18,7 @@ import {
 import { Site } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -28,6 +28,12 @@ interface SiteHealthGridProps {
 
 export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
     const router = useRouter()
+    const [localSites, setLocalSites] = useState<Site[]>(sites)
+
+    useEffect(() => {
+        setLocalSites(sites)
+    }, [sites])
+
     const [deletingId, setDeletingId] = useState<string | null>(null)
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [siteToDelete, setSiteToDelete] = useState<Site | null>(null)
@@ -43,23 +49,31 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
 
         setDeletingId(siteToDelete.id)
         try {
-            // Delete dependent records first (Manual Cascade)
-            await supabase.from('site_history').delete().eq('site_id', siteToDelete.id)
-            await supabase.from('pages').delete().eq('site_id', siteToDelete.id)
+            console.log("Requesting deletion via API proxy for:", siteToDelete.id);
 
-            // Then delete the site
-            const { error } = await supabase
-                .from('sites')
-                .delete()
-                .eq('id', siteToDelete.id)
+            const response = await fetch(`/api/sites/${siteToDelete.id}`, {
+                method: 'DELETE',
+            });
 
-            if (error) throw error
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Delete failed");
+            }
+
+            // Optimistic Update: Remove from UI immediately
+            setLocalSites(prev => prev.filter(s => s.id !== siteToDelete.id))
 
             setDeleteDialogOpen(false)
             router.refresh()
-        } catch (error) {
+
+            // Fallback: Reload page if simple refresh doesn't clear the stale cache visible to user
+            // Keeping this as a safety net, but reduced timeout since local state handles immediate feedback
+            setTimeout(() => {
+                window.location.reload()
+            }, 1000)
+        } catch (error: any) {
             console.error("Error deleting site:", error)
-            alert("Failed to delete site. Please try again.")
+            alert(`Failed to delete site: ${error.message}`)
         } finally {
             setDeletingId(null)
             setSiteToDelete(null)
@@ -138,7 +152,7 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {sites.map((site) => {
+                            {localSites.map((site) => {
                                 const badgeInfo = getStatusBadge(site.aeo_score);
 
                                 // History Logic for Last Change

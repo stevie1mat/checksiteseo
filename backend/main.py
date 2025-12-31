@@ -2,7 +2,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from analyzer import analyze_readiness, generate_content_strategy, generate_answer_strategy, analyze_ambiguity_issues
@@ -12,6 +12,9 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from sqlalchemy import create_engine, text
+import json
+import asyncio
 import resend
 from email_templates import get_email_html
 
@@ -125,89 +128,179 @@ def read_root():
 def health_check():
     return {"status": "ok", "service": "aeo-readiness-auditor"}
 
+
+
 def get_status(score: int) -> str:
     if score >= 90: return "healthy"
     if score >= 70: return "warning"
     return "critical"
 
 @app.post("/analyze")
-async def analyze_url(request: AnalyzeRequest):
+async def analyze_url(request: AnalyzeRequest, background_tasks: BackgroundTasks):
+    print(f"Received analysis request for: {request.url}")
+    
     # 1. Rate Limiting Check
     ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true"
     
     if ENABLE_RATE_LIMIT and request.site_id and supabase:
         try:
-            response = supabase.table("sites").select("last_scanned_at").eq("id", request.site_id).execute()
+            response = supabase.table("sites").select("last_scanned_at, status").eq("id", request.site_id).execute()
             if response.data:
-                last_scanned = response.data[0].get("last_scanned_at")
+                site = response.data[0]
+                last_scanned = site.get("last_scanned_at")
                 if last_scanned:
                     last_time = datetime.fromisoformat(last_scanned.replace('Z', '+00:00'))
-                    if datetime.now(timezone.utc) - last_time < timedelta(hours=24):
-                        raise HTTPException(status_code=429, detail="Rate limit exceeded: 1 scan per 24 hours.")
+                    # ALLOW RETRY if status is 'error' or 'processing', BLOCK only if 'completed'
+                    if (datetime.now(timezone.utc) - last_time < timedelta(hours=24)) and site.get("status") == 'completed':
+                         raise HTTPException(status_code=429, detail="Rate limit exceeded: 1 scan per 24 hours.")
         except HTTPException as he:
             raise he
         except Exception as e:
             print(f"Rate limit check failed: {e}")
 
-    # 2. Perform Analysis
-    result = await analyze_readiness(request.url, scan_mode="full") # Regular analysis is always full
-
-    # 3. Update Database
+    # 2. Update Status Update to Analyzing IMMEDIATE
     if request.site_id and supabase:
         try:
-            # Calculate health status
-            breakdown = result.get("breakdown", {})
-            tech_score = breakdown.get("technical", {}).get("robots", {}).get("score", 0) # Simplification
-            # Better aggregation needed?
-            # User req: health_status -> { robots: 'healthy', schema: 'warning', content: 'critical' }
-            
-            robots_score = breakdown.get("technical", {}).get("robots", {}).get("score", 0)
-            schema_score = breakdown.get("technical", {}).get("schema", {}).get("score", 0)
-            
-            # Content score avg
-            content_scores = [v.get("score", 0) for v in breakdown.get("content", {}).values() if isinstance(v, dict)]
-            content_avg = sum(content_scores) / len(content_scores) if content_scores else 0
-            
-            health_status = {
-                "robots": get_status(robots_score),
-                "schema": get_status(schema_score),
-                "content": get_status(int(content_avg))
-            }
-            
-            aeo_score = result.get("total_score", 0)
-            competitors = result.get("competitors", {})
-
-            # Update sites table
-            supabase.table("sites").update({
-                "aeo_score": aeo_score,
-                "health_status": health_status,
-                "competitors": competitors,
-                "status": "completed",
-                "last_scanned_at": datetime.now(timezone.utc).isoformat()
-            }).eq("id", request.site_id).execute()
-
-            # Insert history
-            supabase.table("site_history").insert({
-                "site_id": request.site_id,
-                "aeo_score": aeo_score
-            }).execute()
-
-            # Insert into pages (Critical for Frontend Details)
-            supabase.table("pages").insert({
-                "site_id": request.site_id,
-                "url": request.url,
-                "checklist": result.get("breakdown", {}),
-                "aeo_score": aeo_score,
-                "last_scanned_at": datetime.now(timezone.utc).isoformat()
-            }).execute()
-            
+            supabase.table("sites").update({"status": "analyzing"}).eq("id", request.site_id).execute()
         except Exception as e:
-            print(f"DB Update failed: {e}")
-            # Don't fail the request if DB fails? Or should we?
-            # Ideally return result but log error.
-            pass
+            print(f"Failed to update status: {e}")
 
-    return result
+    # 3. Schedule Background Task
+    background_tasks.add_task(run_analysis_background, request.url, request.site_id)
+
+    return {"status": "processing", "message": "Analysis started in background"}
+
+async def run_analysis_background(url: str, site_id: str | None):
+    print(f"🚀 [Background] Starting analysis for {url}")
+    try:
+        # Perform Analysis with Timeout (120s safety limit)
+        # analyze_readiness handles its own internal concurrency, but this is a global safety net.
+        print(f"⏳ [Background] Calling analyze_readiness for {url}...")
+        result = await asyncio.wait_for(analyze_readiness(url, scan_mode="full"), timeout=120.0)
+        print(f"✅ [Background] Analysis finished for {url}")
+        print(f"🔍 [Background] Result keys: {result.keys() if result else 'None'}")
+        
+        # Prepare Data
+        # Calculate health status
+        print("🔍 [Background] processing breakdown...")
+        breakdown = result.get("breakdown", {})
+        
+        robots_score = breakdown.get("technical", {}).get("robots", {}).get("score", 0)
+        schema_score = breakdown.get("technical", {}).get("schema", {}).get("score", 0)
+        
+        # Content score avg
+        content_scores = [v.get("score", 0) for v in breakdown.get("content", {}).values() if isinstance(v, dict)]
+        content_avg = sum(content_scores) / len(content_scores) if content_scores else 0
+        
+        print(f"🔍 [Background] Scores - Robots: {robots_score}, Schema: {schema_score}, Content Avg: {content_avg}")
+
+        health_status = {
+            "robots": get_status(robots_score),
+            "schema": get_status(schema_score),
+            "content": get_status(int(content_avg))
+        }
+        
+        aeo_score = result.get("total_score", 0)
+        competitors = result.get("competitors", {})
+
+        print(f"🔍 [Background] Site ID: {site_id}, Supabase Client: {bool(supabase)}")
+
+        if site_id and supabase:
+            print(f"💾 [Background] Saving results to DB for site {site_id}...")
+            loop = asyncio.get_running_loop()
+            
+            # Update sites table
+            def update_sites():
+                print("   > Updating sites table...")
+                supabase.table("sites").update({
+                    "aeo_score": aeo_score,
+                    "health_status": health_status,
+                    "competitors": competitors,
+                    "status": "completed",
+                    "last_scanned_at": datetime.now(timezone.utc).isoformat()
+                }).eq("id", site_id).execute()
+                print("   > Sites table updated.")
+
+            await loop.run_in_executor(None, update_sites)
+            
+            # Insert history
+            def update_history():
+                print("   > Updating history...")
+                supabase.table("site_history").insert({
+                    "site_id": site_id,
+                    "aeo_score": aeo_score
+                }).execute()
+                print("   > History updated.")
+
+            await loop.run_in_executor(None, update_history)
+
+            # Insert into pages table (Direct SQL to bypass RLS)
+            def update_pages():
+                print("   > Updating pages (via Direct SQL)...")
+                try:
+                    db_url = os.getenv("DATABASE_URL")
+                    engine = create_engine(db_url)
+                    with engine.connect() as conn:
+                        query = text("""
+                            INSERT INTO pages (site_id, url, checklist, aeo_score, status, last_scanned_at)
+                            VALUES (:site_id, :url, :checklist, :aeo_score, :status, :last_scanned_at)
+                        """)
+                        conn.execute(query, {
+                            "site_id": site_id,
+                            "url": url,
+                            "checklist": json.dumps(breakdown),
+                            "aeo_score": aeo_score,
+                            "status": "completed",
+                            "last_scanned_at": datetime.now(timezone.utc).isoformat()
+                        })
+                        conn.commit()
+                    print("   > Pages updated successfully (Direct SQL).")
+                except Exception as e:
+                    print(f"   > ❌ Pages update failed: {e}")
+
+            await loop.run_in_executor(None, update_pages)
+            
+            print(f"🎉 [Background] Analysis completed/saved for {url}")
+            
+    except asyncio.TimeoutError:
+        print(f"⏰ [Background] Analysis TIMED OUT for {url} (exceeded 120s)")
+        if site_id and supabase:
+             supabase.table("sites").update({"status": "error"}).eq("id", site_id).execute()
+
+    except Exception as e:
+        print(f"❌ [Background] Analysis FAILED for {url}: {e}")
+        import traceback
+        traceback.print_exc()
+        if site_id and supabase:
+             supabase.table("sites").update({"status": "error"}).eq("id", site_id).execute()
+
+@app.delete("/sites/{site_id}")
+def delete_site(site_id: str):
+    if not DATABASE_URL:
+        raise HTTPException(status_code=500, detail="Database URL not configured")
+    
+    try:
+        engine = create_engine(DATABASE_URL)
+        with engine.connect() as conn:
+            # Execute deletions in order (Foreign Key constraints)
+            # 1. Site History
+            conn.execute(text("DELETE FROM site_history WHERE site_id = :site_id"), {"site_id": site_id})
+            # 2. Pages
+            conn.execute(text("DELETE FROM pages WHERE site_id = :site_id"), {"site_id": site_id})
+            # 3. Scheduled Scans
+            conn.execute(text("DELETE FROM scheduled_scans WHERE site_id = :site_id"), {"site_id": site_id})
+            # 4. Sites
+            result = conn.execute(text("DELETE FROM sites WHERE id = :site_id"), {"site_id": site_id})
+            
+            conn.commit()
+            
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Site not found")
+                
+        return {"message": "Site deleted successfully"}
+    except Exception as e:
+        logger.error(f"Delete failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Scheduler & Notification Logic ---
 
