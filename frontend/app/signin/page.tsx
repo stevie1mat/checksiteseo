@@ -39,58 +39,78 @@ export default function SignInPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#224034] flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-md bg-[#2a4e40] rounded-2xl p-8 shadow-2xl border border-white/5">
-                <div className="text-center mb-8">
-                    <Link href="/" className="inline-flex items-center gap-2 text-white hover:opacity-80 transition-opacity mb-6">
-                        <span className="font-serif text-2xl font-medium">CheckSite AEO<span className="text-[#8cd9b8]">.</span></span>
-                    </Link>
-                    <h1 className="font-serif text-3xl text-white mb-2">Welcome back</h1>
-                    <p className="text-white/60">Sign in to your account</p>
+        <div className="min-h-screen grid lg:grid-cols-2">
+            {/* Left Column: Auth Form */}
+            <div className="flex flex-col items-center justify-center p-8 md:p-12 lg:p-16 bg-[#1a3028] text-white">
+                <div className="w-full max-w-sm space-y-8">
+                    <div className="text-center lg:text-left">
+                        <Link href="/" className="inline-flex items-center gap-2 text-white hover:opacity-80 transition-opacity mb-8">
+                            <span className="font-serif text-2xl font-medium">CheckSite<span className="text-[#8cd9b8]">AEO</span></span>
+                        </Link>
+                        <h1 className="font-serif text-3xl font-medium tracking-tight">Welcome back</h1>
+                        <p className="text-white/60 mt-2">Enter your details to sign in to your account</p>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-200 text-sm">
+                                {error}
+                            </div>
+                        )}
+                        <div className="space-y-2">
+                            <Label htmlFor="email" className="text-white">Email</Label>
+                            <Input
+                                id="email"
+                                name="email"
+                                type="email"
+                                placeholder="name@example.com"
+                                required
+                                className="bg-black/20 border-white/10 text-white placeholder:text-white/30 h-11"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="password" className="text-white">Password</Label>
+                                <Link href="/forgot-password" className="text-xs text-white/50 hover:text-white transition-colors">
+                                    Forgot password?
+                                </Link>
+                            </div>
+                            <Input
+                                id="password"
+                                name="password"
+                                type="password"
+                                required
+                                className="bg-black/20 border-white/10 text-white h-11"
+                            />
+                        </div>
+                        <Button disabled={loading} className="w-full bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold h-11 text-lg">
+                            {loading ? "Signing in..." : "Sign In"}
+                        </Button>
+                    </form>
+
+                    <div className="text-center text-sm text-white/40">
+                        Don't have an account?{" "}
+                        <Link href="/signup" className="text-[#8cd9b8] hover:text-[#7bcfa7] transition-colors font-medium">
+                            Get Started
+                        </Link>
+                    </div>
                 </div>
+            </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {error && (
-                        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-200 text-sm">
-                            {error}
-                        </div>
-                    )}
-                    <div className="space-y-2">
-                        <Label htmlFor="email" className="text-white">Email</Label>
-                        <Input
-                            id="email"
-                            name="email"
-                            type="email"
-                            placeholder="name@example.com"
-                            required
-                            className="bg-black/20 border-white/10 text-white placeholder:text-white/30 h-11"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="password" className="text-white">Password</Label>
-                            <Link href="#" className="text-xs text-white/50 hover:text-white transition-colors">
-                                Forgot password?
-                            </Link>
-                        </div>
-                        <Input
-                            id="password"
-                            name="password"
-                            type="password"
-                            required
-                            className="bg-black/20 border-white/10 text-white h-11"
-                        />
-                    </div>
-                    <Button disabled={loading} className="w-full bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold h-11 text-lg mt-6">
-                        {loading ? "Signing in..." : "Sign In"}
-                    </Button>
-                </form>
+            {/* Right Column: Visuals (Hidden on Mobile) */}
+            <div className="hidden lg:flex relative bg-[#224034] items-center justify-center p-12 overflow-hidden">
+                {/* Background Details */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none -z-0" />
+                <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-[#8cd9b8]/5 rounded-full blur-[100px] pointer-events-none -z-0" />
 
-                <div className="mt-8 text-center text-sm text-white/40">
-                    Don't have an account?{" "}
-                    <Link href="/signup" className="text-[#8cd9b8] hover:text-[#7bcfa7] transition-colors font-medium">
-                        Get Started
-                    </Link>
+                {/* Grid Pattern */}
+                <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none -z-0" />
+
+                <div className="relative z-10 max-w-lg text-center">
+                    <h2 className="font-serif text-4xl text-white mb-6">The future of search visibility</h2>
+                    <p className="text-white/60 text-lg leading-relaxed">
+                        Track, analyze, and optimize your presence across AI search engines. Join leading brands mastering AEO today.
+                    </p>
                 </div>
             </div>
         </div>

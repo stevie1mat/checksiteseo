@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -87,7 +88,7 @@ export function AuthDialog({ defaultView = "signin", trigger, open, onOpenChange
                         CheckSite<span className="text-[#8cd9b8]">AEO</span>
                     </span>
                 </div>
-                <DialogHeader className="text-center">
+                <DialogHeader className="text-center sm:text-center">
                     <DialogTitle className="text-2xl font-serif text-white">
                         {view === "signin" ? "Welcome back" : "Create an account"}
                     </DialogTitle>
@@ -127,9 +128,9 @@ export function AuthDialog({ defaultView = "signin", trigger, open, onOpenChange
                                 <div className="flex items-center justify-between">
                                     <Label htmlFor="password" className="text-white">Password</Label>
                                     {view === "signin" && (
-                                        <a href="#" className="text-xs text-white/50 hover:text-white hover:underline transition-colors">
+                                        <Link href="/forgot-password" onClick={() => onOpenChange && onOpenChange(false)} className="text-xs text-white/50 hover:text-white hover:underline transition-colors">
                                             Forgot password?
-                                        </a>
+                                        </Link>
                                     )}
                                 </div>
                                 <Input

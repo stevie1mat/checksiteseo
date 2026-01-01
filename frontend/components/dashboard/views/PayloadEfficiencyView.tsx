@@ -71,8 +71,8 @@ export function PayloadEfficiencyView({ siteId, domain, initialData }: PayloadEf
             actionLabel="Generate llms.txt"
             customTabs={PE_TABS}
             leftPanelTip={
-                <div className="mt-8 bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3 text-blue-800 text-sm">
-                    <Cpu className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                <div className="mt-4 bg-white border border-emerald-100 shadow-sm rounded-xl p-4 flex gap-3 text-slate-600 text-sm">
+                    <Cpu className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                     <p className="leading-snug">
                         Search Agents operate on a budget. High-efficiency pages get indexed deeper and more frequently.
                     </p>
@@ -99,172 +99,211 @@ export function PayloadEfficiencyView({ siteId, domain, initialData }: PayloadEf
                 const data = transformReport(initialData);
 
                 return (
-                    <>
+                    <div className="min-h-[400px]">
                         {activeTab === 'what-why' && (
-                            <div className="space-y-6 animate-in fade-in duration-300">
-                                <div className="space-y-4">
-                                    <h2 className="text-3xl font-serif text-slate-800 tracking-tight">Understanding Token Economics</h2>
-                                    <p className="text-slate-600 text-lg leading-relaxed">
-                                        For an LLM, reading your website is like reading a book where 90% of the pages are filled with random scaffolding instructions. This "Noise" distracts from your "Signal".
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <div>
+                                    <h2 className="text-3xl font-serif text-slate-900 tracking-tight mb-3">Understanding Token Economics</h2>
+                                    <p className="text-slate-600 text-lg leading-relaxed max-w-2xl">
+                                        For an LLM, reading your website is like reading a book where <span className="font-semibold text-slate-800">90% of the pages</span> are filled with random scaffolding instructions.
+                                        This "Noise" distracts from your "Signal".
                                     </p>
                                 </div>
-                                <div className="grid md:grid-cols-2 gap-6 mt-8">
-                                    <div className="p-6 bg-red-50 rounded-xl border border-red-100">
-                                        <h3 className="font-bold text-red-900 mb-2 flex items-center gap-2">
-                                            <AlertTriangle className="w-5 h-5" /> The Risks of Bloat
-                                        </h3>
-                                        <ul className="list-disc list-inside space-y-2 text-sm text-red-800/80">
-                                            <li>Context Window Overflow (Truncation)</li>
-                                            <li>Increased crawling costs for you and them</li>
-                                            <li>Diluted semantic meaning</li>
-                                        </ul>
+
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    {/* Risks Card */}
+                                    <div className="group relative overflow-hidden rounded-2xl border border-red-100 bg-gradient-to-br from-red-50/50 to-white p-6 transition-all hover:shadow-md hover:border-red-200">
+                                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                            <AlertTriangle className="w-24 h-24 text-red-500 rotate-12" />
+                                        </div>
+                                        <div className="relative">
+                                            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mb-4 text-red-600">
+                                                <AlertTriangle className="w-5 h-5" />
+                                            </div>
+                                            <h3 className="text-lg font-bold text-slate-900 mb-3">The Risks of Bloat</h3>
+                                            <ul className="space-y-3">
+                                                {[
+                                                    "Context Window Overflow (Truncation)",
+                                                    "Increased crawling costs",
+                                                    "Diluted semantic meaning"
+                                                ].map((item, i) => (
+                                                    <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0" />
+                                                        {item}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
                                     </div>
-                                    <div className="p-6 bg-emerald-50 rounded-xl border border-emerald-100">
-                                        <h3 className="font-bold text-emerald-900 mb-2 flex items-center gap-2">
-                                            <CheckCircle2 className="w-5 h-5" /> The Solution: llms.txt
-                                        </h3>
-                                        <ul className="list-disc list-inside space-y-2 text-sm text-emerald-800/80">
-                                            <li>A designated file for AI bots</li>
-                                            <li>Strip away all HTML/CSS/JS</li>
-                                            <li>Pure Markdown content</li>
-                                        </ul>
+
+                                    {/* Solution Card */}
+                                    <div className="group relative overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/50 to-white p-6 transition-all hover:shadow-md hover:border-emerald-200">
+                                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                            <FileText className="w-24 h-24 text-emerald-500 -rotate-12" />
+                                        </div>
+                                        <div className="relative">
+                                            <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center mb-4 text-emerald-600">
+                                                <CheckCircle2 className="w-5 h-5" />
+                                            </div>
+                                            <h3 className="text-lg font-bold text-slate-900 mb-3">The Solution: llms.txt</h3>
+                                            <ul className="space-y-3">
+                                                {[
+                                                    "A designated file for AI bots",
+                                                    "Strip away all HTML/CSS/JS",
+                                                    "Pure Markdown content"
+                                                ].map((item, i) => (
+                                                    <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                                                        {item}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'analyzer' && (
-                            <div className="space-y-8 animate-in fade-in duration-300 h-full flex flex-col">
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                 <div>
-                                    <h2 className="text-xl font-bold text-[#1A4036]">Payload Analyzer</h2>
-                                    <p className="text-slate-500 text-sm">Visualizing the signal-to-noise ratio of your page.</p>
+                                    <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                        <Cpu className="w-5 h-5 text-slate-400" />
+                                        Payload Analyzer
+                                    </h2>
+                                    <p className="text-slate-500 text-sm mt-1">Visualizing the signal-to-noise ratio of your main document.</p>
                                 </div>
 
                                 {/* Stacked Bar Visualizer */}
-                                <Card className="p-8 border-slate-200 shadow-sm bg-white">
-                                    <div className="mb-4 flex justify-between items-end">
-                                        <span className="text-sm font-medium text-slate-500">Document Composition</span>
-                                        <span className={`text-sm font-bold ${data.isCritical ? 'text-red-500' : 'text-emerald-600'}`}>
-                                            {(data.textRatio * 100).toFixed(1)}% Semantic Signal
-                                        </span>
+                                <Card className="p-8 border-slate-200 shadow-sm bg-white rounded-2xl overflow-hidden relative">
+                                    <div className="absolute top-0 right-0 p-4 opacity-[0.03]">
+                                        <Code className="w-64 h-64" />
                                     </div>
 
-                                    <div className="h-12 w-full rounded-xl flex overflow-hidden border border-slate-200 shadow-inner">
-                                        {/* Code Part (HTML/JS) */}
-                                        <div
-                                            className="bg-red-400 relative group flex items-center justify-center"
-                                            style={{ width: `${data.codeRatio * 100}%` }}
-                                        >
-                                            <span className="text-white/90 font-bold text-xs z-10 font-mono">CODE ({(data.codeRatio * 100).toFixed(0)}%)</span>
-                                            <div className="absolute inset-0 bg-[url('/stripes.png')] opacity-10" />
+                                    <div className="relative z-10">
+                                        <div className="flex justify-between items-end mb-6">
+                                            <div>
+                                                <div className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-1">Composition</div>
+                                                <div className="text-xs text-slate-500">Raw HTML breakdown</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className={`text-2xl font-bold ${data.isCritical ? 'text-red-500' : 'text-emerald-600'}`}>
+                                                    {(data.textRatio * 100).toFixed(1)}%
+                                                </div>
+                                                <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Signal Quality</div>
+                                            </div>
                                         </div>
 
-                                        {/* Content Part */}
-                                        <div
-                                            className="bg-emerald-500 relative group flex items-center justify-center"
-                                            style={{ width: `${data.textRatio * 100}%` }}
-                                        >
-                                            <span className="text-white font-bold text-xs z-10 font-mono">TEXT</span>
-                                        </div>
-                                    </div>
+                                        {/* The Bar */}
+                                        <div className="h-14 w-full rounded-2xl flex overflow-hidden ring-4 ring-slate-50">
+                                            {/* Code Part */}
+                                            <div
+                                                className="bg-slate-800 relative group flex items-center justify-center transition-all duration-1000 ease-out"
+                                                style={{ width: `${data.codeRatio * 100}%` }}
+                                            >
+                                                {data.codeRatio > 0.1 && (
+                                                    <span className="text-slate-400/80 font-bold text-[10px] tracking-widest z-10">CODE ({(data.codeRatio * 100).toFixed(0)}%)</span>
+                                                )}
+                                                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 6px)' }} />
+                                            </div>
 
-                                    {/* Legend */}
-                                    <div className="flex gap-6 mt-4 justify-center">
-                                        <div className="flex items-center gap-2 text-xs text-slate-600">
-                                            <div className="w-3 h-3 bg-red-400 rounded-sm" /> HTML/JS Overhead
+                                            {/* Content Part */}
+                                            <div
+                                                className="bg-emerald-500 relative group flex items-center justify-center transition-all duration-1000 ease-out"
+                                                style={{ width: `${data.textRatio * 100}%` }}
+                                            >
+                                                {data.textRatio > 0.1 && (
+                                                    <span className="text-white font-bold text-[10px] tracking-widest z-10">TEXT</span>
+                                                )}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2 text-xs text-slate-600">
-                                            <div className="w-3 h-3 bg-emerald-500 rounded-sm" /> Semantic Content
+
+                                        {/* Legend */}
+                                        <div className="flex gap-8 mt-6 justify-center">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-3 h-3 bg-slate-800 rounded-sm shadow-sm" />
+                                                <span className="text-sm font-medium text-slate-600">HTML/JS Overhead</span>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-3 h-3 bg-emerald-500 rounded-sm shadow-sm" />
+                                                <span className="text-sm font-medium text-slate-600">Semantic Content</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </Card>
 
                                 {/* Metric Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <Card className="p-5 border-slate-200 bg-slate-50 flex flex-col items-center text-center justify-center gap-2">
-                                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100 mb-1">
-                                            <FileText className="w-5 h-5 text-slate-400" />
+                                    {[
+                                        { label: "Total Tokens", value: data.totalTokens.toLocaleString(), icon: FileText, color: "text-blue-500", bg: "bg-blue-50" },
+                                        { label: "Bloat Status", value: data.bloatStatus, icon: Zap, color: "text-amber-500", bg: "bg-amber-50" },
+                                        { label: "Est. Index Cost", value: data.cost, icon: DollarSign, color: "text-emerald-500", bg: "bg-emerald-50" },
+                                    ].map((metric, i) => (
+                                        <div key={i} className="p-6 bg-white border border-slate-100 rounded-2xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex items-center gap-4 transition-transform hover:-translate-y-1">
+                                            <div className={`w-12 h-12 ${metric.bg} rounded-xl flex items-center justify-center shrink-0`}>
+                                                <metric.icon className={`w-6 h-6 ${metric.color}`} />
+                                            </div>
+                                            <div>
+                                                <div className="text-2xl font-bold text-slate-800 tracking-tight">{metric.value}</div>
+                                                <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">{metric.label}</div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div className="text-2xl font-bold text-slate-700">{data.totalTokens.toLocaleString()}</div>
-                                            <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">Total Tokens</div>
-                                        </div>
-                                    </Card>
-
-                                    <Card className="p-5 border-slate-200 bg-slate-50 flex flex-col items-center text-center justify-center gap-2">
-                                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100 mb-1">
-                                            <Zap className="w-5 h-5 text-amber-400" />
-                                        </div>
-                                        <div>
-                                            <div className="text-2xl font-bold text-slate-700">{data.bloatStatus}</div>
-                                            <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">Bloat Status</div>
-                                        </div>
-                                    </Card>
-
-                                    <Card className="p-5 border-slate-200 bg-slate-50 flex flex-col items-center text-center justify-center gap-2">
-                                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100 mb-1">
-                                            <DollarSign className="w-5 h-5 text-emerald-500" />
-                                        </div>
-                                        <div>
-                                            <div className="text-2xl font-bold text-slate-700">{data.cost}</div>
-                                            <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">Est. Cost per Run</div>
-                                        </div>
-                                    </Card>
+                                    ))}
                                 </div>
-
-                                {/* Warning Panel */}
-                                {data.isCritical && (
-                                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex gap-4 items-start">
-                                        <AlertTriangle className="w-6 h-6 text-red-500 shrink-0" />
-                                        <div>
-                                            <h4 className="font-bold text-red-900">High Risk of Truncation</h4>
-                                            <p className="text-sm text-red-800/80 mt-1">
-                                                Your signal-to-noise ratio is critical ({(data.textRatio * 100).toFixed(1)}%).
-                                                AI agents might stop reading your page before they reach the important content.
-                                            </p>
-                                            <Button size="sm" variant="destructive" className="mt-3">
-                                                Generate llms.txt Fix
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         )}
 
                         {activeTab === 'tips' && (
-                            <div className="space-y-6 animate-in fade-in duration-300 h-full">
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                 <div>
-                                    <h2 className="text-xl font-bold text-[#1A4036]">Optimization Tips</h2>
-                                    <p className="text-slate-500 text-sm">Reduce payload size and increase efficiency.</p>
+                                    <h2 className="text-xl font-bold text-slate-900 mb-1">Optimization Tips</h2>
+                                    <p className="text-slate-500 text-sm">Actionable steps to improve your payload efficiency.</p>
                                 </div>
 
-                                <Card className="p-6 border-slate-200 flex gap-4 items-start">
-                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-                                        <FileText className="w-5 h-5 text-blue-600" />
+                                <div className="grid gap-4">
+                                    <div className="group p-6 bg-white border border-slate-200 rounded-2xl hover:border-blue-300 hover:shadow-md transition-all cursor-default">
+                                        <div className="flex gap-4">
+                                            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                                <FileText className="w-6 h-6 text-blue-600" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between items-start">
+                                                    <h3 className="font-bold text-slate-900 text-lg">Implement /llms.txt</h3>
+                                                    <Badge variant="secondary" className="bg-blue-100 text-blue-700">High Impact</Badge>
+                                                </div>
+                                                <p className="text-slate-600 mt-2 text-sm leading-relaxed">
+                                                    Create a markdown-only version of your site specifically for AI robots. This bypasses all HTML bloat and guarantees 100% signal.
+                                                </p>
+                                                <div className="mt-4 flex gap-3">
+                                                    <Button size="sm" className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg px-4">
+                                                        Generate Blueprint
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="font-bold text-slate-800 text-base">Implement /llms.txt</h3>
-                                        <p className="text-sm text-slate-600 mt-1 mb-4">
-                                            Create a text-only version of your site specifically for AI robots. This bypasses all HTML bloat.
-                                        </p>
-                                        <Button className="bg-blue-600 hover:bg-blue-700">Generate Standard llms.txt</Button>
-                                    </div>
-                                </Card>
 
-                                <Card className="p-6 border-slate-200 flex gap-4 items-start">
-                                    <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
-                                        <Code className="w-5 h-5 text-amber-600" />
+                                    <div className="group p-6 bg-white border border-slate-200 rounded-2xl hover:border-amber-300 hover:shadow-md transition-all cursor-default">
+                                        <div className="flex gap-4">
+                                            <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                                <Code className="w-6 h-6 text-amber-600" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between items-start">
+                                                    <h3 className="font-bold text-slate-900 text-lg">Defer Non-Critical Scripts</h3>
+                                                    <Badge variant="secondary" className="bg-amber-100 text-amber-700">Medium Impact</Badge>
+                                                </div>
+                                                <p className="text-slate-600 mt-2 text-sm leading-relaxed">
+                                                    Move heavy JavaScript to the footer or use the `defer` attribute. This allows the AI crawler to parse the `body` content immediately without waiting for hydration.
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="font-bold text-slate-800 text-base">Minify & Defer Scripts</h3>
-                                        <p className="text-sm text-slate-600 mt-1">
-                                            Move non-essential JavaScript to the footer or use `defer`. This helps the AI parser reach the `body` content content faster.
-                                        </p>
-                                    </div>
-                                </Card>
+                                </div>
                             </div>
                         )}
-                    </>
+                    </div>
                 )
             }}
         />

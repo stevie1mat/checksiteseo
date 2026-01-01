@@ -62,63 +62,87 @@ export function MetricDetailLayout({
 
                 {/* LEFT COLUMN: Diagnostic Panel */}
                 <div className="space-y-6">
-                    <Card className="bg-[#1A4036] border-[#2A5245] shadow-xl text-white overflow-hidden rounded-2xl relative">
+                    <Card className="bg-gradient-to-b from-[#1A4036] to-[#0D2620] border-[#2A5245] shadow-2xl text-white overflow-hidden rounded-3xl relative ring-1 ring-white/10">
                         {/* Background Decor */}
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/20 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
-                        <CardContent className="p-8 relative z-10">
+                        <CardContent className="p-8 relative z-10 flex flex-col h-full">
                             {/* Header */}
-                            <div className="flex items-start justify-between mb-6">
-                                <div>
-                                    <h1 className="text-2xl font-bold font-serif tracking-wide text-white mb-2">{title}</h1>
-                                    <Badge className={`${currentStatusColor.badge} border-none px-3 py-1 text-xs font-bold uppercase tracking-widest`}>
-                                        {status === 'critical' ? 'At Risk 🔴' : status === 'warning' ? 'Issue ⚠️' : 'Valid ✅'}
-                                    </Badge>
+                            <div className="mb-8">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className={`
+                                        inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border backdrop-blur-md shadow-sm
+                                        ${status === 'critical' ? 'bg-red-500/20 border-red-500/50 text-red-200' :
+                                            status === 'warning' ? 'bg-amber-500/20 border-amber-500/50 text-amber-200' :
+                                                'bg-emerald-500/20 border-emerald-500/50 text-emerald-200'}
+                                    `}>
+                                        {status === 'critical' && <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />}
+                                        {status === 'warning' && <div className="w-2 h-2 rounded-full bg-amber-400" />}
+                                        {status === 'pass' && <div className="w-2 h-2 rounded-full bg-emerald-400" />}
+
+                                        {status === 'critical' ? 'Crucial Issue' : status === 'warning' ? 'Needs Attention' : 'Optimized'}
+                                    </div>
+
+                                    <div className="p-2 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-help">
+                                        <Sliders className="w-4 h-4 text-[#8CD9B8]" />
+                                    </div>
                                 </div>
-                                <div className="p-3 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
-                                    <Sliders className="w-6 h-6 text-[#8CD9B8]" />
-                                </div>
+
+                                <h1 className="text-3xl font-bold font-serif tracking-tight text-white mb-1 leading-tight">{title}</h1>
+                                <p className="text-emerald-100/60 text-sm font-medium">{description}</p>
                             </div>
 
                             {/* Impact Analysis */}
-                            <div className="mb-8">
-                                <p className="text-[#8CD9B8] text-xs font-bold uppercase tracking-wider mb-2">Impact Level</p>
-                                <div className="flex items-center gap-2 text-white/90">
-                                    <AlertCircle className="w-5 h-5 text-red-400" />
-                                    <span className="font-medium text-lg">{impact}</span>
+                            <div className="mb-8 p-5 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-sm">
+                                <p className="text-[#8CD9B8] text-[10px] font-bold uppercase tracking-widest mb-3 opacity-80">System Impact</p>
+                                <div className="flex items-start gap-4">
+                                    <div className={`
+                                        mt-1 p-2 rounded-lg shrink-0
+                                        ${status === 'critical' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}
+                                    `}>
+                                        {status === 'critical' ? <AlertCircle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-lg text-white block leading-snug">{impact}</span>
+                                        {status === 'critical' && (
+                                            <span className="text-xs text-red-300/80 block mt-1">Requiring immediate attention</span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Raw Diagnostic Terminal */}
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between text-white/60">
-                                    <p className="text-[10px] uppercase font-bold tracking-wider flex items-center gap-2">
+                            <div className="mt-auto space-y-3">
+                                <div className="flex items-center justify-between text-white/40 px-1">
+                                    <p className="text-[10px] uppercase font-bold tracking-widest flex items-center gap-2">
                                         <Terminal className="w-3 h-3" />
-                                        Raw Diagnostic Data
+                                        Diagnostic Output
                                     </p>
-                                    <Copy className="w-3 h-3 cursor-pointer hover:text-white transition-colors" />
                                 </div>
-                                <div className="bg-black/40 rounded-lg border border-white/5 p-4 font-mono text-xs text-emerald-100/80 leading-relaxed overflow-x-auto shadow-inner">
-                                    <div className="flex gap-2 mb-1 border-b border-white/5 pb-1 opacity-50">
-                                        <span className="text-red-400">●</span>
-                                        <span className="text-amber-400">●</span>
-                                        <span className="text-emerald-400">●</span>
+                                <div className="group relative bg-[#0D1815] rounded-xl border border-white/10 p-4 font-mono text-[11px] text-emerald-100/70 leading-relaxed shadow-inner overflow-hidden">
+                                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Copy className="w-3 h-3 text-white/40 hover:text-white cursor-pointer" />
                                     </div>
-                                    <pre className="whitespace-pre-wrap">{rawDiagnostic}</pre>
+                                    <div className="flex gap-1.5 mb-3 opacity-30">
+                                        <div className="w-2 h-2 rounded-full bg-red-500" />
+                                        <div className="w-2 h-2 rounded-full bg-amber-500" />
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                    </div>
+                                    <div className="overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                                        <pre className="whitespace-pre-wrap font-medium">{rawDiagnostic}</pre>
+                                    </div>
                                 </div>
                             </div>
-
-                            {/* Help Box (Default or Custom) */}
-                            {leftPanelTip || (
-                                <div className="mt-8 bg-[#8CD9B8]/10 border border-[#8CD9B8]/20 rounded-xl p-4 flex gap-3 text-emerald-100/80 text-sm">
-                                    <Lightbulb className="w-5 h-5 text-[#8CD9B8] shrink-0 mt-0.5" />
-                                    <p className="leading-snug">
-                                        Agents look for this file to understand your site structure without parsing heavy HTML.
-                                    </p>
-                                </div>
-                            )}
                         </CardContent>
                     </Card>
+
+                    {/* Bottom Tip (Outside Card for this layout) */}
+                    {leftPanelTip && (
+                        <div className="px-2">
+                            {leftPanelTip}
+                        </div>
+                    )}
                 </div>
 
                 {/* RIGHT COLUMN: Action Workbench */}
