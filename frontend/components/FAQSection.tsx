@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react";
+import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 
 export function FAQSection() {
@@ -43,7 +44,7 @@ export function FAQSection() {
 
     return (
         <section id="faq" className="py-24 bg-[#F9FBFA]">
-            <div className="max-w-4xl mx-auto px-6">
+            <div className="max-w-6xl mx-auto px-6">
                 <div className="text-center mb-16">
                     <div className="inline-block px-4 py-1 rounded-full border border-emerald-200 text-xs font-bold tracking-widest uppercase text-emerald-700 mb-6 bg-white">
                         FAQ
@@ -56,7 +57,7 @@ export function FAQSection() {
                     </p>
                 </div>
 
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {faqs.map((faq, index) => (
                         <div
                             key={index}
@@ -91,12 +92,12 @@ export function FAQSection() {
 
                 <div className="mt-12 text-center">
                     <p className="text-slate-500 mb-4">Still have questions?</p>
-                    <a
-                        href="mailto:support@checksiteaeo.com"
+                    <Link
+                        href="/contact"
                         className="inline-block px-6 py-3 bg-[#224034] text-white font-semibold rounded-lg hover:bg-[#1a3329] transition-colors"
                     >
                         Contact Support
-                    </a>
+                    </Link>
                 </div>
             </div>
         </section>
