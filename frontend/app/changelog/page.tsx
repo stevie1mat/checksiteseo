@@ -4,6 +4,20 @@ import { Footer } from "@/components/Footer";
 export default function ChangelogPage() {
     const updates = [
         {
+            version: "v2.2.0",
+            date: "December 31, 2025",
+            title: "Pro Integrations & Sync API",
+            description: "Launched support for 12+ major platform integrations including WordPress, Shopify, and Webflow. Introduced synchronous API analysis for real-time results.",
+            tags: ["Integrations", "API"],
+        },
+        {
+            version: "v2.1.5",
+            date: "December 25, 2025",
+            title: "Performance Optimization",
+            description: "Holiday update focused on speed. Reduced analysis latency by 40% and improved concurrent request handling for high-volume users.",
+            tags: ["Performance", "Backend"],
+        },
+        {
             version: "v2.1.0",
             date: "December 20, 2025",
             title: "Enhanced Answer Engine Analysis",
@@ -23,6 +37,20 @@ export default function ChangelogPage() {
             title: "Major Release: Competitor Comparison",
             description: "You can now compare your AEO score directly against up to 3 competitors. See exactly where you're winning and losing in the AI search landscape.",
             tags: ["Feature", "Major"],
+        },
+        {
+            version: "v1.5.0",
+            date: "November 1, 2025",
+            title: "Real-time Site Monitoring",
+            description: "Added background workers for continuous site monitoring. Get alerted immediately when your AEO score drops below a set threshold.",
+            tags: ["Monitoring", "Workers"],
+        },
+        {
+            version: "v1.0.0",
+            date: "October 15, 2025",
+            title: "Public Beta Launch",
+            description: "CheckSite AEO is live! The first comprehensive tool for Optimizing for Answer Engines. Start analyzing your site's visibility on Perplexity, ChatGPT, and Claude.",
+            tags: ["Launch", "Beta"],
         },
     ];
 

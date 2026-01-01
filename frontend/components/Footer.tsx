@@ -63,8 +63,8 @@ export function Footer() {
                     <div>
                         <h4 className="font-semibold mb-4 text-white">Platform</h4>
                         <ul className="space-y-3 text-sm text-white/60">
-                            <li><Link href="#features" className="hover:text-white transition-colors">Features</Link></li>
-                            <li><Link href="#pricing" className="hover:text-white transition-colors">Pricing</Link></li>
+                            <li><Link href="/#features" className="hover:text-white transition-colors">Features</Link></li>
+                            <li><Link href="/#pricing" className="hover:text-white transition-colors">Pricing</Link></li>
                             <li><Link href="/integrations" className="hover:text-white transition-colors">Integrations</Link></li>
                             <li><Link href="/changelog" className="hover:text-white transition-colors">Changelog</Link></li>
                         </ul>
@@ -74,10 +74,8 @@ export function Footer() {
                     <div>
                         <h4 className="font-semibold mb-4 text-white">Resources</h4>
                         <ul className="space-y-3 text-sm text-white/60">
-                            <li><Link href="https://github.com/stevie1mat/checksiteseo" className="hover:text-white transition-colors">Documentation</Link></li>
-                            <li><Link href="/aeo-guide" className="hover:text-white transition-colors">AEO Guide</Link></li>
                             <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
-                            <li><Link href="#faq" className="hover:text-white transition-colors">FAQ</Link></li>
+                            <li><Link href="/#faq" className="hover:text-white transition-colors">FAQ</Link></li>
                             <li><Link href="/case-studies" className="hover:text-white transition-colors">Case Studies</Link></li>
                         </ul>
                     </div>

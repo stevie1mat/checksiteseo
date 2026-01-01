@@ -52,19 +52,20 @@ export function TestimonialsSection() {
         }
     ];
 
-    return (
+    return null;
+    /* return (
         <section className="py-24 bg-white">
             <div className="max-w-7xl mx-auto px-6">
                 <div className="text-center mb-16">
                     <div className="inline-block px-4 py-1 rounded-full border border-emerald-200 text-xs font-bold tracking-widest uppercase text-emerald-700 mb-6 bg-emerald-50">
                         Testimonials
                     </div>
-                    <h2 className="font-serif text-4xl md:text-5xl text-[#224034] max-w-2xl mx-auto leading-tight">
+                    {/* <h2 className="font-serif text-4xl md:text-5xl text-[#224034] max-w-2xl mx-auto leading-tight">
                         Trusted by teams worldwide.
                     </h2>
                     <p className="text-slate-500 mt-6 max-w-xl mx-auto text-lg">
                         See how companies are winning with AEO optimization.
-                    </p>
+                    </p> * /}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -74,14 +75,14 @@ export function TestimonialsSection() {
                             className={`rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 ${index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
                                 }`}
                         >
-                            {/* Rating Stars */}
+                            {/* Rating Stars * /}
                             <div className="flex gap-1 mb-4">
                                 {[...Array(testimonial.rating)].map((_, i) => (
                                     <Star key={i} className="w-4 h-4 fill-[#8cd9b8] text-[#8cd9b8]" />
                                 ))}
                             </div>
 
-                            {/* Quote */}
+                            {/* Quote * /}
                             <div className="mb-6">
                                 <span className="text-4xl text-[#224034] font-serif opacity-20 leading-none">"</span>
                                 <p className="text-slate-600 leading-relaxed italic mt-2">
@@ -89,7 +90,7 @@ export function TestimonialsSection() {
                                 </p>
                             </div>
 
-                            {/* Author Info */}
+                            {/* Author Info * /}
                             <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                                 <div>
                                     <p className="font-semibold text-[#224034]">{testimonial.name}</p>
@@ -105,5 +106,5 @@ export function TestimonialsSection() {
                 </div>
             </div>
         </section>
-    );
+    ); */
 }
