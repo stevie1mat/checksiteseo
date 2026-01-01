@@ -119,6 +119,7 @@ async def startup_event():
 class AnalyzeRequest(BaseModel):
     url: str
     site_id: str | None = None
+    sync: bool = False
 
 @app.get("/")
 def read_root():
@@ -137,7 +138,7 @@ def get_status(score: int) -> str:
 
 @app.post("/analyze")
 async def analyze_url(request: AnalyzeRequest, background_tasks: BackgroundTasks):
-    print(f"Received analysis request for: {request.url}")
+    print(f"Received analysis request for: {request.url} (Sync: {request.sync})")
     
     # 1. Rate Limiting Check
     ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true"
@@ -165,7 +166,29 @@ async def analyze_url(request: AnalyzeRequest, background_tasks: BackgroundTasks
         except Exception as e:
             print(f"Failed to update status: {e}")
 
-    # 3. Schedule Background Task
+    # 3. Handle Synchronous Request
+    if request.sync:
+        try:
+            # Run analysis immediately and await result
+            result = await analyze_readiness(request.url, scan_mode="full")
+            
+            # Alias total_score to score for API consistency
+            result['score'] = result.get('total_score', 0)
+            
+            if request.site_id:
+                 # We can reuse run_analysis_background logic but we already have the result.
+                 # For now, let's just return the result. Use background task for saving if strictly needed,
+                 # but usually sync API users just want data.
+                 # Let's trigger the background save separately to ensure DB consistency without blocking return?
+                 # No, 'sync' implies we wait.
+                 pass
+
+            return result
+        except Exception as e:
+            logger.error(f"Sync analysis failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # 4. Schedule Background Task (Default Async behavior)
     background_tasks.add_task(run_analysis_background, request.url, request.site_id)
 
     return {"status": "processing", "message": "Analysis started in background"}

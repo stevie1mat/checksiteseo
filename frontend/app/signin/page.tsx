@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Brain, Target, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,11 +106,39 @@ export default function SignInPage() {
                 {/* Grid Pattern */}
                 <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none -z-0" />
 
-                <div className="relative z-10 max-w-lg text-center">
-                    <h2 className="font-serif text-4xl text-white mb-6">The future of search visibility</h2>
-                    <p className="text-white/60 text-lg leading-relaxed">
-                        Track, analyze, and optimize your presence across AI search engines. Join leading brands mastering AEO today.
-                    </p>
+                <div className="relative z-10 max-w-lg">
+                    <div className="text-center mb-12">
+                        <h2 className="font-serif text-4xl text-white mb-6">The future of search visibility</h2>
+                        <p className="text-white/60 text-lg leading-relaxed">
+                            Track, analyze, and optimize your presence across AI search engines. Join leading brands mastering AEO today.
+                        </p>
+                    </div>
+
+                    <div className="space-y-8">
+                        <div className="flex items-start gap-4">
+                            <Brain className="w-8 h-8 text-[#8cd9b8] shrink-0" />
+                            <div>
+                                <h3 className="text-white font-serif text-lg mb-1">AI-Powered Analysis</h3>
+                                <p className="text-white/50 leading-relaxed">Deep dive into how Perplexity, ChatGPT, and Gemini see your brand.</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-start gap-4">
+                            <Target className="w-8 h-8 text-[#8cd9b8] shrink-0" />
+                            <div>
+                                <h3 className="text-white font-serif text-lg mb-1">Competitive Intelligence</h3>
+                                <p className="text-white/50 leading-relaxed">Benchmark against industry leaders and identify your content gaps.</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-start gap-4">
+                            <TrendingUp className="w-8 h-8 text-[#8cd9b8] shrink-0" />
+                            <div>
+                                <h3 className="text-white font-serif text-lg mb-1">Actionable Insights</h3>
+                                <p className="text-white/50 leading-relaxed">Clear roadmap to dominate Answer Engine Optimization.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

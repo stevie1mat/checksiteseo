@@ -4,9 +4,18 @@ import { Plug } from "lucide-react";
 
 export default function IntegrationsPage() {
     const integrations = [
-        "WordPress", "Shopify", "Webflow", "HubSpot",
-        "Salesforce", "Wix", "Squarespace", "Framer",
-        "Ghost", "Drupal", "Joomla", "Next.js"
+        { name: "WordPress", logo: "/integrations/wordpress.png" },
+        { name: "Shopify", logo: "/integrations/shopify.png" },
+        { name: "Webflow", logo: "/integrations/webflow.png" },
+        { name: "HubSpot", logo: "/integrations/hubspot.png" },
+        { name: "Salesforce", logo: "/integrations/salesforce.png" },
+        { name: "Wix", logo: "/integrations/wix.png" },
+        { name: "Squarespace", logo: "/integrations/squarespace.png" },
+        { name: "Framer", logo: "/integrations/framer.png" },
+        { name: "Ghost", logo: "/integrations/ghost.png" },
+        { name: "Drupal", logo: "/integrations/drupal.png" },
+        { name: "Joomla", logo: "/integrations/joomla.png" },
+        { name: "Next.js", logo: "/integrations/nextjs.png" }
     ];
 
     return (
@@ -30,11 +39,15 @@ export default function IntegrationsPage() {
                         {integrations.map((tool, i) => (
                             <div key={i} className="bg-white p-8 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col items-center justify-center text-center group cursor-pointer relative overflow-hidden hover:border-emerald-400/30">
 
-                                <div className="w-16 h-16 bg-slate-100 rounded-full mb-4 flex items-center justify-center text-slate-400 group-hover:bg-[#8cd9b8]/20 group-hover:text-[#224034] transition-colors">
-                                    <Plug className="w-8 h-8" />
+                                <div className="w-16 h-16 bg-slate-100 rounded-full mb-4 flex items-center justify-center text-slate-400 group-hover:bg-[#8cd9b8]/20 group-hover:text-[#224034] transition-colors overflow-hidden p-3">
+                                    {tool.logo ? (
+                                        <img src={tool.logo} alt={tool.name} className="w-full h-full object-contain" />
+                                    ) : (
+                                        <Plug className="w-8 h-8" />
+                                    )}
                                 </div>
-                                <h3 className="font-semibold text-lg text-slate-800">{tool}</h3>
-                                <p className="text-sm text-slate-500 mt-2">Optimize {tool} Sites</p>
+                                <h3 className="font-semibold text-lg text-slate-800">{tool.name}</h3>
+                                <p className="text-sm text-slate-500 mt-2">Optimize {tool.name} Sites</p>
                             </div>
                         ))}
                     </div>

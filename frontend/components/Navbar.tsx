@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Bot, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { AuthDialog } from "@/components/auth/AuthDialog";
+
 
 export function Navbar() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -39,22 +39,14 @@ export function Navbar() {
 
                 {/* CTA Buttons */}
                 <div className="hidden md:flex items-center gap-3">
-                    <AuthDialog
-                        defaultView="signin"
-                        trigger={
-                            <button className="text-sm font-medium text-white hover:text-white/80 transition-opacity px-4 py-2">
-                                Sign In
-                            </button>
-                        }
-                    />
-                    <AuthDialog
-                        defaultView="signup"
-                        trigger={
-                            <Button className="bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold rounded-lg px-6 shadow-lg shadow-[#8cd9b8]/30 transition-all">
-                                Get Started
-                            </Button>
-                        }
-                    />
+                    <Link href="/signin" className="text-sm font-medium text-white hover:text-white/80 transition-opacity px-4 py-2">
+                        Sign In
+                    </Link>
+                    <Link href="/signup">
+                        <Button className="bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold rounded-lg px-6 shadow-lg shadow-[#8cd9b8]/30 transition-all">
+                            Get Started
+                        </Button>
+                    </Link>
                 </div>
 
                 {/* Mobile Menu Button */}
@@ -83,22 +75,14 @@ export function Navbar() {
                     </Link>
 
                     <div className="pt-4 border-t border-white/20 space-y-3">
-                        <AuthDialog
-                            defaultView="signin"
-                            trigger={
-                                <button className="block w-full text-left text-sm font-medium text-white">
-                                    Sign In
-                                </button>
-                            }
-                        />
-                        <AuthDialog
-                            defaultView="signup"
-                            trigger={
-                                <Button className="w-full bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold rounded-lg">
-                                    Get Started
-                                </Button>
-                            }
-                        />
+                        <Link href="/signin" className="block w-full text-left text-sm font-medium text-white px-2 py-2">
+                            Sign In
+                        </Link>
+                        <Link href="/signup" className="block w-full">
+                            <Button className="w-full bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold rounded-lg">
+                                Get Started
+                            </Button>
+                        </Link>
                     </div>
                 </div>
             )}
