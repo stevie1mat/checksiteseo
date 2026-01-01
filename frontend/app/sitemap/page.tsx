@@ -1,50 +1,60 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import Link from "next/link";
+import { Home, Layout, FileText, Info, Shield, HelpCircle, Box, CreditCard, Key, BookOpen, Layers, Newspaper, Mail, Users, Briefcase } from "lucide-react";
 
 export default function SitemapPage() {
     const sections = [
         {
             title: "Main",
+            icon: Home,
+            description: "Core navigation and account access.",
             links: [
-                { name: "Home", href: "/" },
-                { name: "Sign In", href: "/signin" },
+                { name: "Home", href: "/", description: "The landing page and overview of CheckSite AEO." },
+                { name: "Sign In", href: "/signin", description: "Access your account dashboard." },
+                { name: "Sign Up", href: "/signup", description: "Create a new account to start auditing." },
             ]
         },
         {
             title: "Product",
+            icon: Box,
+            description: "Explore our features and plans.",
             links: [
-                { name: "Features", href: "/#features" },
-                { name: "Pricing", href: "/#pricing" },
-                { name: "API Access", href: "/api-access" },
-                { name: "Integrations", href: "/integrations" },
-                { name: "Changelog", href: "/changelog" },
+                { name: "Features", href: "/#features", description: "Detailed breakdown of our AI analysis capabilities." },
+                { name: "Pricing", href: "/#pricing", description: "Compare plans and find the right fit for you." },
+                { name: "Integrations", href: "/integrations", description: "Connect with CMS and other tools." },
+                { name: "Changelog", href: "/changelog", description: "See what's new and what we've improved." },
             ]
         },
         {
             title: "Resources",
+            icon: BookOpen,
+            description: "Learn and grow with our guides.",
             links: [
-                { name: "Documentation", href: "https://github.com/stevie1mat/checksiteseo" },
-                { name: "AEO Guide", href: "/aeo-guide" },
-                { name: "Blog", href: "/blog" },
-                { name: "Case Studies", href: "/case-studies" },
-                { name: "FAQ", href: "/#faq" },
+                { name: "Documentation", href: "/documentation", description: "Comprehensive guides and tutorials." },
+                { name: "Blog", href: "/blog", description: "Latest insights on AEO and search trends." },
+                { name: "FAQ", href: "/#faq", description: "Answers to common questions." },
+                { name: "AEO Guide", href: "/aeo-guide", description: "Deep dive into Answer Engine Optimization." },
             ]
         },
         {
             title: "Company",
+            icon: Users,
+            description: "Who we are and how to reach us.",
             links: [
-                { name: "About Us", href: "/about" },
-                { name: "Careers", href: "/careers" },
-                { name: "Contact", href: "/contact" },
+                { name: "About Us", href: "/about", description: "Our mission and the team behind the tool." },
+                { name: "Careers", href: "/careers", description: "Join us in building the future of search." },
+                { name: "Contact", href: "/contact", description: "Get in touch with our support team." },
             ]
         },
         {
             title: "Legal",
+            icon: Shield,
+            description: "Terms, privacy, and policies.",
             links: [
-                { name: "Privacy Policy", href: "/privacy" },
-                { name: "Terms of Service", href: "/terms" },
-                { name: "Cookie Policy", href: "/cookies" },
+                { name: "Privacy Policy", href: "/privacy", description: "How we handle your data." },
+                { name: "Terms of Service", href: "/terms", description: "The rules for using our platform." },
+                { name: "Cookie Policy", href: "/cookies", description: "Information about cookies." },
             ]
         },
     ];
@@ -54,30 +64,55 @@ export default function SitemapPage() {
             <Navbar />
 
             <section className="bg-[#224034] text-white pt-32 pb-20 px-6">
-                <div className="max-w-4xl mx-auto">
-                    <h1 className="font-serif text-5xl mb-6">Sitemap</h1>
+                <div className="max-w-7xl mx-auto">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm">
+                            <Layers className="w-8 h-8 text-[#8cd9b8]" />
+                        </div>
+                        <h1 className="font-serif text-5xl">Sitemap</h1>
+                    </div>
                     <p className="text-xl text-white/80 max-w-2xl">
-                        A complete overview of all pages on our site.
+                        A detailed directory of every page on CheckSite AEO. Find exactly what you're looking for.
                     </p>
                 </div>
             </section>
 
             <section className="py-20 px-6">
-                <div className="max-w-4xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-12">
-                    {sections.map((section, i) => (
-                        <div key={i}>
-                            <h2 className="text-xl font-bold text-[#224034] mb-4 border-b border-slate-200 pb-2">{section.title}</h2>
-                            <ul className="space-y-3">
-                                {section.links.map((link, l) => (
-                                    <li key={l}>
-                                        <Link href={link.href} className="text-slate-600 hover:text-[#8cd9b8] transition-colors">
-                                            {link.name}
+                <div className="max-w-7xl mx-auto space-y-16">
+                    {sections.map((section, i) => {
+                        const Icon = section.icon;
+                        return (
+                            <div key={i} className="scroll-mt-24" id={section.title.toLowerCase()}>
+                                <div className="flex items-center gap-3 mb-8 border-b border-slate-200 pb-4">
+                                    <Icon className="w-6 h-6 text-[#224034]" />
+                                    <div>
+                                        <h2 className="text-2xl font-serif text-[#224034]">{section.title}</h2>
+                                        <p className="text-slate-500 text-sm">{section.description}</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {section.links.map((link, l) => (
+                                        <Link
+                                            key={l}
+                                            href={link.href}
+                                            className="group block bg-white border border-slate-100 rounded-xl p-6 hover:border-[#8cd9b8] hover:shadow-md transition-all duration-200"
+                                        >
+                                            <h3 className="font-semibold text-[#224034] mb-2 group-hover:text-emerald-700 transition-colors flex items-center justify-between">
+                                                {link.name}
+                                                <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[#8cd9b8] transform group-hover:translate-x-1 duration-200">
+                                                    →
+                                                </span>
+                                            </h3>
+                                            <p className="text-sm text-slate-500 leading-relaxed">
+                                                {link.description}
+                                            </p>
                                         </Link>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ))}
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </section>
 
