@@ -69,7 +69,11 @@ export interface AEOReport {
                 };
                 missing_critical?: string[];
             }
-        }
+        };
+        ai_preview?: {
+            query: string;
+            response: string;
+        };
     };
 
     knowledgeGraph: {

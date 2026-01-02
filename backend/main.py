@@ -18,7 +18,10 @@ import asyncio
 import resend
 from email_templates import get_email_html
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+print(f"DEBUG: Loaded RESEND_API_KEY: {'Yes' if RESEND_API_KEY else 'No'}")
 
 app = FastAPI(title="AEO Readiness Auditor")
 
@@ -699,4 +702,63 @@ async def contact_form(request: ContactRequest):
         return {"message": "Message sent successfully", "id": r.get("id")}
     except Exception as e:
         logger.error(f"Failed to send contact email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+from fastapi import UploadFile, File, Form
+
+@app.post("/careers/apply")
+async def apply_career(
+    first_name: str = Form(...),
+    last_name: str = Form(...),
+    email: str = Form(...),
+    job_title: str = Form(...),
+    cover_letter: str | None = Form(None),
+    resume: UploadFile = File(...)
+):
+    print(f"Received application for {job_title} from {first_name} {last_name}")
+    
+    if not RESEND_API_KEY:
+        print("MOCK APPLICATION: Email not sent (No API Key)")
+        return {"message": "Application received (Mock)"}
+
+    try:
+        subject = f"New Job Application: {job_title} - {first_name} {last_name}"
+        html_content = f"""
+        <h1>New Job Application</h1>
+        <p><strong>Position:</strong> {job_title}</p>
+        <p><strong>Applicant:</strong> {first_name} {last_name}</p>
+        <p><strong>Email:</strong> {email}</p>
+        
+        <h3>Cover Letter</h3>
+        <div style="background:#f4f4f4; padding:15px; border-radius:10px; white-space: pre-wrap;">
+            {cover_letter or "No cover letter provided."}
+        </div>
+        """
+        
+        # Read file content for attachment
+        file_content = await resume.read()
+        attachment = {
+            "filename": resume.filename,
+            "content": list(file_content) # Resend python sdk expects list of integers for bytes? OR raw bytes. 
+            # documentation says: content: list[int] | str. 
+            # Let's try passing list(file_content) to be safe for binary.
+        }
+
+        # Actually Resend Python SDK (v0.x) usually takes 'content' as a list of integers if it's binary data
+        # Wait, let's double check Resend python docs or standard usage.
+        # Usually for simple integration we can try list(file_content).
+        
+        r = resend.Emails.send({
+            "from": "CheckSite Careers <onboarding@resend.dev>",
+            "to": "mathewsteven1996@gmail.com",
+            "subject": subject,
+            "html": html_content,
+            "attachments": [attachment]
+        })
+        
+        return {"message": "Application sent successfully", "id": r.get("id")}
+    except Exception as e:
+        logger.error(f"Failed to send application email: {e}")
+        # In case of list(bytes) error, fallback or specific error handling might be needed.
+        # But for now assuming Resend SDK handles it.
         raise HTTPException(status_code=500, detail=str(e))

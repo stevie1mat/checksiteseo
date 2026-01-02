@@ -2,31 +2,32 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, MapPin, Clock } from "lucide-react";
+import { ApplicationDialog } from "@/components/careers/ApplicationDialog";
 
 export default function CareersPage() {
     const jobs = [
         {
             title: "Senior Full Stack Engineer",
             department: "Engineering",
-            location: "Remote",
+            location: "Canada - Remote",
             type: "Full-time",
         },
         {
             title: "AI Research Scientist",
             department: "Research",
-            location: "San Francisco, CA",
+            location: "Canada - Remote",
             type: "Full-time",
         },
         {
             title: "Product Designer",
             department: "Design",
-            location: "Remote",
+            location: "Canada - Remote",
             type: "Full-time",
         },
         {
             title: "SEO Specialist",
             department: "Marketing",
-            location: "New York, NY",
+            location: "Canada - Remote",
             type: "Full-time",
         },
     ];
@@ -77,9 +78,11 @@ export default function CareersPage() {
                                         <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {job.type}</span>
                                     </div>
                                 </div>
-                                <Button variant="outline" className="border-[#224034] text-[#224034] hover:bg-[#224034] hover:text-white">
-                                    Apply Now <ArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
+                                <ApplicationDialog jobTitle={job.title}>
+                                    <Button variant="outline" className="border-[#224034] text-[#224034] hover:bg-[#224034] hover:text-white">
+                                        Apply Now <ArrowRight className="w-4 h-4 ml-2" />
+                                    </Button>
+                                </ApplicationDialog>
                             </div>
                         ))}
                     </div>

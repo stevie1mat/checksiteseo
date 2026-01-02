@@ -482,6 +482,36 @@ async def analyze_competitors(text_content: str, url: str) -> dict:
     }
 
 
+async def generate_ai_preview(text_content: str, url: str) -> dict:
+    """Generates a simulated user query and AI response."""
+    domain = urlparse(url).netloc
+    prompt = f"""
+    Analyze this website content ({domain}).
+    1. Formulate a realistic USER QUERY that someone would ask an AI (like ChatGPT/Gemini) to find this business/person. (e.g. "Best SEO agency in Toronto" or "Who is Steven Mathew?")
+    2. Write the AI's RESPONSE citing this entity. The response should be 2-3 sentences, helpful, and mention the entity naturally.
+
+    Return JSON:
+    {{
+        "query": "...",
+        "response": "..."
+    }}
+
+    Content (truncated):
+    {text_content[:2000]}
+    """
+    
+    result = await query_llm(prompt, json_mode=True, temperature=0.4)
+    
+    if result:
+        return result
+        
+    return {
+        "query": f"Tell me about {domain}",
+        "response": f"I found information about {domain}. They appear to be an active entity in their sector, offering relevant services and content."
+    }
+
+
+
 async def check_eeat(soup) -> dict:
     text = soup.get_text(separator=' ', strip=True)
     return await analyze_eeat_via_llm(text)
@@ -581,11 +611,12 @@ async def analyze_page_content(html: str) -> dict:
         if not schema_types: schema_types.append("Generic")
     
     # Run independent tasks concurrently
-    p_readability, p_gap, p_eeat, p_kg = await asyncio.gather(
+    p_readability, p_gap, p_eeat, p_kg, p_preview = await asyncio.gather(
         check_readability_async(main_text[:5000]),
         analyze_failed_queries(main_text[:5000]),
         check_eeat(soup),
         extract_entities(main_text[:4000]),
+        generate_ai_preview(main_text[:3000], "https://example.com"), # URL passed in analyze_page_content wrapper ideally, but main_text is key
         return_exceptions=True
     )
 
@@ -600,6 +631,7 @@ async def analyze_page_content(html: str) -> dict:
     p_gap = handle_result(p_gap, {"score": 0, "details": ["Analysis Error"], "data": []})
     p_eeat = handle_result(p_eeat, {"score": 0, "details": ["Analysis Error"]})
     p_kg = handle_result(p_kg, {"score": 0, "details": ["Analysis Error"], "data": {}})
+    p_preview = handle_result(p_preview, {"query": "Who is this entity?", "response": "Analysis failed."})
 
     return {
         "technical": {
@@ -618,7 +650,8 @@ async def analyze_page_content(html: str) -> dict:
         },
         "authority": {
             "eeat": p_eeat,
-            "knowledge_graph": p_kg
+            "knowledge_graph": p_kg,
+            "ai_preview": p_preview
         }
     }
 

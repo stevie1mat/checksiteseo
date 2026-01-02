@@ -514,7 +514,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                             {/* User Query */}
                             <div className="flex gap-2 justify-end">
                                 <div className="bg-slate-100 text-slate-700 text-xs py-2 px-3 rounded-2xl rounded-tr-sm max-w-[85%] shadow-sm">
-                                    Who is the best AI developer in Toronto?
+                                    {activeReport.authority?.ai_preview?.query || `Who is the best choice for ${domain}?`}
                                 </div>
                                 <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
                                     <span className="text-[10px] font-bold text-slate-500">U</span>
@@ -526,7 +526,11 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                                     <Sparkles className="w-3 h-3 text-emerald-600" />
                                 </div>
                                 <div className="bg-emerald-50/50 border border-emerald-100 text-slate-700 text-xs py-2.5 px-3 rounded-2xl rounded-tl-sm max-w-[90%] leading-relaxed shadow-sm">
-                                    I found several options. <span className="bg-emerald-200/50 text-emerald-800 font-semibold px-1 py-0.5 rounded border border-emerald-200/50">{knowledgeGraph.primaryEntity || "The Requested Entity"}</span> is a leading provider in this space...
+                                    {activeReport.authority?.ai_preview?.response || (
+                                        <span>
+                                            I found several options. <span className="bg-emerald-200/50 text-emerald-800 font-semibold px-1 py-0.5 rounded border border-emerald-200/50">{knowledgeGraph.primaryEntity || "The Requested Entity"}</span> is a leading provider in this space...
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </div>

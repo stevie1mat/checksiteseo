@@ -61,7 +61,7 @@ export function HeroSection() {
     }
 
     return (
-        <section className={`relative min-h-[90vh] flex flex-col items-center pt-40 pb-20 px-6 bg-[#224034] text-white transition-all duration-700 overflow-hidden ${result ? 'min-h-screen' : ''}`}>
+        <section className={`relative min-h-[90vh] flex flex-col items-center pt-64 pb-20 px-6 bg-[#224034] text-white transition-all duration-700 overflow-hidden ${result ? 'min-h-screen' : ''}`}>
 
             {/* Background Details */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none -z-0" />
@@ -71,10 +71,7 @@ export function HeroSection() {
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none -z-0" />
 
             {/* Top Banner Tag */}
-            <div className="mt-12 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-8 animate-in fade-in slide-in-from-top-4 duration-700">
-                <Sparkles className="w-3 h-3 text-white" />
-                <span className="text-[11px] font-bold tracking-widest uppercase text-white/90">AI Powered Analysis</span>
-            </div>
+
 
             <div className="text-center max-w-4xl mx-auto space-y-6 z-10">
                 <h1 className="font-serif text-5xl md:text-7xl leading-tight">
@@ -398,8 +395,8 @@ export function HeroSection() {
                                         <div className="text-left space-y-1">
                                             <div className="text-lg font-light opacity-80">/ 100</div>
                                             <div className={`text-sm font-bold px-2 py-0.5 rounded shadow-sm backdrop-blur-sm ${(result.breakdown.content.gap?.details?.length || 0) <= 3 ? 'bg-emerald-400/20 text-emerald-100' :
-                                                    (result.breakdown.content.gap?.details?.length || 0) <= 5 ? 'bg-amber-500/20 text-amber-100' :
-                                                        'bg-red-500/20 text-red-100'
+                                                (result.breakdown.content.gap?.details?.length || 0) <= 5 ? 'bg-amber-500/20 text-amber-100' :
+                                                    'bg-red-500/20 text-red-100'
                                                 }`}>
                                                 {(result.breakdown.content.gap?.details?.length || 0) <= 3 ? 'Good' :
                                                     (result.breakdown.content.gap?.details?.length || 0) <= 5 ? 'Fair' :
