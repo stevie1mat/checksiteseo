@@ -1,12 +1,72 @@
+import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Check, XCircle, AlertCircle, Cpu } from "lucide-react"
+import { Check, XCircle, AlertCircle, Cpu, ChevronDown, ChevronUp } from "lucide-react"
 import { AEOReport } from "@/types/aeo"
 
 interface TechnicalTabProps {
     activeReport: AEOReport
     setActiveTab?: (tab: 'overview' | 'technical' | 'content' | 'authority') => void
     siteId?: string
+}
+
+interface TechnicalItemProps {
+    title: string
+    label: string
+    isGood: boolean
+    fix: React.ReactNode
+    isWarning?: boolean
+    docUrl?: string
+}
+
+function TechnicalItem({ title, label, isGood, fix, isWarning, docUrl }: TechnicalItemProps) {
+    const [isOpen, setIsOpen] = useState(false)
+
+    return (
+        <div className="border-b border-gray-50 last:border-0 pb-4 last:pb-0">
+            <div
+                className={`flex justify-between items-start ${!isGood ? 'cursor-pointer hover:bg-slate-50 -mx-2 px-2 py-2 rounded-lg transition-colors' : ''}`}
+                onClick={() => !isGood && setIsOpen(!isOpen)}
+            >
+                <div>
+                    <p className="font-semibold text-slate-700 text-base">{title}</p>
+                    <p className="text-sm text-slate-500 mt-1">{label}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    {!isGood && (
+                        <div className="text-slate-400">
+                            {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </div>
+                    )}
+                    {isGood ? (
+                        <Check className="w-5 h-5 text-emerald-500" />
+                    ) : isWarning ? (
+                        <AlertCircle className="w-5 h-5 text-amber-400" />
+                    ) : (
+                        <XCircle className="w-5 h-5 text-red-400" />
+                    )}
+                </div>
+            </div>
+
+            <div className={`grid transition-all duration-300 ease-in-out ${isOpen && !isGood ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0'}`}>
+                <div className="overflow-hidden">
+                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-sm text-slate-600">
+                        <p className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                            <Cpu className="w-3 h-3" /> How to Fix
+                        </p>
+                        {fix}
+                        {docUrl && (
+                            <div className="mt-3 pt-3 border-t border-slate-200">
+                                <a href={docUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline text-xs font-medium center flex items-center gap-1">
+                                    Read Documentation <ChevronDown className="w-3 h-3 -rotate-90" />
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
 }
 
 export function TechnicalTab({ activeReport, setActiveTab, siteId }: TechnicalTabProps) {
@@ -20,43 +80,75 @@ export function TechnicalTab({ activeReport, setActiveTab, siteId }: TechnicalTa
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Standard Checks */}
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
-                    {/* Robots */}
-                    <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                        <div>
-                            <p className="font-semibold text-slate-700 text-base">Robots.txt</p>
-                            <p className="text-sm text-slate-500 mt-1">{activeReport.technical.robotsTxt ? 'Optimized' : 'Missing or Blocking'}</p>
-                        </div>
-                        {activeReport.technical.robotsTxt ? <Check className="w-5 h-5 text-emerald-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
-                    </div>
-                    {/* LLMs */}
-                    <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                        <div>
-                            <p className="font-semibold text-slate-700 text-base">LLMs.txt</p>
-                            <p className="text-sm text-slate-500 mt-1">{activeReport.technical.llmsTxt ? 'Found' : 'Missing'}</p>
-                        </div>
-                        {activeReport.technical.llmsTxt ?
-                            <Check className="w-5 h-5 text-emerald-500" /> :
-                            <XCircle className="w-5 h-5 text-red-400" />
+
+                    <TechnicalItem
+                        title="Robots.txt"
+                        label={activeReport.technical.robotsTxt ? 'Optimized' : 'Missing or Blocking AI'}
+                        isGood={activeReport.technical.robotsTxt}
+                        fix={
+                            <div className="space-y-2">
+                                <p>Your <code>robots.txt</code> file is either missing or blocking AI agents.</p>
+                                <p><strong>Add this to your robots.txt:</strong></p>
+                                <pre className="bg-slate-800 text-slate-50 p-2 rounded text-xs overflow-x-auto">
+                                    {`User-agent: GPTBot
+Disallow:
+
+User-agent: CCBot
+Disallow:
+
+User-agent: Google-Extended
+Disallow:`}
+                                </pre>
+                            </div>
                         }
-                    </div>
-                    {/* Schema */}
-                    <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                        <div>
-                            <p className="font-semibold text-slate-700 text-base">Schema.org</p>
-                            <p className="text-sm text-slate-500 mt-1">{activeReport.technical.schema.join(', ') || 'None Detected'}</p>
-                        </div>
-                        {activeReport.technical.schema.length > 0 ? <Check className="w-5 h-5 text-emerald-500" /> :
-                            <AlertCircle className="w-5 h-5 text-amber-400" />
+                    />
+
+                    <TechnicalItem
+                        title="LLMs.txt"
+                        label={activeReport.technical.llmsTxt ? 'Found' : 'Missing'}
+                        isGood={activeReport.technical.llmsTxt}
+                        docUrl="https://llmstxt.org/"
+                        fix={
+                            <div className="space-y-2">
+                                <p>An <code>llms.txt</code> file helps AI agents understand your content structure efficiently.</p>
+                                <p>Create a file at <code>/llms.txt</code> that summarizes your site's core information and links to key pages.</p>
+                            </div>
                         }
-                    </div>
-                    {/* Sitemap */}
-                    <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                        <div>
-                            <p className="font-semibold text-slate-700 text-base">Sitemap.xml</p>
-                            <p className="text-sm text-slate-500 mt-1">{activeReport.technical.sitemap ? 'Valid' : 'Not Found'}</p>
-                        </div>
-                        {activeReport.technical.sitemap ? <Check className="w-5 h-5 text-emerald-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
-                    </div>
+                    />
+
+                    <TechnicalItem
+                        title="Schema.org"
+                        label={(activeReport.technical.schema.join(', ') || 'None Detected')}
+                        isGood={activeReport.technical.schema.length > 0}
+                        isWarning={true}
+                        docUrl="https://developers.google.com/search/docs/appearance/structured-data"
+                        fix={
+                            <div className="space-y-3">
+                                <p>Structured data helps AEO engines understand your entities.</p>
+                                <p>Add <strong>JSON-LD</strong> schema for Organization, FAQPage, or Article to your <code>&lt;head&gt;</code>.</p>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-700">Validation Tools:</p>
+                                    <ul className="list-disc pl-4 space-y-1">
+                                        <li><a href="https://search.google.com/test/rich-results" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Rich Results Test</a></li>
+                                        <li><a href="https://validator.schema.org/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Schema Markup Validator</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        }
+                    />
+
+                    <TechnicalItem
+                        title="Sitemap.xml"
+                        label={activeReport.technical.sitemap ? 'Valid' : 'Not Found'}
+                        isGood={!!activeReport.technical.sitemap}
+                        fix={
+                            <div className="space-y-2">
+                                <p>We couldn't find your sitemap automatically.</p>
+                                <p>Ensure your sitemap is located at <code>/sitemap.xml</code> or linked clearly in your <code>robots.txt</code> file.</p>
+                            </div>
+                        }
+                    />
+
                 </div>
 
                 {/* Agent Economics */}

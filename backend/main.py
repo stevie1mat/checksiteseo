@@ -18,10 +18,24 @@ import asyncio
 import resend
 from email_templates import get_email_html
 
+import stripe
+
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 print(f"DEBUG: Loaded RESEND_API_KEY: {'Yes' if RESEND_API_KEY else 'No'}")
+
+# Stripe Setup
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+# Replace these with your actual Stripe Price IDs
+STRIPE_PRICE_ID_PLUS = os.getenv("STRIPE_PRICE_ID_PLUS", "price_plus_placeholder")
+STRIPE_PRICE_ID_PRO = os.getenv("STRIPE_PRICE_ID_PRO", "price_pro_placeholder")
+
+if STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
+else:
+    print("WARNING: STRIPE_SECRET_KEY not found. Stripe features will not work.")
 
 app = FastAPI(title="AEO Readiness Auditor")
 
@@ -762,3 +776,91 @@ async def apply_career(
         # In case of list(bytes) error, fallback or specific error handling might be needed.
         # But for now assuming Resend SDK handles it.
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- Stripe Integration ---
+
+class CheckoutRequest(BaseModel):
+    plan: str  # 'plus' or 'pro'
+    email: str | None = None
+    site_id: str | None = None
+
+@app.post("/create-checkout-session")
+async def create_checkout_session(request: CheckoutRequest):
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="Stripe is not configured")
+
+    price_id = STRIPE_PRICE_ID_PLUS if request.plan == "plus" else STRIPE_PRICE_ID_PRO
+    
+    # Handle 'pro' mapping if needed, or strictly check
+    if request.plan == "pro":
+        price_id = STRIPE_PRICE_ID_PRO
+    elif request.plan == "plus":
+        price_id = STRIPE_PRICE_ID_PLUS
+    else:
+        raise HTTPException(status_code=400, detail="Invalid plan selected")
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[
+                {
+                    'price': price_id,
+                    'quantity': 1,
+                },
+            ],
+            mode='subscription',
+            success_url=os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000") + "/dashboard?payment=success",
+            cancel_url=os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000") + "/pricing?payment=cancelled",
+            customer_email=request.email,
+            metadata={
+                "site_id": request.site_id,
+                "plan": request.plan
+            },
+            allow_promotion_codes=True,
+        )
+        return {"url": checkout_session.url}
+    except Exception as e:
+        logger.error(f"Stripe checkout creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+from fastapi import Request
+
+@app.post("/webhook")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get('stripe-signature')
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError as e:
+        # Invalid payload
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError as e:
+        # Invalid signature
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # Handle the event
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        await handle_checkout_completed(session)
+    
+    return {"status": "success"}
+
+async def handle_checkout_completed(session):
+    # Fulfill the purchase...
+    customer_email = session.get('customer_details', {}).get('email')
+    plan = session.get('metadata', {}).get('plan')
+    site_id = session.get('metadata', {}).get('site_id')
+    
+    print(f"💰 Payment received for {customer_email} - Plan: {plan}")
+
+    # TODO: Update user subscription in Supabase
+    # We need a table for subscriptions or update the user/site record.
+    # For now, we will just log it. 
+    # Real implementation would look like:
+    if supabase and customer_email:
+         # Find user by email and update subscription
+         # supabase.table("users").update({"subscription_tier": plan}).eq("email", customer_email).execute()
+         pass

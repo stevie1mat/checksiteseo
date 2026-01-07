@@ -1,7 +1,14 @@
-import { Check } from "lucide-react";
+"use client"
+
+import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export function PricingSection() {
+    const router = useRouter();
+    const [loading, setLoading] = useState<string | null>(null);
+
     const plans = [
         {
             name: "Free",
@@ -16,7 +23,9 @@ export function PricingSection() {
                 "Public roadmap access"
             ],
             cta: "Start Free",
-            popular: false
+            buttonVariant: "outline",
+            popular: false,
+            id: "free"
         },
         {
             name: "Plus",
@@ -31,8 +40,10 @@ export function PricingSection() {
                 "Weekly reports",
                 "Content optimization tools"
             ],
-            cta: "Start 14-Day Trial",
-            popular: true
+            cta: "Subscribe to Plus",
+            buttonVariant: "primary",
+            popular: true,
+            id: "plus"
         },
         {
             name: "Pro",
@@ -47,10 +58,49 @@ export function PricingSection() {
                 "Competitor analysis",
                 "Custom integrations"
             ],
-            cta: "Start 14-Day Trial",
-            popular: false
+            cta: "Subscribe to Pro",
+            buttonVariant: "outline",
+            popular: false,
+            id: "pro"
         }
     ];
+
+    const handleSubscribe = async (planId: string) => {
+        if (planId === "free") {
+            router.push("/dashboard");
+            return;
+        }
+
+        try {
+            setLoading(planId);
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/create-checkout-session`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    plan: planId,
+                    // We don't send email here, we let Stripe collect it if user is anonymous
+                    // If we had a user context, we would send it: email: user.email
+                }),
+            });
+
+            if (!response.ok) {
+                // Fallback or error handling
+                console.error("Checkout failed");
+                return;
+            }
+
+            const data = await response.json();
+            if (data.url) {
+                window.location.href = data.url;
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(null);
+        }
+    };
 
     return (
         <section id="pricing" className="py-24 bg-[#F9FBFA]">
@@ -63,7 +113,8 @@ export function PricingSection() {
                         Simple, transparent pricing.
                     </h2>
                     <p className="text-slate-500 mt-6 max-w-xl mx-auto text-lg">
-                        Choose the plan that fits your needs. All plans include 14-day free trial.
+                        Choose the plan that fits your needs.
+                        <span className="block mt-1 text-emerald-600 font-medium">No hidden fees. Check out instantly.</span>
                     </p>
                 </div>
 
@@ -72,7 +123,7 @@ export function PricingSection() {
                         <div
                             key={index}
                             className={`relative bg-white rounded-2xl p-8 border-2 transition-all duration-300 ${plan.popular
-                                ? 'border-[#8cd9b8] shadow-xl shadow-[#8cd9b8]/20 scale-105'
+                                ? 'border-[#8cd9b8] shadow-xl shadow-[#8cd9b8]/20 scale-105 z-10'
                                 : 'border-gray-100 hover:border-[#8cd9b8]/50 hover:shadow-lg'
                                 }`}
                         >
@@ -103,19 +154,25 @@ export function PricingSection() {
                             </ul>
 
                             <Button
+                                onClick={() => handleSubscribe(plan.id)}
+                                disabled={!!loading}
                                 className={`w-full h-12 text-base font-semibold ${plan.popular
                                     ? 'bg-[#224034] hover:bg-[#1a3329] text-white shadow-lg'
                                     : 'bg-white hover:bg-[#224034] text-[#224034] hover:text-white border-2 border-[#224034]'
                                     }`}
                             >
-                                {plan.cta}
+                                {loading === plan.id ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    plan.cta
+                                )}
                             </Button>
                         </div>
                     ))}
                 </div>
 
                 <p className="text-center text-slate-400 text-sm mt-12">
-                    All prices in USD. Cancel anytime. No credit card required for trial.
+                    Prices in USD. Cancel anytime in your dashboard.
                 </p>
             </div>
         </section>

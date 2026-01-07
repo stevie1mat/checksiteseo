@@ -15,18 +15,24 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Site } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-
 import { cn } from "@/lib/utils"
 
 interface SiteHealthGridProps {
     sites: Site[]
+    isFreePlan?: boolean
 }
 
-export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
+export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProps) {
     const router = useRouter()
     const [localSites, setLocalSites] = useState<Site[]>(sites)
 
@@ -40,6 +46,7 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
     const supabase = createClient()
 
     const handleDeleteClick = (site: Site) => {
+        if (isFreePlan) return // Extra safety
         setSiteToDelete(site)
         setDeleteDialogOpen(true)
     }
@@ -67,7 +74,6 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
             router.refresh()
 
             // Fallback: Reload page if simple refresh doesn't clear the stale cache visible to user
-            // Keeping this as a safety net, but reduced timeout since local state handles immediate feedback
             setTimeout(() => {
                 window.location.reload()
             }, 1000)
@@ -79,9 +85,6 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
             setSiteToDelete(null)
         }
     }
-
-
-
 
     const getStatusBadge = (score: number) => {
         if (score >= 90) {
@@ -219,15 +222,33 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
                                         </TableCell>
                                         <TableCell className="text-right pr-6 py-4">
                                             <div className="flex items-center justify-end gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-8 w-8 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all shadow-none"
-                                                    onClick={() => handleDeleteClick(site)}
-                                                    disabled={deletingId === site.id}
-                                                >
-                                                    {deletingId === site.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                                </Button>
+                                                <TooltipProvider>
+                                                    <Tooltip delayDuration={0}>
+                                                        <TooltipTrigger asChild>
+                                                            <span tabIndex={0}>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    className={cn(
+                                                                        "h-8 w-8 p-0 text-slate-400 border border-transparent transition-all shadow-none",
+                                                                        !isFreePlan && "hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100",
+                                                                        isFreePlan && "opacity-50 cursor-not-allowed"
+                                                                    )}
+                                                                    onClick={() => !isFreePlan && handleDeleteClick(site)}
+                                                                    disabled={deletingId === site.id || isFreePlan}
+                                                                >
+                                                                    {deletingId === site.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                                                </Button>
+                                                            </span>
+                                                        </TooltipTrigger>
+                                                        {isFreePlan && (
+                                                            <TooltipContent className="max-w-[200px] text-center">
+                                                                <p>Deletion is disabled on the Free Plan.</p>
+                                                            </TooltipContent>
+                                                        )}
+                                                    </Tooltip>
+                                                </TooltipProvider>
+
                                                 <Link href={`/dashboard/sites/${site.id}`} className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-white text-slate-400 hover:text-[#224034] hover:bg-slate-50 border border-slate-200 hover:border-[#224034]/30 transition-all shadow-sm">
                                                     <ArrowRight className="w-4 h-4" />
                                                 </Link>
@@ -274,4 +295,3 @@ export function SiteHealthGrid({ sites }: SiteHealthGridProps) {
         </>
     )
 }
-

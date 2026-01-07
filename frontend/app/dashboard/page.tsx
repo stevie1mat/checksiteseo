@@ -35,7 +35,7 @@ export default async function DashboardPage() {
         <div className="space-y-8 w-full">
             {/* Header Section with Background */}
             <div className="bg-slate-50 border-b border-slate-200 -mt-4 -mx-4 px-8 py-8 mb-8">
-                <div className="flex items-center justify-between max-w-7xl mx-auto">
+                <div className="flex items-center justify-between px-4">
                     <div>
                         <h1 className="font-serif text-3xl text-[#224034]">Overview</h1>
                         <p className="text-slate-500 mt-1">Track your AEO performance across all sites.</p>
@@ -44,13 +44,13 @@ export default async function DashboardPage() {
                 </div>
             </div>
 
-            <div className="px-4 space-y-8 max-w-7xl mx-auto">
+            <div className="px-4 space-y-8">
                 {/* Active Top Cards */}
                 <DashboardStats siteCount={siteCount} maxSites={FREE_PLAN_LIMIT} sites={sites || []} />
 
                 {/* Site Health Grid */}
                 {sites && sites.length > 0 ? (
-                    <SiteHealthGrid sites={sites} />
+                    <SiteHealthGrid sites={sites} isFreePlan={true} />
                 ) : (
                     <Card className="border-slate-200 shadow-xs min-h-[400px]">
                         <CardHeader>

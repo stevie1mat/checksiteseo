@@ -41,6 +41,9 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
     const latestScan = pages && pages[0];
     const breakdown = latestScan?.checklist;
 
+    console.log('[SiteDetailsPage] breakdown.content:', breakdown?.content);
+    console.log('[SiteDetailsPage] breakdown.content.gap:', breakdown?.content?.gap);
+
     // Helper functions for scoring
     const calculateTechnicalScore = (tech: any) => {
         if (tech?.score) return tech.score;
@@ -120,7 +123,7 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
                 <SiteReportView siteId={site.id} domain={site.url} initialReport={{
                     domain: site.url,
                     scannedAt: latestScan.last_scanned_at,
-                    status: site.status === 'error' ? 'failed' : 'completed',
+                    status: site.status === 'analyzing' ? 'processing' : (site.status === 'error' ? 'failed' : 'completed'),
 
                     scores: {
                         overall: latestScan.aeo_score || 0,

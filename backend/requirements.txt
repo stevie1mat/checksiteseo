@@ -12,3 +12,4 @@ resend
 sqlalchemy
 psycopg2-binary
 python-multipart
+stripe

@@ -129,7 +129,7 @@ export function ContentTab({ activeReport, activeReport: { content }, siteId }: 
                                             {failedQueries.map((query: any, i: number) => (
                                                 <TableRow key={i} className="hover:bg-white/5 border-white/5 group/row transition-colors">
                                                     <TableCell className="font-medium text-emerald-50 py-4 align-top">
-                                                        "{query.question}"
+                                                        "{query.query}"
                                                     </TableCell>
                                                     <TableCell className="py-4 align-top">
                                                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ring-1 ring-inset

@@ -5,7 +5,7 @@ import useSWR, { useSWRConfig } from 'swr'; // Import useSWRConfig for global mu
 import { AEOReport } from '@/types/aeo';
 import { createClient } from '@/lib/supabase/client';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = (url: string) => fetch(url, { cache: 'no-store' }).then((res) => res.json());
 
 export function useAEOScan(domain: string, siteId?: string) {
     const supabase = createClient();
