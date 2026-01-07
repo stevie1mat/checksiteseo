@@ -16,7 +16,7 @@ export default function Home() {
       <FeaturesSection />
       <HowItWorksSection />
       <BenefitsSection />
-      <PricingSection />
+      <PricingSection redirectTo="/dashboard/billing" />
       <TestimonialsSection />
       <FAQSection />
       <Footer />

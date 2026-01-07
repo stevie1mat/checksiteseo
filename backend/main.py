@@ -852,15 +852,32 @@ async def handle_checkout_completed(session):
     # Fulfill the purchase...
     customer_email = session.get('customer_details', {}).get('email')
     plan = session.get('metadata', {}).get('plan')
-    site_id = session.get('metadata', {}).get('site_id')
+    stripe_customer_id = session.get('customer')
     
     print(f"💰 Payment received for {customer_email} - Plan: {plan}")
 
-    # TODO: Update user subscription in Supabase
-    # We need a table for subscriptions or update the user/site record.
-    # For now, we will just log it. 
-    # Real implementation would look like:
     if supabase and customer_email:
-         # Find user by email and update subscription
-         # supabase.table("users").update({"subscription_tier": plan}).eq("email", customer_email).execute()
-         pass
+        try:
+             # Find user by email and update subscription
+             # Note: This assumes email matches. Ideally we use the user_id from metadata if passed.
+             # fallback to email if no site_id/user_id 
+             
+             # Check if we have a user with this email in profiles
+             # Since 'profiles' is linked to auth.users, we need to find the profile by email.
+             # However, profiles table has 'email' column per schema.sql
+             
+             print(f"   > Updating subscription for {customer_email} to {plan}...")
+             
+             response = supabase.table("profiles").update({
+                 "subscription_tier": plan,
+                 "subscription_status": "active",
+                 "stripe_customer_id": stripe_customer_id
+             }).eq("email", customer_email).execute()
+             
+             if response.data:
+                 print(f"   > ✅ Subscription updated for {customer_email}")
+             else:
+                 print(f"   > ⚠️ User profile not found for {customer_email}. Pending creation?")
+                 
+        except Exception as e:
+            logger.error(f"Failed to update subscription in DB: {e}")

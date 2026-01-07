@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function PricingSection() {
+export function PricingSection({ currentPlan = "free", redirectTo }: { currentPlan?: string, redirectTo?: string }) {
     const router = useRouter();
     const [loading, setLoading] = useState<string | null>(null);
 
@@ -66,6 +66,12 @@ export function PricingSection() {
     ];
 
     const handleSubscribe = async (planId: string) => {
+        // If we want to redirect (e.g. from public page to dashboard), do that first
+        if (redirectTo) {
+            router.push(redirectTo);
+            return;
+        }
+
         if (planId === "free") {
             router.push("/dashboard");
             return;
@@ -102,6 +108,15 @@ export function PricingSection() {
         }
     };
 
+    // Helper to determine button state
+    const getButtonText = (planId: string, defaultCta: string) => {
+        if (planId === currentPlan) return "Current Plan";
+        // Logic for upgrade/downgrade could go here, but keeping it simple for now
+        return defaultCta;
+    }
+
+    const isCurrentPlan = (planId: string) => planId === currentPlan;
+
     return (
         <section id="pricing" className="py-24 bg-[#F9FBFA]">
             <div className="max-w-7xl mx-auto px-6">
@@ -119,56 +134,61 @@ export function PricingSection() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                    {plans.map((plan, index) => (
-                        <div
-                            key={index}
-                            className={`relative bg-white rounded-2xl p-8 border-2 transition-all duration-300 ${plan.popular
-                                ? 'border-[#8cd9b8] shadow-xl shadow-[#8cd9b8]/20 scale-105 z-10'
-                                : 'border-gray-100 hover:border-[#8cd9b8]/50 hover:shadow-lg'
-                                }`}
-                        >
-                            {plan.popular && (
-                                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                                    <div className="bg-[#8cd9b8] text-[#224034] text-xs font-bold px-4 py-1 rounded-full shadow-lg">
-                                        Most Popular
+                    {plans.map((plan, index) => {
+                        const isCurrent = isCurrentPlan(plan.id);
+                        return (
+                            <div
+                                key={index}
+                                className={`relative bg-white rounded-2xl p-8 border-2 transition-all duration-300 ${plan.popular
+                                    ? 'border-[#8cd9b8] shadow-xl shadow-[#8cd9b8]/20 scale-105 z-10'
+                                    : 'border-gray-100 hover:border-[#8cd9b8]/50 hover:shadow-lg'
+                                    } ${isCurrent ? 'ring-2 ring-emerald-500 ring-offset-2' : ''}`}
+                            >
+                                {plan.popular && (
+                                    <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                                        <div className="bg-[#8cd9b8] text-[#224034] text-xs font-bold px-4 py-1 rounded-full shadow-lg">
+                                            Most Popular
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="text-center mb-8">
+                                    <h3 className="font-serif text-2xl text-[#224034] mb-2">{plan.name}</h3>
+                                    <p className="text-slate-500 text-sm mb-6">{plan.description}</p>
+                                    <div className="flex items-baseline justify-center gap-2">
+                                        <span className="text-5xl font-serif text-[#224034]">{plan.price}</span>
+                                        <span className="text-slate-500 text-sm">/ {plan.period}</span>
                                     </div>
                                 </div>
-                            )}
 
-                            <div className="text-center mb-8">
-                                <h3 className="font-serif text-2xl text-[#224034] mb-2">{plan.name}</h3>
-                                <p className="text-slate-500 text-sm mb-6">{plan.description}</p>
-                                <div className="flex items-baseline justify-center gap-2">
-                                    <span className="text-5xl font-serif text-[#224034]">{plan.price}</span>
-                                    <span className="text-slate-500 text-sm">/ {plan.period}</span>
-                                </div>
+                                <ul className="space-y-4 mb-8">
+                                    {plan.features.map((feature, idx) => (
+                                        <li key={idx} className="flex items-start gap-3">
+                                            <Check className="w-5 h-5 text-[#8cd9b8] shrink-0 mt-0.5" />
+                                            <span className="text-slate-600 text-sm">{feature}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+
+                                <Button
+                                    onClick={() => handleSubscribe(plan.id)}
+                                    disabled={!!loading || isCurrent}
+                                    className={`w-full h-12 text-base font-semibold ${isCurrent
+                                        ? 'bg-slate-100 text-slate-500 cursor-default border-2 border-slate-200 hover:bg-slate-100 hover:text-slate-500' // Current Plan Style
+                                        : plan.popular
+                                            ? 'bg-[#224034] hover:bg-[#1a3329] text-white shadow-lg'
+                                            : 'bg-white hover:bg-[#224034] text-[#224034] hover:text-white border-2 border-[#224034]'
+                                        }`}
+                                >
+                                    {loading === plan.id ? (
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                    ) : (
+                                        getButtonText(plan.id, plan.cta)
+                                    )}
+                                </Button>
                             </div>
-
-                            <ul className="space-y-4 mb-8">
-                                {plan.features.map((feature, idx) => (
-                                    <li key={idx} className="flex items-start gap-3">
-                                        <Check className="w-5 h-5 text-[#8cd9b8] shrink-0 mt-0.5" />
-                                        <span className="text-slate-600 text-sm">{feature}</span>
-                                    </li>
-                                ))}
-                            </ul>
-
-                            <Button
-                                onClick={() => handleSubscribe(plan.id)}
-                                disabled={!!loading}
-                                className={`w-full h-12 text-base font-semibold ${plan.popular
-                                    ? 'bg-[#224034] hover:bg-[#1a3329] text-white shadow-lg'
-                                    : 'bg-white hover:bg-[#224034] text-[#224034] hover:text-white border-2 border-[#224034]'
-                                    }`}
-                            >
-                                {loading === plan.id ? (
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                ) : (
-                                    plan.cta
-                                )}
-                            </Button>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
 
                 <p className="text-center text-slate-400 text-sm mt-12">

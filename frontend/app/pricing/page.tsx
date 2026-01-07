@@ -7,7 +7,7 @@ export default function PricingPage() {
         <main className="min-h-screen">
             <Navbar />
             <div className="pt-20">
-                <PricingSection />
+                <PricingSection redirectTo="/dashboard/billing" />
             </div>
             <Footer />
         </main>
