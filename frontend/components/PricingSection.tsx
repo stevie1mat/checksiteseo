@@ -5,7 +5,19 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function PricingSection({ currentPlan = "free", redirectTo }: { currentPlan?: string, redirectTo?: string }) {
+export function PricingSection({
+    currentPlan = "free",
+    redirectTo,
+    hideHeader = false,
+    userEmail,
+    userId
+}: {
+    currentPlan?: string,
+    redirectTo?: string,
+    hideHeader?: boolean,
+    userEmail?: string,
+    userId?: string
+}) {
     const router = useRouter();
     const [loading, setLoading] = useState<string | null>(null);
 
@@ -86,13 +98,12 @@ export function PricingSection({ currentPlan = "free", redirectTo }: { currentPl
                 },
                 body: JSON.stringify({
                     plan: planId,
-                    // We don't send email here, we let Stripe collect it if user is anonymous
-                    // If we had a user context, we would send it: email: user.email
+                    email: userEmail,
+                    user_id: userId
                 }),
             });
 
             if (!response.ok) {
-                // Fallback or error handling
                 console.error("Checkout failed");
                 return;
             }
@@ -111,27 +122,28 @@ export function PricingSection({ currentPlan = "free", redirectTo }: { currentPl
     // Helper to determine button state
     const getButtonText = (planId: string, defaultCta: string) => {
         if (planId === currentPlan) return "Current Plan";
-        // Logic for upgrade/downgrade could go here, but keeping it simple for now
         return defaultCta;
     }
 
     const isCurrentPlan = (planId: string) => planId === currentPlan;
 
     return (
-        <section id="pricing" className="py-24 bg-[#F9FBFA]">
+        <section id="pricing" className={`bg-[#F9FBFA] ${hideHeader ? 'py-0' : 'py-24'}`}>
             <div className="max-w-7xl mx-auto px-6">
-                <div className="text-center mb-16">
-                    <div className="inline-block px-4 py-1 rounded-full border border-emerald-200 text-xs font-bold tracking-widest uppercase text-emerald-700 mb-6 bg-white">
-                        Pricing
+                {!hideHeader && (
+                    <div className="text-center mb-16">
+                        <div className="inline-block px-4 py-1 rounded-full border border-emerald-200 text-xs font-bold tracking-widest uppercase text-emerald-700 mb-6 bg-white">
+                            Pricing
+                        </div>
+                        <h2 className="font-serif text-4xl md:text-5xl text-[#224034] max-w-2xl mx-auto leading-tight">
+                            Simple, transparent pricing.
+                        </h2>
+                        <p className="text-slate-500 mt-6 max-w-xl mx-auto text-lg">
+                            Choose the plan that fits your needs.
+                            <span className="block mt-1 text-emerald-600 font-medium">No hidden fees. Check out instantly.</span>
+                        </p>
                     </div>
-                    <h2 className="font-serif text-4xl md:text-5xl text-[#224034] max-w-2xl mx-auto leading-tight">
-                        Simple, transparent pricing.
-                    </h2>
-                    <p className="text-slate-500 mt-6 max-w-xl mx-auto text-lg">
-                        Choose the plan that fits your needs.
-                        <span className="block mt-1 text-emerald-600 font-medium">No hidden fees. Check out instantly.</span>
-                    </p>
-                </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
                     {plans.map((plan, index) => {

@@ -783,6 +783,7 @@ class CheckoutRequest(BaseModel):
     plan: str  # 'plus' or 'pro'
     email: str | None = None
     site_id: str | None = None
+    user_id: str | None = None
 
 @app.post("/create-checkout-session")
 async def create_checkout_session(request: CheckoutRequest):
@@ -814,7 +815,8 @@ async def create_checkout_session(request: CheckoutRequest):
             customer_email=request.email,
             metadata={
                 "site_id": request.site_id,
-                "plan": request.plan
+                "plan": request.plan,
+                "user_id": request.user_id
             },
             allow_promotion_codes=True,
         )
@@ -853,31 +855,54 @@ async def handle_checkout_completed(session):
     customer_email = session.get('customer_details', {}).get('email')
     plan = session.get('metadata', {}).get('plan')
     stripe_customer_id = session.get('customer')
+    user_id = session.get('metadata', {}).get('user_id')
     
-    print(f"💰 Payment received for {customer_email} - Plan: {plan}")
+    print(f"💰 Payment received for {customer_email} - Plan: {plan} - User ID: {user_id}")
 
-    if supabase and customer_email:
+    if supabase:
         try:
-             # Find user by email and update subscription
-             # Note: This assumes email matches. Ideally we use the user_id from metadata if passed.
-             # fallback to email if no site_id/user_id 
+             response = None
+             if user_id:
+                 print(f"   > Updating subscription for ID {user_id}...")
+                 response = supabase.table("profiles").update({
+                     "subscription_tier": plan,
+                     "subscription_status": "active",
+                     "stripe_customer_id": stripe_customer_id
+                 }).eq("id", user_id).execute()
+             elif customer_email:
+                 print(f"   > Updating subscription for email {customer_email}...")
+                 response = supabase.table("profiles").update({
+                     "subscription_tier": plan,
+                     "subscription_status": "active",
+                     "stripe_customer_id": stripe_customer_id
+                 }).eq("email", customer_email).execute()
              
-             # Check if we have a user with this email in profiles
-             # Since 'profiles' is linked to auth.users, we need to find the profile by email.
-             # However, profiles table has 'email' column per schema.sql
-             
-             print(f"   > Updating subscription for {customer_email} to {plan}...")
-             
-             response = supabase.table("profiles").update({
-                 "subscription_tier": plan,
-                 "subscription_status": "active",
-                 "stripe_customer_id": stripe_customer_id
-             }).eq("email", customer_email).execute()
-             
-             if response.data:
-                 print(f"   > ✅ Subscription updated for {customer_email}")
+             if response and response.data:
+                 print(f"   > ✅ Subscription updated.")
              else:
-                 print(f"   > ⚠️ User profile not found for {customer_email}. Pending creation?")
+                 print(f"   > ⚠️ User profile not found. Attempting to create one...")
+                 # If no profile found, create one
+                 if user_id and customer_email:
+                    try:
+                        upsert_data = {
+                            "id": user_id,
+                            "email": customer_email,
+                            "subscription_tier": plan,
+                            "subscription_status": "active",
+                            "stripe_customer_id": stripe_customer_id
+                        }
+                        print(f"   > Upserting profile: {upsert_data}")
+                        # Upsert requires checking for conflict on 'id'
+                        # But since update failed, it likely doesn't exist.
+                        # We use upsert=True just in case.
+                        res = supabase.table("profiles").upsert(upsert_data).execute()
+                        if res.data:
+                            print(f"   > ✅ Profile created/updated via upsert.")
+                        else:
+                            print(f"   > ❌ Failed to create profile (unknown reason).")
+                    except Exception as insert_err:
+                        print(f"   > ❌ Failed to create profile: {insert_err}")
+                        logger.error(f"Failed to create profile: {insert_err}")
                  
         except Exception as e:
             logger.error(f"Failed to update subscription in DB: {e}")

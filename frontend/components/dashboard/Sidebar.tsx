@@ -11,9 +11,9 @@ import { useRouter } from "next/navigation"
 const sidebarItems = [
     { name: "Overview", href: "/dashboard", icon: Home },
     { name: "My Sites", href: "/dashboard/sites", icon: LayoutDashboard },
-    { name: "Reports", href: "/dashboard/reports", icon: FileText },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
+    // { name: "Reports", href: "/dashboard/reports", icon: FileText },
     { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
+    { name: "Settings", href: "/dashboard/settings", icon: Settings }
 ]
 
 export function SidebarContent({ subscriptionTier = 'free' }: { subscriptionTier?: string }) {
@@ -41,8 +41,8 @@ export function SidebarContent({ subscriptionTier = 'free' }: { subscriptionTier
 
                 {/* Plan Badge */}
                 <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider ${isPro ? 'bg-purple-500/20 text-purple-200 border border-purple-500/30' :
-                        isPlus ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/30' :
-                            'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+                    isPlus ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/30' :
+                        'bg-slate-500/20 text-slate-300 border border-slate-500/30'
                     }`}>
                     {planName}
                 </div>
