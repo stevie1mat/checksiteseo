@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dialog"
 
 import QRCode from "qrcode"
-import { Switch } from "@/components/ui/switch"
+
 
 export default function SettingsPage() {
     const [user, setUser] = useState<any>(null)
@@ -178,6 +178,15 @@ export default function SettingsPage() {
         // Enable MFA - Start Enrollment
         setEnrolling(true)
         try {
+            // cleanup any existing unverified factors
+            const { data: factorsToDelete } = await supabase.auth.mfa.listFactors()
+            if (factorsToDelete?.all) {
+                const unverified = factorsToDelete.all.filter(f => f.factor_type === 'totp' && f.status === 'unverified')
+                for (const f of unverified) {
+                    await supabase.auth.mfa.unenroll({ factorId: f.id })
+                }
+            }
+
             const { data, error } = await supabase.auth.mfa.enroll({
                 factorType: 'totp'
             })
@@ -368,7 +377,15 @@ export default function SettingsPage() {
                                     <p className="text-sm text-slate-500">Secure your account with 2FA.</p>
                                 </div>
                             </div>
-                            <Switch checked={mfaEnabled} onCheckedChange={handleEnableMFA} />
+                            {mfaEnabled ? (
+                                <Button variant="outline" onClick={handleEnableMFA} className="text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50">
+                                    Disable 2FA
+                                </Button>
+                            ) : (
+                                <Button variant="default" onClick={handleEnableMFA} className="bg-[#224034] hover:bg-[#1b3329] text-white">
+                                    Enable 2FA
+                                </Button>
+                            )}
                         </div>
 
                         {/* Enrollment Dialog */}
