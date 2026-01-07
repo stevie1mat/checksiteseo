@@ -31,6 +31,9 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog"
 
+import QRCode from "qrcode"
+import { Switch } from "@/components/ui/switch"
+
 export default function SettingsPage() {
     const [user, setUser] = useState<any>(null)
     const [profile, setProfile] = useState<any>(null)
@@ -42,9 +45,48 @@ export default function SettingsPage() {
     const [newPassword, setNewPassword] = useState("")
     const [updatingPassword, setUpdatingPassword] = useState(false)
 
+    // 2FA State
+    const [mfaEnabled, setMfaEnabled] = useState(false)
+    const [factors, setFactors] = useState<any[]>([])
+    const [enrolling, setEnrolling] = useState(false)
+    const [enrollmentData, setEnrollmentData] = useState<any>(null)
+    const [qrCodeUrl, setQrCodeUrl] = useState("")
+    const [verifyCode, setVerifyCode] = useState("")
+    const [verifying, setVerifying] = useState(false)
+    const [showEnrollDialog, setShowEnrollDialog] = useState(false)
+
     const supabase = createClient()
     const router = useRouter()
     const { toast } = useToast()
+
+    useEffect(() => {
+        const fetchUserAndFactors = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                setUser(user)
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single()
+
+                if (profile) {
+                    setProfile(profile)
+                    setName(profile.full_name || "")
+                }
+
+                // Fetch MFA Factors
+                const { data: factors, error } = await supabase.auth.mfa.listFactors()
+                if (factors) {
+                    setFactors(factors.all)
+                    const totpFactor = factors.all.find(f => f.factor_type === 'totp' && f.status === 'verified')
+                    setMfaEnabled(!!totpFactor)
+                }
+            }
+            setLoading(false)
+        }
+        fetchUserAndFactors()
+    }, [supabase])
 
     const handleUpdatePassword = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -68,27 +110,6 @@ export default function SettingsPage() {
             setUpdatingPassword(false)
         }
     }
-
-    useEffect(() => {
-        const fetchUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                setUser(user)
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', user.id)
-                    .single()
-
-                if (profile) {
-                    setProfile(profile)
-                    setName(profile.full_name || "")
-                }
-            }
-            setLoading(false)
-        }
-        fetchUser()
-    }, [supabase])
 
     const handleUpdateProfile = async () => {
         setSaving(true)
@@ -117,19 +138,111 @@ export default function SettingsPage() {
     }
 
     const handleDeleteAccount = async () => {
-        // In a real app, this should probably be a server action or call a backend endpoint
-        // to handle cleanup properly (stripe, etc).
-        // For now, we'll just delete the user from auth (if allowed) or just the profile.
-        // Actually, Supabase client can't easily delete the user itself due to permissions usually.
-        // Users can't usually delete themselves from client.
-        // We'll just show a toast for now or implement a backend endpoint later.
-
         toast({
             variant: "destructive",
             title: "Action Restricted",
             description: "Please contact support to delete your account permanently.",
         })
     }
+
+    // 2FA Handlers
+    const handleEnableMFA = async () => {
+        if (mfaEnabled) {
+            // Disable MFA logic
+            try {
+                const factor = factors.find(f => f.factor_type === 'totp' && f.status === 'verified')
+                if (!factor) return
+
+                const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id })
+                if (error) throw error
+
+                setMfaEnabled(false)
+                // Refresh factors
+                const { data: updatedFactors } = await supabase.auth.mfa.listFactors()
+                if (updatedFactors) setFactors(updatedFactors.all)
+
+                toast({
+                    title: "2FA Disabled",
+                    description: "Two-factor authentication has been turned off."
+                })
+            } catch (error: any) {
+                toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: error.message
+                })
+            }
+            return
+        }
+
+        // Enable MFA - Start Enrollment
+        setEnrolling(true)
+        try {
+            const { data, error } = await supabase.auth.mfa.enroll({
+                factorType: 'totp'
+            })
+            if (error) throw error
+
+            setEnrollmentData(data)
+
+            // Generate QR Code
+            if (data.totp.uri) {
+                const url = await QRCode.toDataURL(data.totp.uri)
+                setQrCodeUrl(url)
+            }
+
+            setShowEnrollDialog(true)
+
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message
+            })
+        } finally {
+            setEnrolling(false)
+        }
+    }
+
+    const handleVerifyMFA = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!enrollmentData) return
+
+        setVerifying(true)
+        try {
+            const { data, error } = await supabase.auth.mfa.challenge({ factorId: enrollmentData.id })
+            if (error) throw error
+
+            const { data: verifyData, error: verifyError } = await supabase.auth.mfa.verify({
+                factorId: enrollmentData.id,
+                challengeId: data.id,
+                code: verifyCode
+            })
+            if (verifyError) throw verifyError
+
+            // Success
+            setMfaEnabled(true)
+            setShowEnrollDialog(false)
+            setVerifyCode("")
+            // Refresh factors
+            const { data: updatedFactors } = await supabase.auth.mfa.listFactors()
+            if (updatedFactors) setFactors(updatedFactors.all)
+
+            toast({
+                title: "2FA Enabled",
+                description: "Two-factor authentication is now active."
+            })
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Verification Failed",
+                description: error.message
+            })
+        } finally {
+            setVerifying(false)
+        }
+    }
+
 
     if (loading) {
         return <div className="flex justify-center items-center py-12"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
@@ -192,7 +305,8 @@ export default function SettingsPage() {
                         </div>
                         <CardDescription>Manage your password and security settings.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-6">
+                        {/* Password Change */}
                         <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-white">
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
@@ -242,6 +356,67 @@ export default function SettingsPage() {
                                 </DialogContent>
                             </Dialog>
                         </div>
+
+                        {/* 2FA Toggle */}
+                        <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-white">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
+                                    <Shield className="w-5 h-5 text-slate-600" />
+                                </div>
+                                <div>
+                                    <h4 className="font-medium text-slate-900">Two-Factor Authentication</h4>
+                                    <p className="text-sm text-slate-500">Secure your account with 2FA.</p>
+                                </div>
+                            </div>
+                            <Switch checked={mfaEnabled} onCheckedChange={handleEnableMFA} />
+                        </div>
+
+                        {/* Enrollment Dialog */}
+                        <Dialog open={showEnrollDialog} onOpenChange={setShowEnrollDialog}>
+                            <DialogContent className="sm:max-w-md bg-[#fafafa]">
+                                <DialogHeader>
+                                    <DialogTitle className="font-serif text-2xl text-[#224034]">Setup 2FA</DialogTitle>
+                                    <DialogDescription className="text-slate-500">
+                                        Scan the QR code with your authenticator app (e.g., Google Authenticator) and enter the code below.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="flex flex-col items-center justify-center py-4 space-y-4">
+                                    {qrCodeUrl && (
+                                        <div className="bg-white p-4 rounded-lg shadow-sm border">
+                                            <img src={qrCodeUrl} alt="2FA QR Code" className="w-48 h-48" />
+                                        </div>
+                                    )}
+                                    <div className="text-xs text-slate-500 text-center max-w-xs break-all">
+                                        Or enter secret: <span className="font-mono bg-slate-200 px-1 rounded">{enrollmentData?.totp?.secret}</span>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={handleVerifyMFA} className="space-y-6">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="verify-code" className="text-slate-700 font-medium">Verification Code</Label>
+                                        <Input
+                                            id="verify-code"
+                                            value={verifyCode}
+                                            onChange={(e) => setVerifyCode(e.target.value)}
+                                            placeholder="123456"
+                                            maxLength={6}
+                                            required
+                                            className="bg-slate-200/50 border-slate-200 focus-visible:ring-[#224034] text-center tracking-widest text-lg"
+                                        />
+                                    </div>
+                                    <DialogFooter>
+                                        <Button
+                                            type="submit"
+                                            disabled={verifying}
+                                            className="w-full bg-[#224034] hover:bg-[#1b3329] text-white"
+                                        >
+                                            {verifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                            Verify & Activate
+                                        </Button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
                     </CardContent>
                 </Card>
 
