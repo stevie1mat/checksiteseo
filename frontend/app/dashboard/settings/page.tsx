@@ -116,8 +116,7 @@ export default function SettingsPage() {
         try {
             const { error } = await supabase
                 .from('profiles')
-                .update({ full_name: name })
-                .eq('id', user.id)
+                .upsert({ id: user.id, full_name: name, updated_at: new Date().toISOString() })
 
             if (error) throw error
 
@@ -284,7 +283,7 @@ export default function SettingsPage() {
                             <p className="text-xs text-slate-400">Email cannot be changed directly.</p>
                         </div>
                         <div className="grid gap-2 max-w-md">
-                            <Label htmlFor="name">Full Name</Label>
+                            <Label htmlFor="name">Full Name {name ? <span className="text-slate-500 font-normal">({name})</span> : null}</Label>
                             <Input
                                 id="name"
                                 value={name}

@@ -45,10 +45,20 @@ export async function POST(request: Request) {
         // 3. Call Python Backend (FastAPI)
         const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+        const { data: { session } } = await supabase.auth.getSession()
+        const token = session?.access_token
+
+        if (!token) {
+            throw new Error("No active session token found");
+        }
+
         try {
             const apiResponse = await fetch(`${BACKEND_URL}/analyze`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ url: url, site_id: siteId }),
                 signal: AbortSignal.timeout(60000) // 60s timeout
             });
@@ -132,29 +142,6 @@ export async function GET(request: Request) {
 
         const breakdown = latestPage.checklist || {};
 
-        // Helper to safe-guard against missing scores
-        const calculateTechnicalScore = (tech: any) => {
-            if (tech?.score) return tech.score;
-            let score = 0;
-            if (tech?.robots?.status === 'valid') score += 25;
-            if (tech?.llms?.status === 'valid') score += 25;
-            if (tech?.sitemap?.url) score += 25;
-            if (tech?.schema?.types?.length > 0) score += 25;
-            return score === 0 ? 30 : score; // Min score 30 if data exists but no checks passed
-        };
-
-        const calculateContentScore = (content: any) => {
-            if (content?.score) return content.score;
-            let score = 50; // Base score
-            if (content?.readability?.grade && content.readability.grade < 12) score += 20;
-            if (content?.gap?.data?.length > 0) {
-                const answered = content.gap.data.filter((q: any) => q.status === 'Explicitly Stated').length;
-                const total = content.gap.data.length;
-                if (total > 0 && (answered / total) > 0.5) score += 30;
-            }
-            return score;
-        };
-
         // 3. Map to AEOReport Interface
         const report = {
             domain: site.url,
@@ -162,9 +149,9 @@ export async function GET(request: Request) {
             status: site.status === 'error' ? 'failed' : 'completed',
 
             scores: {
-                overall: latestPage.aeo_score || 0,
-                technical: calculateTechnicalScore(breakdown?.technical),
-                content: calculateContentScore(breakdown?.content),
+                overall: latestPage.aeo_score || breakdown?.aeo_score || 0,
+                technical: breakdown?.technical_score || 0,
+                content: breakdown?.content_score || 0,
                 authority: 'Analysis'
             },
 

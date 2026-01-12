@@ -2,7 +2,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from analyzer import analyze_readiness, generate_content_strategy, generate_answer_strategy, analyze_ambiguity_issues
@@ -17,6 +17,7 @@ import json
 import asyncio
 import resend
 from email_templates import get_email_html
+from dependencies import get_current_user
 
 import stripe
 
@@ -154,30 +155,101 @@ def get_status(score: int) -> str:
     return "critical"
 
 @app.post("/analyze")
-async def analyze_url(request: AnalyzeRequest, background_tasks: BackgroundTasks):
-    print(f"Received analysis request for: {request.url} (Sync: {request.sync})")
+async def analyze_url(
+    request: AnalyzeRequest, 
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user)
+):
+    print(f"Received analysis request for: {request.url} from user: {user.id}")
     
-    # 1. Rate Limiting Check
-    ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true"
-    
-    if ENABLE_RATE_LIMIT and request.site_id and supabase:
+    # OWNER CHECK
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    if request.site_id:
         try:
-            response = supabase.table("sites").select("last_scanned_at, status").eq("id", request.site_id).execute()
-            if response.data:
-                site = response.data[0]
-                last_scanned = site.get("last_scanned_at")
-                if last_scanned:
-                    last_time = datetime.fromisoformat(last_scanned.replace('Z', '+00:00'))
-                    # ALLOW RETRY if status is 'error' or 'processing', BLOCK only if 'completed'
-                    if (datetime.now(timezone.utc) - last_time < timedelta(hours=24)) and site.get("status") == 'completed':
-                         raise HTTPException(status_code=429, detail="Rate limit exceeded: 1 scan per 24 hours.")
+            # Check if site exists and belongs to user
+            site_response = supabase.table("sites").select("user_id, status, last_scanned_at").eq("id", request.site_id).execute()
+            
+            if not site_response.data:
+                 # If adding a new site, this might be null? No, analyze usually happens after 'Add Site' which inserts to DB.
+                 # But if frontend calls analyze for a purely new URL without ID?
+                 # The frontend usually inserts 'pending' site first.
+                 pass
+            elif site_response.data[0]['user_id'] != user.id:
+                 raise HTTPException(status_code=403, detail="You do not have permission to scan this site.")
+                 
         except HTTPException as he:
             raise he
         except Exception as e:
-            print(f"Rate limit check failed: {e}")
+            logger.error(f"Ownership check failed: {e}")
+            raise HTTPException(status_code=500, detail="Ownership verification failed")
+
+    # LIMIT CHECK
+    try:
+        # Get User Tier
+        profile_response = supabase.table("profiles").select("subscription_tier").eq("id", user.id).execute()
+        tier = "free"
+        if profile_response.data:
+            tier = profile_response.data[0].get("subscription_tier", "free")
+            
+        # Get Current Month's Scans
+        now = datetime.now(timezone.utc)
+        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        # Count pages table entries for this user's sites created this month
+        # This is complex because 'pages' has 'site_id' but not 'user_id'.
+        # We need to join or filter by sites owned by user.
+        # Alternatively, we can just count 'pages' linked to sites user owns.
+        
+        # Simplified: Check 'site_history' or log table?
+        # Let's count 'pages' where site_id IN (select id from sites where user_id = user.id)
+        # SUPABASE POSTGREST doesn't support deep subqueries easily in one go without a view.
+        # For MVP, we'll fetch user's site IDs first.
+        
+        user_sites = supabase.table("sites").select("id").eq("user_id", user.id).execute()
+        site_ids = [s['id'] for s in user_sites.data] if user_sites.data else []
+        
+        if site_ids:
+            scan_count_response = supabase.table("pages") \
+                .select("*", count="exact") \
+                .in_("site_id", site_ids) \
+                .gte("last_scanned_at", start_of_month.isoformat()) \
+                .execute()
+                
+            scan_count = scan_count_response.count if scan_count_response.count is not None else 0
+            
+            LIMITS = {
+                "free": 5,
+                "plus": 50,
+                "pro": 1000
+            }
+            
+            limit = LIMITS.get(tier, 5)
+            
+            if scan_count >= limit:
+                 raise HTTPException(status_code=429, detail=f"Monthly scan limit reached ({scan_count}/{limit}). Please upgrade your plan.")
+                 
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Limit check failed: {e}")
+        # Fail open or closed? Let's fail open for now but log it
+        pass
+
+    # 1. Rate Limiting Check (24h per site)
+    ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true"
+    
+    if ENABLE_RATE_LIMIT and request.site_id and site_response.data:
+        site = site_response.data[0]
+        last_scanned = site.get("last_scanned_at")
+        if last_scanned:
+            last_time = datetime.fromisoformat(last_scanned.replace('Z', '+00:00'))
+            if (datetime.now(timezone.utc) - last_time < timedelta(hours=24)) and site.get("status") == 'completed':
+                 raise HTTPException(status_code=429, detail="Rate limit exceeded: 1 scan per 24 hours.")
 
     # 2. Update Status Update to Analyzing IMMEDIATE
-    if request.site_id and supabase:
+    if request.site_id:
         try:
             supabase.table("sites").update({"status": "analyzing"}).eq("id", request.site_id).execute()
         except Exception as e:
@@ -192,14 +264,6 @@ async def analyze_url(request: AnalyzeRequest, background_tasks: BackgroundTasks
             # Alias total_score to score for API consistency
             result['score'] = result.get('total_score', 0)
             
-            if request.site_id:
-                 # We can reuse run_analysis_background logic but we already have the result.
-                 # For now, let's just return the result. Use background task for saving if strictly needed,
-                 # but usually sync API users just want data.
-                 # Let's trigger the background save separately to ensure DB consistency without blocking return?
-                 # No, 'sync' implies we wait.
-                 pass
-
             return result
         except Exception as e:
             logger.error(f"Sync analysis failed: {e}")
@@ -242,6 +306,12 @@ async def run_analysis_background(url: str, site_id: str | None):
         
         aeo_score = result.get("total_score", 0)
         competitors = result.get("competitors", {})
+
+        # INJECT SCORES INTO BREAKDOWN FOR FRONTEND
+        breakdown['technical_score'] = result.get('technical_score', 0)
+        breakdown['content_score'] = result.get('content_score', 0)
+        breakdown['aeo_score'] = aeo_score 
+
 
         print(f"🔍 [Background] Site ID: {site_id}, Supabase Client: {bool(supabase)}")
 
@@ -504,7 +574,10 @@ class CancelScanRequest(BaseModel):
     site_id: str
 
 @app.post("/cancel-scan")
-async def cancel_scan(request: CancelScanRequest):
+async def cancel_scan(
+    request: CancelScanRequest,
+    user: dict = Depends(get_current_user)
+):
     if not supabase:
         raise HTTPException(status_code=500, detail="Supabase not initialized")
     
@@ -536,7 +609,10 @@ async def cancel_scan(request: CancelScanRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/schedule-scan")
-async def schedule_scan(request: ScheduleRequest):
+async def schedule_scan(
+    request: ScheduleRequest, 
+    user: dict = Depends(get_current_user)
+):
     # Check for existing pending scan
     if supabase and request.site_id:
         try:

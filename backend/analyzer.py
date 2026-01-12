@@ -739,18 +739,56 @@ async def analyze_readiness(url: str, scan_mode: str = "full"):
         pass
 
 
-    # Calculate Total Score
-    flat_scores = []
-    for cat in results.values():
-        for metric in cat.values():
-            if isinstance(metric, dict) and "score" in metric:
-                flat_scores.append(metric["score"])
-            
-    total = int(sum(flat_scores) / len(flat_scores)) if flat_scores else 0
+    # Calculate Scores explicitly (Centralized Logic)
+    
+    # 1. Technical Score
+    tech = results.get("technical", {})
+    tech_score = 0
+    if tech.get("robots", {}).get("status") == "valid": tech_score += 25
+    if tech.get("llms", {}).get("status") == "valid": tech_score += 25
+    # Check sitemap (can be object or list depending on legacy, but our check_sitemap returns dict)
+    sitemap_status = tech.get("sitemap", {}).get("status")
+    if sitemap_status == "valid": tech_score += 25
+    
+    # Check schema
+    schema_types = tech.get("schema", {}).get("types", [])
+    if schema_types: tech_score += 25
+    
+    if tech_score == 0: tech_score = 30 # Baseline checks often pass unseen
+    
+    # 2. Content Score
+    content = results.get("content", {})
+    content_score = 50
+    readability = content.get("readability", {})
+    # Note: 'grade' might be float or int
+    grade = readability.get("grade")
+    if grade is not None and grade < 12: content_score += 20
+    
+    gap = content.get("gap", {})
+    gap_data = gap.get("data", []) if isinstance(gap, dict) else gap
+    # Handle case where gap might be the list itself due to verify_gap_analysis potentially returning list?
+    # analyze_failed_queries returns dict with 'data' key usually, assumed from context.
+    # If gap_data is valid:
+    if isinstance(gap_data, list) and gap_data:
+        answered = len([q for q in gap_data if isinstance(q, dict) and q.get("status") == 'Explicitly Stated'])
+        if len(gap_data) > 0 and (answered / len(gap_data)) > 0.5: content_score += 30
+    
+    # 3. Authority/AEO Score
+    overall_components = [tech_score, content_score]
+    
+    auth = results.get("authority", {})
+    eeat = auth.get("eeat", {})
+    if eeat and "score" in eeat:
+        overall_components.append(eeat["score"])
+        
+    aeo_score = int(sum(overall_components) / len(overall_components)) if overall_components else 0
     
     return {
         "url": url,
-        "total_score": total,
+        "aeo_score": aeo_score,
+        "technical_score": tech_score,
+        "content_score": content_score,
+        "total_score": aeo_score, # For backward compatibility
         "breakdown": results,
         "competitors": competitors_data,
         "scan_mode": scan_mode
