@@ -45,7 +45,7 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
     console.log('[SiteDetailsPage] breakdown.content.gap:', breakdown?.content?.gap);
 
     return (
-        <div className="space-y-6 w-full max-w-7xl mx-auto p-6">
+        <div className="space-y-6 w-full p-6">
             <div className="flex items-center gap-3 mb-6">
                 <Link href="/dashboard/sites" className="p-2 -ml-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors">
                     <ArrowLeft className="w-5 h-5" />
@@ -55,7 +55,7 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
                     <p className="text-slate-500 text-sm">{site.url}</p>
                 </div>
                 <div className="ml-auto">
-                    <RescanButton siteId={site.id} status={site.status} />
+                    <RescanButton siteId={site.id} url={site.url} />
                 </div>
             </div>
 
@@ -69,7 +69,7 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
                     overall: latestScan?.aeo_score || breakdown?.aeo_score || 0,
                     technical: breakdown?.technical_score || 0,
                     content: breakdown?.content_score || 0,
-                    authority: 'Analysis'
+                    authority: breakdown?.authority_score || breakdown?.authority?.eeat?.score || 0
                 },
 
                 technical: {

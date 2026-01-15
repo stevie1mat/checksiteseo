@@ -489,11 +489,12 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                             <p className="text-xs font-bold text-slate-400 uppercase mb-2">Authority</p>
                             <div className="flex items-end gap-2 mb-2">
-                                <span className="text-2xl font-serif font-medium text-slate-700">Analysis</span>
+                                <span className="text-2xl font-serif font-medium text-slate-700">{typeof activeReport.scores.authority === 'number' ? activeReport.scores.authority : '0'}</span>
+                                <span className="text-xs text-slate-400 mb-1">/ 100</span>
                             </div>
                             <div className="flex items-center gap-1">
                                 <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-blue-500 w-[70%]" />
+                                    <div className={`h-full ${activeReport.scores.authority && activeReport.scores.authority > 80 ? 'bg-emerald-500' : (activeReport.scores.authority && activeReport.scores.authority > 50 ? 'bg-amber-400' : 'bg-red-400')}`} style={{ width: `${activeReport.scores.authority || 0}%` }} />
                                 </div>
                             </div>
                         </div>

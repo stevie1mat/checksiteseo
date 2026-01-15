@@ -157,7 +157,7 @@ export function SiteReportView({ domain, initialReport, siteId }: SiteReportView
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Authority</span>
                         <Sparkles className={`w-5 h-5 ${activeTab === 'authority' ? 'text-[#1A4036]' : 'text-slate-300'}`} />
                     </div>
-                    <div className="text-3xl font-serif font-medium text-[#224034]">Analysis</div>
+                    <div className="text-3xl font-serif font-medium text-[#224034]">{authorityScore > 0 ? authorityScore : '-'}</div>
                     <div className="mt-2 text-sm text-slate-500 truncate">
                         Knowledge Graph, E-E-A-T
                     </div>

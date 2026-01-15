@@ -257,7 +257,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="space-y-8 w-full pb-12">
+        <div className="space-y-8 max-w-4xl p-6">
             <div>
                 <h1 className="font-serif text-3xl text-[#224034]">Settings</h1>
                 <p className="text-slate-500 mt-1">Manage your account preferences and profile.</p>

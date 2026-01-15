@@ -46,7 +46,7 @@ export default async function SitesPage() {
     if (tier === 'pro') MAX_SITES = 10000 // Unlimited
 
     return (
-        <div className="space-y-8 w-full">
+        <div className="space-y-8 w-full p-6">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="font-serif text-3xl text-[#224034]">My Sites</h1>

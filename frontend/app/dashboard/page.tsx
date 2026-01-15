@@ -32,7 +32,7 @@ export default async function DashboardPage() {
     const FREE_PLAN_LIMIT = 3 // 3 sites for free plan
 
     return (
-        <div className="space-y-8 w-full">
+        <div className="space-y-8 w-full p-6">
             {/* Header Section with Background */}
             <div className="bg-slate-50 border-b border-slate-200 -mt-4 -mx-4 px-8 py-8 mb-8">
                 <div className="flex items-center justify-between px-4">

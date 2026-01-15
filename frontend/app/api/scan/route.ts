@@ -164,7 +164,7 @@ export async function GET(request: Request) {
                 overall: latestPage.aeo_score || breakdown?.aeo_score || 0,
                 technical: breakdown?.technical_score || 0,
                 content: breakdown?.content_score || 0,
-                authority: 'Analysis'
+                authority: breakdown?.authority_score || breakdown?.authority?.eeat?.score || 0
             },
 
             technical: {

@@ -7,7 +7,7 @@ export interface AEOReport {
         overall: number;
         technical: number;
         content: number;
-        authority: number | 'Analysis'; // 'Analysis' is the placeholder text
+        authority: number;
     };
 
     technical: {

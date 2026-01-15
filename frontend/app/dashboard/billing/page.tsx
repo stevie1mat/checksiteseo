@@ -22,7 +22,7 @@ export default async function BillingPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="max-w-4xl space-y-8 p-6">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="font-serif text-3xl text-[#224034]">Billing & Plans</h1>
@@ -41,8 +41,8 @@ export default async function BillingPage() {
                             <div className="flex items-center gap-3">
                                 <h2 className="text-xl font-serif font-medium text-[#224034]">Current Plan</h2>
                                 <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase border ${currentPlan === 'pro' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                        currentPlan === 'plus' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                            'bg-slate-50 text-slate-600 border-slate-200'
+                                    currentPlan === 'plus' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                        'bg-slate-50 text-slate-600 border-slate-200'
                                     }`}>
                                     {currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)}
                                 </span>
