@@ -74,11 +74,23 @@ export async function POST(request: Request) {
 
         } catch (backendError: any) {
             console.error("[Scan API] Backend Proxy Error:", backendError);
+            // Update DB to error
+            const supabase = createClient()
+            await supabase.from('sites').update({ status: 'error' }).eq('id', siteId)
             throw new Error(`Backend Analysis Failed: ${backendError.message}`);
         }
 
     } catch (error: any) {
         console.error('[Scan API] Fatal error:', error)
+        // Attempt to update DB if siteId is available in scope (it is)
+        try {
+            const body = await request.clone().json().catch(() => ({}))
+            if (body.siteId) {
+                const supabase = createClient()
+                await supabase.from('sites').update({ status: 'error' }).eq('id', body.siteId)
+            }
+        } catch (e) { }
+
         return NextResponse.json(
             { error: error.message || 'Internal Server Error' },
             { status: 500 }

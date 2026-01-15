@@ -13,3 +13,5 @@ sqlalchemy
 psycopg2-binary
 python-multipart
 stripe
+groq
+curl-cffi

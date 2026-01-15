@@ -37,12 +37,13 @@ export default async function SitesPage() {
         .eq('id', user.id)
         .single()
 
-    const isFreePlan = (profile?.subscription_tier || 'free') === 'free'
+    const tier = profile?.subscription_tier || 'free'
+    const isFreePlan = tier === 'free'
     const siteCount = sites?.length || 0
-    // Plan limits: Free=3, Plus=10, Pro=Unlimited (just examples, adjusting logic as needed)
-    // Actually, looking at PricingSection: Free=5 URL scans (limit might be on scans not sites, but AddSiteDialog takes maxSites)
-    // Let's assume a higher limit for paid plans for now or stick to the existing logic passed to AddSiteDialog
-    const MAX_SITES = isFreePlan ? 3 : 50
+
+    let MAX_SITES = 3
+    if (tier === 'plus') MAX_SITES = 50
+    if (tier === 'pro') MAX_SITES = 10000 // Unlimited
 
     return (
         <div className="space-y-8 w-full">

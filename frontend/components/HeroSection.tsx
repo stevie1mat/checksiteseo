@@ -4,7 +4,9 @@ import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, Sparkles, AlertCircle, Download, XCircle, Bot, FileText, Code, AlignLeft, Search, Lock } from "lucide-react"
+import { Check, Sparkles, AlertCircle, Download, XCircle, Bot, FileText, Code, AlignLeft, Search, Lock, Loader2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
 
 type AnalysisResult = {
     url: string
@@ -38,9 +40,12 @@ export function HeroSection() {
     const [error, setError] = useState("")
     const [isRegisterOpen, setIsRegisterOpen] = useState(false)
 
+    const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle')
+
     const handleAnalyze = async () => {
         if (!url) return
         setLoading(true)
+        setScanStatus('scanning')
         setError("")
         setResult(null)
 
@@ -48,15 +53,26 @@ export function HeroSection() {
             const res = await fetch("http://127.0.0.1:8000/analyze", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url }),
+                body: JSON.stringify({ url, sync: true }),
             })
+
             if (!res.ok) throw new Error("Analysis failed.")
             const data = await res.json()
-            setResult(data)
+
+            setScanStatus('complete')
+
+            // Small delay to show complete state before showing results
+            setTimeout(() => {
+                setResult(data)
+                setLoading(false)
+                setScanStatus('idle')
+            }, 1500)
+
         } catch (err: any) {
             setError(err.message || "An error occurred.")
-        } finally {
-            setLoading(false)
+            setScanStatus('error')
+            // Don't close immediately on error so user can see it
+            setTimeout(() => setLoading(false), 3000)
         }
     }
 
@@ -134,14 +150,6 @@ export function HeroSection() {
                                 <p className="text-slate-500 text-lg font-medium">Target: <span className="text-slate-800">{result.url}</span></p>
                                 <p className="text-slate-400 text-sm">Generated on {new Date().toLocaleDateString()} • AEO Monitor Engine v1.0</p>
                             </div>
-                        </div>
-                        <div className="flex gap-4">
-                            <Button variant="outline" onClick={() => window.print()} className="h-12 px-6 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-[#224034] transition-colors">
-                                <Download className="w-4 h-4 mr-2" /> Export Report
-                            </Button>
-                            <Button className="h-12 px-8 bg-[#224034] text-white hover:bg-[#1a3329] shadow-xl shadow-[#224034]/20 transition-all hover:-translate-y-0.5">
-                                Save Audit
-                            </Button>
                         </div>
                     </div>
 
@@ -464,6 +472,14 @@ export function HeroSection() {
                 </div>
             )}
 
+            {/* Loading Dialog */}
+            <ScanProgressDialog
+                open={loading}
+                onOpenChange={setLoading}
+                siteUrl={url}
+                status={scanStatus}
+            />
+
         </section>
-    )
+    );
 }

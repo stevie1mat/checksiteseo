@@ -10,94 +10,72 @@ import textstat
 
 load_dotenv()
 
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+from groq import AsyncGroq
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
 # --- AI Helper Function ---
 
 async def query_llm(prompt: str, json_mode: bool = True, temperature: float = 0.3) -> dict | str | None:
     """
-    Queries Gemini 2.0 Flash first, then falls back to Mistral.
+    Queries Groq (Llama 3 70B).
     Returns a dict if json_mode is True, otherwise a string.
-    Returns None if both fail.
     """
     
-    # 1. Try Gemini
-    if GEMINI_API_KEY:
-        print(f"🤖 [AI] Using Gemini 2.0 Flash...")
-        try:
-            url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-            headers = {
-                "Content-Type": "application/json",
-                "X-goog-api-key": GEMINI_API_KEY
-            }
-            
-            payload = {
-                "contents": [{
-                    "parts": [{"text": prompt}]
-                }],
-                "generationConfig": {
-                    "temperature": temperature
+    if not GROQ_API_KEY:
+        print("❌ [AI] Groq API Key missing!")
+        return None
+
+    print(f"⚡ [AI] Using Groq (LLaMA 3.3 70B)...")
+    
+    try:
+        client = AsyncGroq(api_key=GROQ_API_KEY)
+        
+        chat_completion = await client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
                 }
-            }
-            
-            if json_mode:
-                payload["generationConfig"]["response_mime_type"] = "application/json"
+            ],
+            model="llama-3.3-70b-versatile",
+            temperature=temperature,
+            response_format={"type": "json_object"} if json_mode else None,
+        )
 
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.post(url, json=payload, headers=headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                text_content = data['candidates'][0]['content']['parts'][0]['text']
-                if json_mode:
-                    # Clean markdown code blocks if present (Gemini sometimes adds ```json ... ``` even with mime type)
-                    cleaned = text_content.replace('```json', '').replace('```', '').strip()
-                    return json.loads(cleaned)
-                return text_content
-            else:
-                print(f"Gemini Error {response.status_code}: {response.text}")
+        content = chat_completion.choices[0].message.content
+        
+        if json_mode:
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                # Sometimes Llama wraps in markdown even with json_mode
+                cleaned = content.replace('```json', '').replace('```', '').strip()
+                return json.loads(cleaned)
+                
+        return content
 
-        except Exception as e:
-            print(f"Gemini Exception: {e}")
-            pass # Fallthrough to Mistral
+    except Exception as e:
+        print(f"❌ [AI] Groq Exception: {e}")
+        return None
 
-    # 2. Try Mistral (Fallback)
-    if MISTRAL_API_KEY:
-        print(f"⚠️ [AI] Falling back to Mistral...")
-        try:
-            url = "https://api.mistral.ai/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {MISTRAL_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": "mistral-small-latest",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": temperature,
-            }
 
-            if json_mode:
-                 payload["response_format"] = {"type": "json_object"}
+# --- Check Functions ---
 
-            async with httpx.AsyncClient(timeout=20.0) as client:
-                response = await client.post(url, json=payload, headers=headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                content = data['choices'][0]['message']['content']
-                if json_mode:
-                    return json.loads(content)
-                return content
-            else:
-                 print(f"Mistral Error {response.status_code}: {response.text}")
-                 
-        except Exception as e:
-            print(f"Mistral Exception: {e}")
-            pass
+# from dotenv import load_dotenv # Already imported at top
+from curl_cffi.requests import AsyncSession
 
-    return None
+# ... (Previous code)
 
+# Helper for requests
+async def fetch_page(url: str, timeout: int = 15) -> tuple[int, str]:
+    try:
+        async with AsyncSession(impersonate="chrome110") as s:
+            r = await s.get(url, timeout=timeout)
+            return r.status_code, r.text
+    except Exception as e:
+        print(f"Request failed for {url}: {e}")
+        return 0, ""
 
 # --- Check Functions ---
 
@@ -106,33 +84,27 @@ async def check_robots_txt(base_url: str) -> dict:
     score = 0
     details = []
     
-    try:
-        async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
-            response = await client.get(robots_url)
+    status, content = await fetch_page(robots_url, timeout=10)
             
-        if response.status_code == 200:
-            content = response.text
-            bots = ["GPTBot", "ClaudeBot", "CCBot"]
-            blocked = []
-            
-            for bot in bots:
-                if re.search(f"User-agent:\\s*{bot}", content, re.IGNORECASE):
-                     if re.search(f"User-agent:\\s*{bot}.*?Disallow:\\s*/\\s*(\\n|$)", content, re.IGNORECASE | re.DOTALL):
-                         blocked.append(bot)
-            
-            if not blocked:
-                score = 100
-                details.append("Pass")
-            else:
-                score = 0
-                details.append(f"Blocked: {', '.join(blocked)}")
-        else:
+    if status == 200:
+        # content is already text
+        bots = ["GPTBot", "ClaudeBot", "CCBot"]
+        blocked = []
+        
+        for bot in bots:
+            if re.search(f"User-agent:\\s*{bot}", content, re.IGNORECASE):
+                    if re.search(f"User-agent:\\s*{bot}.*?Disallow:\\s*/\\s*(\\n|$)", content, re.IGNORECASE | re.DOTALL):
+                        blocked.append(bot)
+        
+        if not blocked:
             score = 100
-            details.append("Not found (Allowed)")
-            
-    except Exception:
-        score = 0
-        details.append("Error checking")
+            details.append("Pass")
+        else:
+            score = 0
+            details.append(f"Blocked: {', '.join(blocked)}")
+    else:
+        score = 100
+        details.append("Not found (Allowed)")
 
     return {"score": score, "details": details, "status": "valid" if score == 100 else "error"}
 
@@ -143,31 +115,24 @@ async def check_sitemap(base_url: str) -> dict:
     
     # 1. Check robots.txt
     robots_url = urljoin(base_url, "/robots.txt")
-    try:
-        async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
-            resp = await client.get(robots_url)
-            if resp.status_code == 200:
-                match = re.search(r"Sitemap:\s*(http[s]?://\S+)", resp.text, re.IGNORECASE)
-                if match:
-                    sitemap_url = match.group(1)
-                    details.append(f"Found in robots.txt: {sitemap_url}")
-    except:
-        pass
+    status, text = await fetch_page(robots_url, timeout=10)
+    
+    if status == 200:
+        match = re.search(r"Sitemap:\s*(http[s]?://\S+)", text, re.IGNORECASE)
+        if match:
+            sitemap_url = match.group(1)
+            details.append(f"Found in robots.txt: {sitemap_url}")
 
     # 2. Check common paths if not found
     if not sitemap_url:
         common_paths = ["/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml"]
-        async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
-            for path in common_paths:
-                try:
-                    target = urljoin(base_url, path)
-                    resp = await client.get(target)
-                    if resp.status_code == 200:
-                        sitemap_url = target
-                        details.append(f"Found at: {path}")
-                        break
-                except:
-                    continue
+        for path in common_paths:
+            target = urljoin(base_url, path)
+            status, _ = await fetch_page(target, timeout=10)
+            if status == 200:
+                sitemap_url = target
+                details.append(f"Found at: {path}")
+                break
     
     if sitemap_url:
         return {"score": 100, "details": details, "status": "valid", "url": sitemap_url}
@@ -176,14 +141,29 @@ async def check_sitemap(base_url: str) -> dict:
 
 async def check_llms_txt(base_url: str) -> dict:
     llms_url = urljoin(base_url, "/llms.txt")
-    try:
-        async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
-            response = await client.get(llms_url)
-        if response.status_code == 200 and len(response.text) > 0:
-            return {"score": 100, "details": ["Found"], "status": "valid"}
-        return {"score": 0, "details": ["Missing"], "status": "missing"}
-    except:
-        return {"score": 0, "details": ["Error"], "status": "error"}
+    status, text = await fetch_page(llms_url, timeout=10)
+    
+    if status == 200 and len(text) > 0:
+        return {"score": 100, "details": ["Found"], "status": "valid"}
+    return {"score": 0, "details": ["Missing"], "status": "missing"}
+
+# ... (Logic continues until analyze_readiness)
+
+# Inside analyze_readiness:
+    # For page processing
+    main_text = ""
+    competitors_data = {}
+
+    status, text = await fetch_page(url, timeout=20)
+        
+    if status == 200:
+        soup = BeautifulSoup(text, "html.parser")
+        main_text = soup.get_text(separator=' ', strip=True)
+
+        if scan_mode == "full":
+            # ...
+            task_content = analyze_page_content(text) # Pass text directly
+
 
 def check_question_targeting(soup) -> dict:
     # Scan H2/H3 for question marks or question words
@@ -678,11 +658,10 @@ async def analyze_readiness(url: str, scan_mode: str = "full"):
     competitors_data = {}
 
     try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            page = await client.get(url)
+        status, text = await fetch_page(url, timeout=20)
             
-        if page.status_code == 200:
-            soup = BeautifulSoup(page.text, "html.parser")
+        if status == 200:
+            soup = BeautifulSoup(text, "html.parser")
             main_text = soup.get_text(separator=' ', strip=True)
 
             if scan_mode == "full":
@@ -691,7 +670,7 @@ async def analyze_readiness(url: str, scan_mode: str = "full"):
                 # Running them in parallel reduces total wait time significantly.
                 
                 # Prepare tasks
-                task_content = analyze_page_content(page.text)
+                task_content = analyze_page_content(text)
                 task_competitors = analyze_competitors(main_text[:3000] if main_text else "", url)
                 
                 # Execute
@@ -788,6 +767,7 @@ async def analyze_readiness(url: str, scan_mode: str = "full"):
         "aeo_score": aeo_score,
         "technical_score": tech_score,
         "content_score": content_score,
+        "authority_score": eeat.get("score", 0),
         "total_score": aeo_score, # For backward compatibility
         "breakdown": results,
         "competitors": competitors_data,
@@ -802,14 +782,13 @@ async def generate_content_strategy(user_domain: str, competitor_domain: str) ->
     target_url = competitor_domain if competitor_domain.startswith("http") else f"https://{competitor_domain}"
     
     try:
-        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
-            resp = await client.get(target_url)
-            if resp.status_code == 200:
-                soup = BeautifulSoup(resp.text, "html.parser")
-                texts = []
-                for h in soup.find_all(['h1', 'h2', 'h3'])[:10]:
-                    texts.append(h.get_text(strip=True))
-                competitor_content = " ".join(texts)[:2000]
+        status, text = await fetch_page(target_url, timeout=10)
+        if status == 200:
+            soup = BeautifulSoup(text, "html.parser")
+            texts = []
+            for h in soup.find_all(['h1', 'h2', 'h3'])[:10]:
+                texts.append(h.get_text(strip=True))
+            competitor_content = " ".join(texts)[:2000]
     except Exception as e:
         print(f"Competitor Scrape Failed: {e}")
         pass

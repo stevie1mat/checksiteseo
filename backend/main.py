@@ -17,7 +17,7 @@ import json
 import asyncio
 import resend
 from email_templates import get_email_html
-from dependencies import get_current_user
+from dependencies import get_current_user, get_optional_current_user
 
 import stripe
 
@@ -158,23 +158,24 @@ def get_status(score: int) -> str:
 async def analyze_url(
     request: AnalyzeRequest, 
     background_tasks: BackgroundTasks,
-    user: dict = Depends(get_current_user)
+    user: dict | None = Depends(get_optional_current_user)
 ):
-    print(f"Received analysis request for: {request.url} from user: {user.id}")
+    print(f"Received analysis request for: {request.url} from user: {user.id if user else 'Guest'}")
     
     # OWNER CHECK
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database connection failed")
-        
     if request.site_id:
+        if not user:
+            raise HTTPException(status_code=401, detail="Authentication required to save to a specific site.")
+
+        if not supabase:
+            print("ERROR: Supabase client is None")
+            raise HTTPException(status_code=500, detail="Database connection failed")
+
         try:
             # Check if site exists and belongs to user
             site_response = supabase.table("sites").select("user_id, status, last_scanned_at").eq("id", request.site_id).execute()
             
             if not site_response.data:
-                 # If adding a new site, this might be null? No, analyze usually happens after 'Add Site' which inserts to DB.
-                 # But if frontend calls analyze for a purely new URL without ID?
-                 # The frontend usually inserts 'pending' site first.
                  pass
             elif site_response.data[0]['user_id'] != user.id:
                  raise HTTPException(status_code=403, detail="You do not have permission to scan this site.")
@@ -187,54 +188,49 @@ async def analyze_url(
 
     # LIMIT CHECK
     try:
-        # Get User Tier
-        profile_response = supabase.table("profiles").select("subscription_tier").eq("id", user.id).execute()
-        tier = "free"
-        if profile_response.data:
-            tier = profile_response.data[0].get("subscription_tier", "free")
-            
-        # Get Current Month's Scans
-        now = datetime.now(timezone.utc)
-        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        
-        # Count pages table entries for this user's sites created this month
-        # This is complex because 'pages' has 'site_id' but not 'user_id'.
-        # We need to join or filter by sites owned by user.
-        # Alternatively, we can just count 'pages' linked to sites user owns.
-        
-        # Simplified: Check 'site_history' or log table?
-        # Let's count 'pages' where site_id IN (select id from sites where user_id = user.id)
-        # SUPABASE POSTGREST doesn't support deep subqueries easily in one go without a view.
-        # For MVP, we'll fetch user's site IDs first.
-        
-        user_sites = supabase.table("sites").select("id").eq("user_id", user.id).execute()
-        site_ids = [s['id'] for s in user_sites.data] if user_sites.data else []
-        
-        if site_ids:
-            scan_count_response = supabase.table("pages") \
-                .select("*", count="exact") \
-                .in_("site_id", site_ids) \
-                .gte("last_scanned_at", start_of_month.isoformat()) \
-                .execute()
+        if user:
+            # Get User Tier
+            profile_response = supabase.table("profiles").select("subscription_tier").eq("id", user.id).execute()
+            tier = "free"
+            if profile_response.data:
+                tier = profile_response.data[0].get("subscription_tier", "free")
                 
-            scan_count = scan_count_response.count if scan_count_response.count is not None else 0
+            # Get Current Month's Scans
+            now = datetime.now(timezone.utc)
+            start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             
-            LIMITS = {
-                "free": 5,
-                "plus": 50,
-                "pro": 1000
-            }
+            user_sites = supabase.table("sites").select("id").eq("user_id", user.id).execute()
+            site_ids = [s['id'] for s in user_sites.data] if user_sites.data else []
             
-            limit = LIMITS.get(tier, 5)
-            
-            if scan_count >= limit:
-                 raise HTTPException(status_code=429, detail=f"Monthly scan limit reached ({scan_count}/{limit}). Please upgrade your plan.")
-                 
+            if site_ids:
+                scan_count_response = supabase.table("pages") \
+                    .select("*", count="exact") \
+                    .in_("site_id", site_ids) \
+                    .gte("last_scanned_at", start_of_month.isoformat()) \
+                    .execute()
+                    
+                scan_count = scan_count_response.count if scan_count_response.count is not None else 0
+                
+                LIMITS = {
+                    "free": 5,
+                    "plus": 50,
+                    "pro": 1000
+                }
+                
+                limit = LIMITS.get(tier, 5)
+                
+                if scan_count >= limit:
+                     raise HTTPException(status_code=429, detail=f"Monthly scan limit reached ({scan_count}/{limit}). Please upgrade your plan.")
+        else:
+            # Guest Limit?
+            # For now, we allow guests to scan freely as it's a landing page hook.
+            # Ideally we'd rate limit by IP here.
+            pass
+
     except HTTPException as he:
         raise he
     except Exception as e:
         logger.error(f"Limit check failed: {e}")
-        # Fail open or closed? Let's fail open for now but log it
         pass
 
     # 1. Rate Limiting Check (24h per site)
@@ -982,3 +978,174 @@ async def handle_checkout_completed(session):
                  
         except Exception as e:
             logger.error(f"Failed to update subscription in DB: {e}")
+
+# --- Site Verification Endpoints ---
+
+class InitiateVerificationRequest(BaseModel):
+    url: str
+    name: str = ""
+
+@app.post("/initiate-verification")
+async def initiate_verification(
+    request: InitiateVerificationRequest,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Creates a site entry with status='unverified' and returns a unique token.
+    If site exists, returns existing token.
+    """
+    import uuid
+    from urllib.parse import urlparse
+
+    # Normalize URL
+    parsed = urlparse(request.url)
+    if not parsed.scheme:
+        request.url = f"https://{request.url}"
+    
+    domain = urlparse(request.url).netloc
+    
+    # --- ENFORCE SITE LIMITS ---
+    # 1. Get User Tier
+    profile_res = supabase.table("profiles").select("subscription_tier").eq("id", user.id).execute()
+    tier = "free"
+    if profile_res.data:
+        tier = profile_res.data[0].get("subscription_tier", "free")
+        
+    # 2. Get Current Site Count
+    # count='exact' is efficient
+    sites_res = supabase.table("sites").select("*", count="exact").eq("user_id", user.id).execute()
+    current_count = sites_res.count if sites_res.count is not None else len(sites_res.data)
+    
+    # 3. Define Limits
+    MAX_SITES = 3
+    if tier == "plus": MAX_SITES = 50
+    if tier == "pro": MAX_SITES = 100000 # Unlimited
+    
+    # 4. Check Limit (only if NOT checking an existing site logic below)
+    # Actually, we should check if the site ALREADY exists first, because if it does, we shouldn't block re-verification of an existing site.
+    
+    # Check existing FIRST to allow re-verification of existing sites
+    existing = supabase.table("sites").select("*").eq("user_id", user.id).eq("url", request.url).execute()
+    
+    if not existing.data:
+        # Only enforce limit if we are about to CREATE a NEW site
+        if current_count >= MAX_SITES:
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Plan limit reached. You can only add {MAX_SITES} sites on the {tier.capitalize()} plan. Please upgrade or delete a site."
+            )
+
+    # --- END LIMIT CHECK ---
+    
+    if existing.data:
+        site = existing.data[0]
+        if site.get("verified_at"):
+             return {"message": "Site already verified", "site_id": site["id"], "verified": True}
+        
+        # Return existing token
+        token = site.get("verification_token")
+        if not token:
+             # Generate one if missing (migration overlap)
+             token = str(uuid.uuid4())
+             supabase.table("sites").update({"verification_token": token}).eq("id", site["id"]).execute()
+             
+        return {
+            "site_id": site["id"],
+            "token": token,
+            "filename": "checksite-verification.txt",
+            "verified": False
+        }
+
+    # Create new
+    token = str(uuid.uuid4())
+    new_site = {
+        "user_id": user.id,
+        "url": request.url,
+        "name": request.name or domain,
+        "status": "unverified",
+        "verification_token": token
+    }
+    
+    res = supabase.table("sites").insert(new_site).execute()
+    if res.data:
+         return {
+            "site_id": res.data[0]["id"],
+            "token": token,
+            "filename": "checksite-verification.txt",
+            "verified": False
+        }
+    
+    raise HTTPException(status_code=500, detail="Failed to create site")
+
+class VerifyOwnershipRequest(BaseModel):
+    site_id: str
+
+@app.post("/verify-ownership")
+async def verify_ownership(
+    request: VerifyOwnershipRequest,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Checks for the presence of checksite-verification.txt containing the token.
+    """
+    import httpx
+    from urllib.parse import urljoin
+    
+    # Get Site
+    site_res = supabase.table("sites").select("*").eq("id", request.site_id).eq("user_id", user.id).execute()
+    if not site_res.data:
+        raise HTTPException(status_code=404, detail="Site not found")
+        
+    site = site_res.data[0]
+    if site.get("verified_at"):
+        return {"success": True, "message": "Already verified"}
+        
+    token = site.get("verification_token")
+    if not token:
+        raise HTTPException(status_code=400, detail="No verification token found for this site.")
+        
+    # Check File
+    file_url = urljoin(site["url"], "/checksite-verification.txt")
+    print(f"Verifying ownership: Checking {file_url} for token {token}...")
+    
+    # DEV BYPASS
+    if os.getenv("DEV_MODE_BYPASS_VERIFICATION") == "true":
+        print(f"⚠️ [DEV] Bypassing verification check for {file_url}")
+        now = datetime.now(timezone.utc).isoformat()
+        supabase.table("sites").update({
+            "verified_at": now,
+            "status": "pending"
+        }).eq("id", request.site_id).execute()
+        return {"success": True, "message": "Verification bypassed (DEV MODE)."}
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            resp = await client.get(file_url)
+            
+        if resp.status_code == 200:
+            content = resp.text.strip()
+            if token in content:
+                # Success!
+                now = datetime.now(timezone.utc).isoformat()
+                supabase.table("sites").update({
+                    "verified_at": now,
+                    "status": "pending" # Ready for scan
+                }).eq("id", request.site_id).execute()
+                
+                return {"success": True, "message": "Verification successful!"}
+            else:
+                raise HTTPException(status_code=400, detail="File found, but the token inside did not match.")
+        
+        elif resp.status_code == 404:
+             raise HTTPException(status_code=400, detail="Verification file not found. Please ensure it is uploaded to the root directory.")
+             
+        else:
+             raise HTTPException(status_code=400, detail=f"Could not verify. Server returned HTTP {resp.status_code}")
+             
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=400, detail=f"Network error verification: {str(e)}")
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Verification failed: {e}")
+        raise HTTPException(status_code=500, detail="Verification process failed.")

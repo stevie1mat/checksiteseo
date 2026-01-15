@@ -46,7 +46,6 @@ export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProp
     const supabase = createClient()
 
     const handleDeleteClick = (site: Site) => {
-        if (isFreePlan) return // Extra safety
         setSiteToDelete(site)
         setDeleteDialogOpen(true)
     }
@@ -231,21 +230,18 @@ export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProp
                                                                     variant="ghost"
                                                                     className={cn(
                                                                         "h-8 w-8 p-0 text-slate-400 border border-transparent transition-all shadow-none",
-                                                                        !isFreePlan && "hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100",
-                                                                        isFreePlan && "opacity-50 cursor-not-allowed"
+                                                                        "hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100"
                                                                     )}
-                                                                    onClick={() => !isFreePlan && handleDeleteClick(site)}
-                                                                    disabled={deletingId === site.id || isFreePlan}
+                                                                    onClick={() => handleDeleteClick(site)}
+                                                                    disabled={deletingId === site.id}
                                                                 >
                                                                     {deletingId === site.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                                                 </Button>
                                                             </span>
                                                         </TooltipTrigger>
-                                                        {isFreePlan && (
-                                                            <TooltipContent className="max-w-[200px] text-center">
-                                                                <p>Deletion is disabled on the Free Plan.</p>
-                                                            </TooltipContent>
-                                                        )}
+                                                        <TooltipContent className="max-w-[200px] text-center">
+                                                            <p>Delete site</p>
+                                                        </TooltipContent>
                                                     </Tooltip>
                                                 </TooltipProvider>
 

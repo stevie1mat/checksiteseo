@@ -34,6 +34,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
                 headers={"WWW-Authenticate": "Bearer"},
             )
             
+
         return user_response.user
 
     except Exception as e:
@@ -43,3 +44,22 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             detail=f"Authentication failed: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+security_optional = HTTPBearer(auto_error=False)
+
+async def get_optional_current_user(credentials: HTTPAuthorizationCredentials = Depends(security_optional)):
+    """
+    Optional authentication. Returns user if token is valid, else None.
+    Does NOT raise 401 if token is missing.
+    """
+    if not credentials:
+        return None
+
+    token = credentials.credentials
+    try:
+        user_response = supabase.auth.get_user(token)
+        if not user_response or not user_response.user:
+            return None
+        return user_response.user
+    except:
+        return None

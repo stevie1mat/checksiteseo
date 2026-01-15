@@ -28,6 +28,7 @@ export function PricingSection({
             period: "forever",
             description: "Perfect for trying out AEO",
             features: [
+                "3 sites included",
                 "5 URL scans per month",
                 "Basic technical checks",
                 "Content readability score",
@@ -45,6 +46,7 @@ export function PricingSection({
             period: "per month",
             description: "For serious content creators",
             features: [
+                "50 sites included",
                 "50 URL scans per month",
                 "Full AEO analysis suite",
                 "AI content gap detection",
@@ -63,6 +65,7 @@ export function PricingSection({
             period: "per month",
             description: "For agencies and businesses",
             features: [
+                "Unlimited sites",
                 "Unlimited URL scans",
                 "Everything in Plus",
                 "E-E-A-T authority scoring",
