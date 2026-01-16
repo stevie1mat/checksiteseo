@@ -64,7 +64,11 @@ export async function POST(request: Request) {
             });
 
             if (!apiResponse.ok) {
-                throw new Error(`Python Backend returned ${apiResponse.status}`);
+                const errorData = await apiResponse.json().catch(() => ({}));
+                return NextResponse.json(
+                    { error: errorData.detail || `Backend returned ${apiResponse.status}` },
+                    { status: apiResponse.status }
+                );
             }
 
             const data = await apiResponse.json();
@@ -207,7 +211,8 @@ export async function GET(request: Request) {
                 },
                 knowledge_graph: {
                     data: {
-                        primary_entity: breakdown?.authority?.knowledge_graph?.data?.primary_entity || null
+                        primary_entity: breakdown?.authority?.knowledge_graph?.data?.primary_entity || null,
+                        relationships: breakdown?.authority?.knowledge_graph?.data?.relationships || {}
                     }
                 }
             },

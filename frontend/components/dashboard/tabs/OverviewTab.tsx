@@ -35,8 +35,9 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
     }
 
     // Generate nodes dynamically if missing
-    if (knowledgeGraph.nodes.length === 0 && rawKG?.relationships) {
-        const rels = rawKG.relationships;
+    const relationships = rawKG?.relationships || activeReport.knowledgeGraph?.relationships;
+    if (knowledgeGraph.nodes.length === 0 && relationships) {
+        const rels = relationships;
         if (rels.worksFor && rels.worksFor !== 'None Detected' && rels.worksFor !== 'None') {
             knowledgeGraph.nodes.push({ label: rels.worksFor, type: "Org" });
         }
@@ -148,10 +149,13 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
             {/* 1. Top Level KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
-                {/* KPI 0: Deep Scan Monitoring (New) */}
-                <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
+                {/* KPI 0: Deep Scan Monitoring (Conf Hidden) */}
+                {/* <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
+                    ...
+                </div> */}
+                {/*
                     <div className="flex items-center gap-2 mb-3">
                         <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
                             <Clock className="w-4 h-4" />
@@ -183,12 +187,9 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                             </button>
                         </div>
 
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                            <div className={`w-2 h-2 rounded-full ${hasPendingScan ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                            {hasPendingScan ? "Next scan in ~24h" : "Auto-scan disabled"}
                         </div>
                     </div>
-                </div>
+                </div> */}
 
                 <TooltipProvider>
                     {/* KPI 1: Share of Voice (Competitor Widget) */}
@@ -259,15 +260,17 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                                 <div className="text-3xl font-serif font-medium text-slate-800">
                                     {failedQueries.length > 0 && Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) > 0 ?
                                         Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) + '%' :
-                                        '12%'
+                                        '0%'
                                     }
                                 </div>
-                                <p className="text-xs text-slate-500 mt-1">Of Questions Answered</p>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    {failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length} / {failedQueries.length} Questions Answered
+                                </p>
                                 <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
                                     <div className="h-full bg-emerald-500" style={{
                                         width: (failedQueries.length > 0 && Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100) > 0) ?
                                             (Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / failedQueries.length) * 100)) + '%' :
-                                            '12%'
+                                            '0%'
                                     }} />
                                 </div>
                             </div>
@@ -277,8 +280,13 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                     {/* KPI 3: Hallucination Risk */}
                     <Link href={siteId ? `/dashboard/sites/${siteId}/hallucination-risk` : '#'} className="block">
                         <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <AlertCircle className="w-16 h-16 text-[#224034]" />
+                            <div className="absolute top-4 right-4 w-16 h-16 opacity-20">
+                                <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                                    {/* Background Circle */}
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#eee" strokeWidth="4" />
+                                    {/* Progress Circle */}
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" strokeDasharray={`${hallucinationLevel === 'High' ? '25' : '95'}, 100`} className={hallucinationLevel === 'High' ? 'text-red-600' : 'text-emerald-600'} />
+                                </svg>
                             </div>
                             <div className="flex items-center gap-2 mb-3 relative z-10">
                                 <div className={`p-2 rounded-lg ${hallucinationLevel === 'High' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
@@ -323,38 +331,27 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
-                            <div className="relative h-24 w-full flex items-center justify-center">
-                                <div className="relative flex items-center justify-center w-full h-full">
-                                    {/* Center Node */}
-                                    <div className="z-10 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg shadow-emerald-900/50 border border-emerald-400">
-                                        {knowledgeGraph.primaryEntity ? knowledgeGraph.primaryEntity.substring(0, 15) : 'Entity'}
-                                    </div>
-                                    {/* Satellite Nodes (Dynamic) */}
-                                    {knowledgeGraph.nodes.slice(0, 3).map((node, i) => {
-                                        const positions = [
-                                            "top-0 right-4",
-                                            "bottom-1 left-4",
-                                            "bottom-4 right-8"
-                                        ];
-                                        const delays = ['0s', '2s', '4s'];
-                                        return (
-                                            <div
-                                                key={i}
-                                                className={`absolute ${positions[i]} bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm animate-float`}
-                                                style={{ animationDelay: delays[i] }}
-                                            >
-                                                {node.label.length > 12 ? node.label.substring(0, 12) + '...' : node.label}
-                                            </div>
-                                        )
-                                    })}
-
-                                    {/* Fallback if no nodes found (e.g. empty scan) */}
-                                    {knowledgeGraph.nodes.length === 0 && (
-                                        <div className="absolute bottom-1 left-4 bg-[#224034]/50 text-emerald-300/50 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/10 border-dashed">
-                                            No Data
-                                        </div>
-                                    )}
+                            <div className="h-24 w-full flex flex-wrap items-center justify-center gap-2 content-center overflow-hidden px-1">
+                                {/* Center Node */}
+                                <div className="z-10 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg shadow-emerald-900/50 border border-emerald-400">
+                                    {knowledgeGraph.primaryEntity ? knowledgeGraph.primaryEntity.substring(0, 15) : 'Entity'}
                                 </div>
+                                {/* Satellite Nodes (Static) */}
+                                {knowledgeGraph.nodes.slice(0, 4).map((node, i) => (
+                                    <div
+                                        key={i}
+                                        className="bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm"
+                                    >
+                                        {node.label.length > 12 ? node.label.substring(0, 12) + '...' : node.label}
+                                    </div>
+                                ))}
+
+                                {/* Fallback if no nodes found (e.g. empty scan) */}
+                                {knowledgeGraph.nodes.length === 0 && (
+                                    <div className="bg-[#224034]/50 text-emerald-300/50 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/10 border-dashed">
+                                        No Data
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </Link>

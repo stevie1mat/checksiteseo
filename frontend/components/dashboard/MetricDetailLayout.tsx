@@ -58,55 +58,46 @@ export function MetricDetailLayout({
     return (
         <div className="min-h-screen bg-slate-50 p-6 md:p-8 font-sans">
             {/* Page Container */}
-            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[35%_65%] gap-8">
+            <div className="w-full grid grid-cols-1 lg:grid-cols-[35%_65%] gap-8">
 
                 {/* LEFT COLUMN: Diagnostic Panel */}
                 <div className="space-y-6">
-                    <Card className="bg-gradient-to-b from-[#1A4036] to-[#0D2620] border-[#2A5245] shadow-2xl text-white overflow-hidden rounded-3xl relative ring-1 ring-white/10">
-                        {/* Background Decor */}
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/20 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
-
+                    <Card className="bg-white border-slate-200 shadow-sm rounded-3xl overflow-hidden relative">
                         <CardContent className="p-8 relative z-10 flex flex-col h-full">
                             {/* Header */}
                             <div className="mb-8">
-                                <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center justify-between mb-6">
                                     <div className={`
-                                        inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border backdrop-blur-md shadow-sm
-                                        ${status === 'critical' ? 'bg-red-500/20 border-red-500/50 text-red-200' :
-                                            status === 'warning' ? 'bg-amber-500/20 border-amber-500/50 text-amber-200' :
-                                                'bg-emerald-500/20 border-emerald-500/50 text-emerald-200'}
+                                        inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold
+                                        ${status === 'critical' ? 'bg-red-50 text-red-700 border border-red-100' :
+                                            status === 'warning' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                                                'bg-emerald-50 text-emerald-700 border border-emerald-100'}
                                     `}>
-                                        {status === 'critical' && <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />}
-                                        {status === 'warning' && <div className="w-2 h-2 rounded-full bg-amber-400" />}
-                                        {status === 'pass' && <div className="w-2 h-2 rounded-full bg-emerald-400" />}
+                                        {status === 'critical' && <div className="w-1.5 h-1.5 rounded-full bg-red-500" />}
+                                        {status === 'warning' && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                                        {status === 'pass' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
 
                                         {status === 'critical' ? 'Crucial Issue' : status === 'warning' ? 'Needs Attention' : 'Optimized'}
                                     </div>
-
-                                    <div className="p-2 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-help">
-                                        <Sliders className="w-4 h-4 text-[#8CD9B8]" />
-                                    </div>
                                 </div>
 
-                                <h1 className="text-3xl font-bold font-serif tracking-tight text-white mb-1 leading-tight">{title}</h1>
-                                <p className="text-emerald-100/60 text-sm font-medium">{description}</p>
+                                <h1 className="text-3xl font-bold font-serif tracking-tight text-slate-900 mb-2 leading-tight">{title}</h1>
+                                <p className="text-slate-500 text-sm">{description}</p>
                             </div>
 
                             {/* Impact Analysis */}
-                            <div className="mb-8 p-5 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-sm">
-                                <p className="text-[#8CD9B8] text-[10px] font-bold uppercase tracking-widest mb-3 opacity-80">System Impact</p>
+                            <div className="mb-8">
                                 <div className="flex items-start gap-4">
                                     <div className={`
                                         mt-1 p-2 rounded-lg shrink-0
-                                        ${status === 'critical' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}
+                                        ${status === 'critical' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}
                                     `}>
                                         {status === 'critical' ? <AlertCircle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                                     </div>
                                     <div>
-                                        <span className="font-medium text-lg text-white block leading-snug">{impact}</span>
+                                        <span className="font-bold text-lg text-slate-800 block leading-snug">{impact}</span>
                                         {status === 'critical' && (
-                                            <span className="text-xs text-red-300/80 block mt-1">Requiring immediate attention</span>
+                                            <span className="text-xs text-red-500 block mt-1 font-medium">Requires immediate attention</span>
                                         )}
                                     </div>
                                 </div>
@@ -114,22 +105,16 @@ export function MetricDetailLayout({
 
                             {/* Raw Diagnostic Terminal */}
                             <div className="mt-auto space-y-3">
-                                <div className="flex items-center justify-between text-white/40 px-1">
+                                <div className="flex items-center justify-between text-slate-400 px-1">
                                     <p className="text-[10px] uppercase font-bold tracking-widest flex items-center gap-2">
-                                        <Terminal className="w-3 h-3" />
                                         Diagnostic Output
                                     </p>
                                 </div>
-                                <div className="group relative bg-[#0D1815] rounded-xl border border-white/10 p-4 font-mono text-[11px] text-emerald-100/70 leading-relaxed shadow-inner overflow-hidden">
+                                <div className="group relative bg-slate-50 rounded-xl border border-slate-200 p-4 font-mono text-[11px] text-slate-600 leading-relaxed shadow-sm">
                                     <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Copy className="w-3 h-3 text-white/40 hover:text-white cursor-pointer" />
+                                        <Copy className="w-3 h-3 text-slate-400 hover:text-slate-600 cursor-pointer" />
                                     </div>
-                                    <div className="flex gap-1.5 mb-3 opacity-30">
-                                        <div className="w-2 h-2 rounded-full bg-red-500" />
-                                        <div className="w-2 h-2 rounded-full bg-amber-500" />
-                                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                    </div>
-                                    <div className="overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                                    <div className="overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                                         <pre className="whitespace-pre-wrap font-medium">{rawDiagnostic}</pre>
                                     </div>
                                 </div>
@@ -156,7 +141,7 @@ export function MetricDetailLayout({
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id as any)}
                                     className={`
-                                        flex items-center gap-2 px-6 py-4 text-sm font-bold border-t-2 transition-all rounded-t-lg whitespace-nowrap
+                                        flex items-center gap-2 px-6 py-4 text-sm font-bold border border-b-0 transition-all rounded-t-lg whitespace-nowrap
                                         ${activeTab === tab.id
                                             ? 'bg-white text-[#1A4036] border-[#8CD9B8] translate-y-[1px]'
                                             : 'text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-100'

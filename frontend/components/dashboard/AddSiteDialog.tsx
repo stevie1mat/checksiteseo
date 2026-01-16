@@ -135,7 +135,10 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
                 body: JSON.stringify({ siteId: id, url: siteUrl })
             })
 
-            if (!response.ok) throw new Error("Scan initiation failed")
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || "Scan initiation failed");
+            }
 
             // Poll
             let attempts = 0;

@@ -64,15 +64,86 @@ async def query_llm(prompt: str, json_mode: bool = True, temperature: float = 0.
 
 # from dotenv import load_dotenv # Already imported at top
 from curl_cffi.requests import AsyncSession
+from playwright.async_api import async_playwright
 
 # ... (Previous code)
 
 # Helper for requests
+async def fetch_page_with_playwright(url: str, timeout: int = 30) -> tuple[int, str]:
+    """Fetches a page using Playwright to render JS."""
+    print(f"🎭 [Playwright] Rendering SPA: {url}")
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            page = await context.new_page()
+            
+            try:
+                response = await page.goto(url, timeout=timeout * 1000, wait_until="networkidle")
+                status = response.status if response else 0
+                
+                # Wait a bit for React hydration if needed
+                await page.wait_for_timeout(2000)
+                
+                content = await page.content()
+                await browser.close()
+                return status, content
+                
+            except Exception as e:
+                print(f"Playwright navigation failed: {e}")
+                await browser.close()
+                return 0, ""
+                
+    except Exception as e:
+        print(f"Playwright launch failed: {e}")
+        return 0, ""
+
 async def fetch_page(url: str, timeout: int = 15) -> tuple[int, str]:
+    # 1. Try Fast Fetch (curl_cffi)
     try:
         async with AsyncSession(impersonate="chrome110") as s:
             r = await s.get(url, timeout=timeout)
-            return r.status_code, r.text
+            status, text = r.status_code, r.text
+            print(f"📡 [Crawler] Raw Fetch {url} -> Status: {status}, Len: {len(text)}")
+            
+            # 2. SPA Check / Empty Content Check
+            # Detecting SPAs just by raw length is unreliable because of large <script> tags.
+            # We use a heuristic: very little "visible" text.
+            
+            is_suspicious = False
+            
+            if status == 200:
+                # Fast parse to check visible text
+                soup = BeautifulSoup(text, "html.parser")
+                visible_text = soup.get_text(separator=' ', strip=True)
+                
+                # Heuristics for "Empty/Loading" state:
+                # 1. Visible text is extremely short (< 200 chars)
+                # 2. Contains common root elements with no content
+                has_root = soup.find(id="root") or soup.find(id="app") or soup.find(id="__next")
+                
+                if len(visible_text) < 300:
+                    print(f"⚠️ [Crawler] Low visible text ({len(visible_text)} chars). Logic: Missing content.")
+                    is_suspicious = True
+                elif has_root and len(visible_text) < 500:
+                    print(f"⚠️ [Crawler] Found SPA Root + Low text. Logic: SPA.")
+                    is_suspicious = True
+
+            if is_suspicious:
+                 print(f"🎭 [Crawler] Triggering Playwright for {url}...")
+                 pw_status, pw_text = await fetch_page_with_playwright(url)
+                 
+                 # If Playwright got more content, use it
+                 if len(pw_text) > len(text) + 100: # Heuristic: if size increased at all, it likely hydrated
+                     print(f"✅ [Crawler] Playwright hydration successful. Size: {len(text)} -> {len(pw_text)}")
+                     return pw_status, pw_text
+                 else:
+                     print(f"⚠️ [Crawler] Playwright returned similar size. Keeping formatted original.")
+            
+            return status, text
+            
     except Exception as e:
         print(f"Request failed for {url}: {e}")
         return 0, ""
@@ -462,13 +533,23 @@ async def analyze_competitors(text_content: str, url: str) -> dict:
     }
 
 
-async def generate_ai_preview(text_content: str, url: str) -> dict:
-    """Generates a simulated user query and AI response."""
+async def generate_ai_preview(text_content: str, url: str, title: str = "", h1: str = "") -> dict:
+    """Generates a simulated user query and AI response using page metadata."""
     domain = urlparse(url).netloc
+    
     prompt = f"""
-    Analyze this website content ({domain}).
-    1. Formulate a realistic USER QUERY that someone would ask an AI (like ChatGPT/Gemini) to find this business/person. (e.g. "Best SEO agency in Toronto" or "Who is Steven Mathew?")
-    2. Write the AI's RESPONSE citing this entity. The response should be 2-3 sentences, helpful, and mention the entity naturally.
+    Analyze this website content.
+    Domain: {domain}
+    Page Title: {title}
+    H1: {h1}
+
+    TASK:
+    1. Identify the **Main Topic** or **Profession** based on the Title/H1 (e.g., if Title is "Steven Mathew - Senior React Developer", the profession is "Senior React Developer").
+    2. Formulate a REALISTIC User Query finding this professional/business.
+       - BAD: "Who is the best choice for {url}?"
+       - GOOD: "Who is a recommended **Senior React Developer** for hire?"
+       - GOOD: "What are the best local **[Service]** in [City]?"
+    3. Write the AI's RESPONSE citing this entity. The response should be 2-3 sentences, helpful, and mention the entity naturally.
 
     Return JSON:
     {{
@@ -577,9 +658,14 @@ def check_basic_seo(soup) -> dict:
         }
     }
 
-async def analyze_page_content(html: str) -> dict:
+async def analyze_page_content(html: str, url: str = "https://example.com") -> dict:
     soup = BeautifulSoup(html, "html.parser")
     main_text = soup.get_text(separator=' ', strip=True)
+    
+    # Extract Metadata for Context
+    title = soup.title.string.strip() if soup.title and soup.title.string else ""
+    h1_tag = soup.find('h1')
+    h1 = h1_tag.get_text(strip=True) if h1_tag else ""
     
     # Schema
     schemas = [s.string for s in soup.find_all("script", type="application/ld+json") if s.string]
@@ -596,7 +682,7 @@ async def analyze_page_content(html: str) -> dict:
         analyze_failed_queries(main_text[:5000]),
         check_eeat(soup),
         extract_entities(main_text[:4000]),
-        generate_ai_preview(main_text[:3000], "https://example.com"), # URL passed in analyze_page_content wrapper ideally, but main_text is key
+        generate_ai_preview(main_text[:3000], url, title=title, h1=h1),
         return_exceptions=True
     )
 
@@ -670,7 +756,8 @@ async def analyze_readiness(url: str, scan_mode: str = "full"):
                 # Running them in parallel reduces total wait time significantly.
                 
                 # Prepare tasks
-                task_content = analyze_page_content(text)
+                # Prepare tasks
+                task_content = analyze_page_content(text, url)
                 task_competitors = analyze_competitors(main_text[:3000] if main_text else "", url)
                 
                 # Execute
@@ -694,6 +781,7 @@ async def analyze_readiness(url: str, scan_mode: str = "full"):
                 page_data = p_content
                 results["technical"]["schema"] = page_data.get("technical", {}).get("schema", {})
                 results["technical"]["https"] = {"score": 100, "details": ["Valid HTTPS"]}
+                results["technical"]["agent_economics"] = page_data.get("technical", {}).get("agent_economics", {})
                 results["content"] = page_data.get("content", {})
                 results["authority"] = page_data.get("authority", {})
                 

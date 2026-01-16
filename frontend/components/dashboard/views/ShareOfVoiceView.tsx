@@ -174,7 +174,7 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
     };
 
     return (
-        <div className="space-y-6 max-w-[1600px] mx-auto pb-24 px-6 pt-6 animate-in fade-in duration-500">
+        <div className="space-y-6 w-full mx-auto pb-24 px-6 pt-6 animate-in fade-in duration-500">
             <ScanProgressDialog
                 open={scanDialogOpen}
                 onOpenChange={(open) => {
@@ -199,9 +199,12 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
                 rawDiagnostic={JSON.stringify({ yourShare, competitorList }, null, 2)}
                 customTabs={PRESET_TABS}
                 leftPanelTip={
-                    <div className="mt-8 bg-[#8CD9B8]/10 border border-[#8CD9B8]/20 rounded-xl p-4 flex gap-3 text-emerald-100/80 text-sm">
-                        <Lightbulb className="w-5 h-5 text-[#8CD9B8] shrink-0 mt-0.5" />
-                        <p className="leading-snug">
+                    <div className="mt-8 bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex gap-4 text-emerald-900 text-sm shadow-sm relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+                            <Lightbulb className="w-16 h-16 text-emerald-600" />
+                        </div>
+                        <Lightbulb className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5 relative z-10" />
+                        <p className="leading-relaxed relative z-10 font-medium">
                             This score represents your 'Brand Authority' in the eyes of AI. A low score means chatbots prefer your competitors' answers over yours.
                         </p>
                     </div>
@@ -237,14 +240,25 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
                                 </div>
 
                                 <div className="space-y-4 text-slate-600">
-                                    <p>
-                                        <strong>What is Share of Voice?</strong><br />
-                                        Share of Voice (SOV) measures how much of the conversation in your industry is dominated by your brand versus competitors. In the era of AEO, this translates to how often AI agents cite your brand as the primary source.
-                                    </p>
-                                    <p>
-                                        <strong>Why it matters:</strong><br />
-                                        If AI models don't know you, they can't recommend you. High SOV ensures you are the "Top of Mind" recommendation for generic queries.
-                                    </p>
+                                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                        <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                            What is Share of Voice?
+                                        </h3>
+                                        <p className="leading-relaxed text-sm">
+                                            Share of Voice (SOV) measures how much of the conversation in your industry is dominated by your brand versus competitors. In the era of AEO, this translates to how often AI agents cite your brand as the primary source.
+                                        </p>
+                                    </div>
+
+                                    <div className="bg-emerald-50/50 p-6 rounded-xl border border-emerald-100 shadow-sm">
+                                        <h3 className="font-bold text-emerald-900 mb-3 flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                                            Why it matters
+                                        </h3>
+                                        <p className="leading-relaxed text-emerald-900/80 text-sm">
+                                            If AI models don't know you, they can't recommend you. High SOV ensures you are the "Top of Mind" recommendation for generic queries.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -372,20 +386,9 @@ export function ShareOfVoiceView({ siteId, domain, initialData }: ShareOfVoiceVi
                                             <Button
                                                 onClick={handleGeneratePlan}
                                                 disabled={isGenerating || !selectedCompetitor}
-                                                className="w-full bg-gradient-to-r from-[#224034] to-[#1A3027] hover:from-[#1A3027] hover:to-[#224034] text-white py-4 h-auto text-lg rounded-xl shadow-lg hover:shadow-xl shadow-[#224034]/20 group transition-all duration-300 border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="bg-[#1A4036] hover:bg-[#224034] text-white py-6 px-8 min-w-[200px] h-auto text-base font-semibold rounded-xl shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                {isGenerating ? (
-                                                    <>
-                                                        <Wand2 className="mr-3 w-5 h-5 text-emerald-200 animate-spin" />
-                                                        Analyzing...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Wand2 className="mr-3 w-5 h-5 text-emerald-200" />
-                                                        Generate Content Plan
-                                                        <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                                    </>
-                                                )}
+                                                {isGenerating ? "Analyzing Strategy..." : "Generate Content Plan"}
                                             </Button>
                                         </div>
                                     </>
