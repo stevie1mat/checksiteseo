@@ -1,11 +1,26 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { z } from "zod";
+import { urlSchema, uuidSchema } from '@/lib/validations';
+
 export const dynamic = 'force-dynamic'
+
+const routeScanSchema = z.object({
+    url: urlSchema,
+    siteId: uuidSchema.optional().nullable(),
+});
 
 export async function POST(request: Request) {
     try {
         const body = await request.json()
-        const { siteId, url } = body
+
+        // Validation
+        const validation = routeScanSchema.safeParse(body);
+        if (!validation.success) {
+            return NextResponse.json({ error: validation.error.flatten().fieldErrors }, { status: 400 });
+        }
+
+        const { siteId, url } = validation.data
         const supabase = createClient()
 
         console.log(`[Scan API] Proxying scan to Python Backend for: ${url}`)

@@ -4,7 +4,7 @@ logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl, EmailStr, Field
 from analyzer import analyze_readiness, generate_content_strategy, generate_answer_strategy, analyze_ambiguity_issues
 import os
 from dotenv import load_dotenv
@@ -137,7 +137,7 @@ async def startup_event():
         print(f"📌 PENDING JOB: {job.id} | Name: {job.name} | Next Run: {job.next_run_time}")
 
 class AnalyzeRequest(BaseModel):
-    url: str
+    url: HttpUrl
     site_id: str | None = None
     sync: bool = False
 
@@ -257,7 +257,7 @@ async def analyze_url(
     if request.sync:
         try:
             # Run analysis immediately and await result
-            result = await analyze_readiness(request.url, scan_mode="full")
+            result = await analyze_readiness(str(request.url), scan_mode="full")
             
             # Alias total_score to score for API consistency
             result['score'] = result.get('total_score', 0)
@@ -268,7 +268,7 @@ async def analyze_url(
             raise HTTPException(status_code=500, detail=str(e))
 
     # 4. Schedule Background Task (Default Async behavior)
-    background_tasks.add_task(run_analysis_background, request.url, request.site_id)
+    background_tasks.add_task(run_analysis_background, str(request.url), request.site_id)
 
     return {"status": "processing", "message": "Analysis started in background"}
 
@@ -562,8 +562,8 @@ async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None,
 
 class ScheduleRequest(BaseModel):
     site_id: str
-    url: str
-    email: str | None = None
+    url: HttpUrl
+    email: EmailStr | None = None
     delay_hours: int | None = None
     delay_minutes: int | None = None
     scan_type: str | None = "full" # 'full', 'answers', 'sov'
@@ -647,7 +647,7 @@ async def schedule_scan(
         try:
             payload = {
                 "site_id": request.site_id,
-                "url": request.url,
+                "url": str(request.url),
                 "user_email": request.email,
                 "scheduled_for": run_date.isoformat(),
                 "status": "pending"
@@ -685,7 +685,7 @@ async def schedule_scan(
             perform_scheduled_scan, 
             'interval', 
             minutes=interval_minutes,
-            args=[request.site_id, request.url, request.email, safe_scan_id, request.scan_type or "full"],
+            args=[request.site_id, str(request.url), request.email, safe_scan_id, request.scan_type or "full"],
             id=request.site_id,
             replace_existing=True,
             next_run_time=run_date,  # First run at the calculated time
@@ -696,7 +696,7 @@ async def schedule_scan(
             perform_scheduled_scan, 
             'interval', 
             hours=interval_hours,
-            args=[request.site_id, request.url, request.email, safe_scan_id, request.scan_type or "full"],
+            args=[request.site_id, str(request.url), request.email, safe_scan_id, request.scan_type or "full"],
             id=request.site_id,
             replace_existing=True,
             next_run_time=run_date,
@@ -751,10 +751,10 @@ async def analyze_ambiguity(request: AnswerPlanRequest): # Reusing AnswerPlanReq
     return {"improvements": []}
 
 class ContactRequest(BaseModel):
-    first_name: str
-    last_name: str
-    email: str
-    message: str
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    email: EmailStr
+    message: str = Field(..., min_length=1, max_length=1000)
 
 @app.post("/contact")
 async def contact_form(request: ContactRequest):
