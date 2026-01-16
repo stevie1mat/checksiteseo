@@ -2,8 +2,31 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { ArrowRight, Clock } from "lucide-react";
 import Link from "next/link";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Blog | CheckSiteAEO",
+    description: "Latest insights, guides, and news about Answer Engine Optimization (AEO) and the future of search.",
+    openGraph: {
+        title: "Blog | CheckSiteAEO",
+        description: "Latest insights, guides, and news about Answer Engine Optimization (AEO).",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Blog | CheckSiteAEO",
+        description: "Stay ahead of the curve with our AEO insights.",
+    },
+};
 
 export default function BlogPage() {
+    const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Blog",
+        "name": "CheckSiteAEO Blog",
+        "description": "Insights on AEO and AI Search",
+        "url": "https://checksiteaeo.com/blog"
+    };
+
     const posts = [
         {
             title: "Understanding Answer Engine Optimization (AEO)",

@@ -7,6 +7,23 @@ import { PricingSection } from "@/components/PricingSection";
 import { TestimonialsSection } from "@/components/TestimonialsSection";
 import { FAQSection } from "@/components/FAQSection";
 import { Footer } from "@/components/Footer";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "AEO Readiness Auditor | Free AI Search Optimization Check",
+  description: "Get a free Answer Engine Optimization (AEO) audit. See how your site performs with LLMs like ChatGPT, Claude, and Gemini.",
+  openGraph: {
+    title: "AEO Readiness Auditor | Free AI Search Optimization Check",
+    description: "Get a free Answer Engine Optimization (AEO) audit. See how your site performs with LLMs like ChatGPT, Claude, and Gemini.",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "CheckSiteAEO Dashboard" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AEO Readiness Auditor | Free AI Search Optimization Check",
+    description: "Get a free Answer Engine Optimization (AEO) audit. Optimize your site for AI search.",
+    images: ["/og-image.png"],
+  }
+};
 
 export default function Home() {
   return (

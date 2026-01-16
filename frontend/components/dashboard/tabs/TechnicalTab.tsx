@@ -113,6 +113,8 @@ export function TechnicalTab({ activeReport, setActiveTab, siteId }: TechnicalTa
         return cost || '$0.00'
     }
 
+    const [showGuide, setShowGuide] = useState(false)
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
             <h2 className="text-2xl font-serif text-[#224034] mb-4">Technical Readiness</h2>
@@ -216,10 +218,28 @@ Disallow:`}
                 </div>
 
                 {/* Agent Economics */}
-                <div className="bg-slate-50 rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Cpu className="w-4 h-4 text-slate-500" />
-                        <h4 className="font-semibold text-slate-700 text-base uppercase tracking-wide">Context Window Analysis</h4>
+                <div className="bg-slate-50 rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 h-fit">
+                    <div className="flex items-center justify-between mb-2 cursor-pointer" onClick={() => setShowGuide(!showGuide)}>
+                        <div className="flex items-center gap-2">
+                            <Cpu className="w-4 h-4 text-slate-500" />
+                            <h4 className="font-semibold text-slate-700 text-base uppercase tracking-wide">Context Window Analysis</h4>
+                        </div>
+                        <div className="text-emerald-600 hover:bg-emerald-50 p-1 rounded-full transition-colors" title="What is this?">
+                            <AlertCircle className="w-4 h-4" />
+                        </div>
+                    </div>
+
+                    {/* Collapsible Educational Guide */}
+                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showGuide ? 'max-h-96 opacity-100 mb-4' : 'max-h-0 opacity-0'}`}>
+                        <div className="bg-emerald-50/50 p-4 rounded-lg text-sm text-slate-600 border border-emerald-100 space-y-3">
+                            <p className="font-semibold text-emerald-800">Why this matters:</p>
+                            <p>AI models have a limited "context window" (memory). If your page is full of code bloat (HTML tags, scripts) instead of actual text, it becomes harder and more expensive for AI to read.</p>
+                            <ul className="list-disc pl-4 space-y-1 text-xs">
+                                <li><strong>Low Index Cost</strong>: Cheaper for Search Engines to process.</li>
+                                <li><strong>High Signal/Noise</strong>: Models see your content, not your code.</li>
+                                <li><strong>Goal</strong>: Aim for {'>'}15% Text Content.</li>
+                            </ul>
+                        </div>
                     </div>
 
                     {/* Zero Token Warning */}

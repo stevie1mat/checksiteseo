@@ -3,6 +3,21 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, MapPin, Clock } from "lucide-react";
 import { ApplicationDialog } from "@/components/careers/ApplicationDialog";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Careers | CheckSiteAEO",
+    description: "Join the CheckSiteAEO team and help us shape the future of Answer Engine Optimization. Explore our open positions.",
+    openGraph: {
+        title: "Careers | CheckSiteAEO",
+        description: "Join the CheckSiteAEO team and help us shape the future of Answer Engine Optimization. Explore our open positions.",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Careers | CheckSiteAEO",
+        description: "Join the CheckSiteAEO team and help us shape the future of Answer Engine Optimization.",
+    },
+};
 
 export default function CareersPage() {
     const jobs = [

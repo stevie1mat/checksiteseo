@@ -1,5 +1,20 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Cookie Policy | CheckSiteAEO",
+    description: "Learn how we use cookies and similar technologies to improve your experience on CheckSiteAEO.",
+    openGraph: {
+        title: "Cookie Policy | CheckSiteAEO",
+        description: "Learn how we use cookies and similar technologies to improve your experience on CheckSiteAEO.",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Cookie Policy | CheckSiteAEO",
+        description: "Our cookie policy.",
+    },
+};
 
 export default function CookiesPage() {
     return (

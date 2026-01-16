@@ -475,9 +475,18 @@ async def extract_entities(text_content: str) -> dict:
 
 async def get_ai_rewrite(text_snippet: str) -> str:
     """Asks AI to rewrite complex text."""
-    prompt = f"Rewrite this complex sentence to be Grade 8 readability level:\n\n{text_snippet}"
+    prompt = f"""
+    Rewrite this complex sentence to be Grade 8 readability level.
+    RULES:
+    1. Return ONLY the rewritten text. 
+    2. Do NOT include introductory phrases like "Here is the rewrite" or "Sure".
+    3. Do NOT use markdown.
+    
+    Text:
+    {text_snippet}
+    """
     result = await query_llm(prompt, json_mode=False, temperature=0.1)
-    return result if result else "Could not generate rewrite."
+    return result.strip() if result else "Could not generate rewrite."
 
 async def analyze_competitors(text_content: str, url: str) -> dict:
     """Uses LLM to identify competitors and estimate share of voice."""

@@ -2,6 +2,21 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import Link from "next/link";
 import { Home, Layout, FileText, Info, Shield, HelpCircle, Box, CreditCard, Key, BookOpen, Layers, Newspaper, Mail, Users, Briefcase } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Sitemap | CheckSiteAEO",
+    description: "Complete overview of all pages available on CheckSiteAEO. Find your way around our tools and resources.",
+    openGraph: {
+        title: "Sitemap | CheckSiteAEO",
+        description: "Complete overview of all pages available on CheckSiteAEO.",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Sitemap | CheckSiteAEO",
+        description: "Find your way around CheckSiteAEO.",
+    }
+};
 
 export default function SitemapPage() {
     const sections = [

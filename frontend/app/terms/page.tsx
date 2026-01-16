@@ -1,5 +1,20 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Terms of Service | CheckSiteAEO",
+    description: "Read our terms of service to understand your rights and responsibilities when using CheckSiteAEO.",
+    openGraph: {
+        title: "Terms of Service | CheckSiteAEO",
+        description: "Read our terms of service to understand your rights and responsibilities when using CheckSiteAEO.",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Terms of Service | CheckSiteAEO",
+        description: "Our terms and conditions.",
+    },
+};
 
 export default function TermsPage() {
     return (

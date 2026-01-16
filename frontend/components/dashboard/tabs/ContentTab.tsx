@@ -43,11 +43,17 @@ export function ContentTab({ activeReport, activeReport: { content }, siteId }: 
                                 <p className="text-sm text-slate-500 mt-0.5">Flesch-Kincaid Grade</p>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Badge variant="outline" className={`
-                                    ${content.readabilityGrade > 12 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}
-                                `}>
-                                    Grade {content.readabilityGrade}
-                                </Badge>
+                                {content.readabilityGrade && content.readabilityGrade > 0 ? (
+                                    <Badge variant="outline" className={`
+                                        ${content.readabilityGrade > 12 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}
+                                    `}>
+                                        Grade {content.readabilityGrade}
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200">
+                                        Calculating...
+                                    </Badge>
+                                )}
 
                             </div>
                         </div>
@@ -129,7 +135,7 @@ export function ContentTab({ activeReport, activeReport: { content }, siteId }: 
                                             {failedQueries.map((query: any, i: number) => (
                                                 <TableRow key={i} className="hover:bg-white/5 border-white/5 group/row transition-colors">
                                                     <TableCell className="font-medium text-emerald-50 py-4 align-top">
-                                                        "{query.query}"
+                                                        "{query.question || query.query}"
                                                     </TableCell>
                                                     <TableCell className="py-4 align-top">
                                                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ring-1 ring-inset

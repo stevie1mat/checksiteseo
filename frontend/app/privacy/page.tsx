@@ -1,5 +1,20 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Privacy Policy | CheckSiteAEO",
+    description: "Read our privacy policy to understand how we collect, use, and protect your data.",
+    openGraph: {
+        title: "Privacy Policy | CheckSiteAEO",
+        description: "Read our privacy policy to understand how we collect, use, and protect your data.",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Privacy Policy | CheckSiteAEO",
+        description: "Your privacy matters to us.",
+    },
+};
 
 export default function PrivacyPage() {
     return (

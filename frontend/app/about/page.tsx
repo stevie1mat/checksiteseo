@@ -1,10 +1,41 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Bot, Target, Users, Globe } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "About Us | CheckSiteAEO",
+    description: "Learn about our mission to help content creators and businesses adapt to the new era of Answer Engine Optimization (AEO).",
+    openGraph: {
+        title: "About Us | CheckSiteAEO",
+        description: "Learn about our mission to help content creators and businesses adapt to the new era of Answer Engine Optimization (AEO).",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "About Us | CheckSiteAEO",
+        description: "Pioneering Answer Engine Optimization for the AI era.",
+    },
+};
 
 export default function AboutPage() {
+    const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "CheckSiteAEO",
+        "url": "https://checksiteaeo.com",
+        "description": "AEO Readiness Auditor and Optimization Tool",
+        "sameAs": [
+            "https://twitter.com/checksiteaeo",
+            "https://www.linkedin.com/company/checksiteaeo"
+        ]
+    };
+
     return (
         <main className="min-h-screen bg-slate-50">
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            />
             <Navbar />
 
             {/* Hero Section */}

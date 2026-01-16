@@ -1,6 +1,21 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Plug } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Integrations | CheckSiteAEO",
+    description: "Connect CheckSiteAEO with your favorite tools. Support for WordPress, Shopify, Webflow, and more.",
+    openGraph: {
+        title: "Integrations | CheckSiteAEO",
+        description: "Connect CheckSiteAEO with your favorite tools. Support for WordPress, Shopify, Webflow, and more.",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Integrations | CheckSiteAEO",
+        description: "Seamlessly integrate AEO auditing into your workflow.",
+    },
+};
 
 export default function IntegrationsPage() {
     const integrations = [
