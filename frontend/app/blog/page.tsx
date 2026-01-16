@@ -74,6 +74,10 @@ export default function BlogPage() {
 
     return (
         <main className="min-h-screen bg-slate-50">
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            />
             <Navbar />
 
             <section className="bg-[#224034] text-white pt-32 pb-20 px-6 text-center">
