@@ -113,9 +113,11 @@ def ensure_tables_exist():
         print(f"Database initialization failed: {e}")
 
 # CORS Setup
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all for MVP dev, or restrict to localhost:3000
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
