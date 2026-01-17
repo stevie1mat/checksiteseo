@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Site } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 
@@ -34,11 +34,18 @@ interface SiteHealthGridProps {
 
 export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProps) {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const searchQuery = searchParams.get('search')?.toLowerCase() || ''
+
     const [localSites, setLocalSites] = useState<Site[]>(sites)
 
     useEffect(() => {
-        setLocalSites(sites)
-    }, [sites])
+        if (searchQuery) {
+            setLocalSites(sites.filter(s => s.url.toLowerCase().includes(searchQuery)))
+        } else {
+            setLocalSites(sites)
+        }
+    }, [sites, searchQuery])
 
     const [deletingId, setDeletingId] = useState<string | null>(null)
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)

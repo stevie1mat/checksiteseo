@@ -74,17 +74,11 @@ def ensure_tables_exist():
     try:
         # Use NullPool to avoid connection pool issues during startup
         # Add connection timeout and retry logic
-        # Render may have IPv6 connectivity issues, so use connection pooler if available
-        db_url = DATABASE_URL
-        # If using Supabase, prefer connection pooler (port 6543) which is more reliable
-        # Connection pooler uses IPv4 and is recommended for serverless/cloud deployments
-        if "supabase.co" in db_url and ":5432" in db_url:
-            # Replace direct connection (5432) with connection pooler (6543)
-            db_url = db_url.replace(":5432", ":6543")
-            print("ℹ️ Using Supabase connection pooler (port 6543) for better reliability")
-        
+        # Try to force IPv4 connection (Render may have IPv6 issues)
+        # Supabase connection strings work with both IPv4 and IPv6
+        # The error suggests IPv6 is not reachable, but psycopg2 should fallback to IPv4
         engine = create_engine(
-            db_url,
+            DATABASE_URL,
             poolclass=NullPool,
             connect_args={
                 "connect_timeout": 10,  # Increased timeout for Render
@@ -135,25 +129,11 @@ def verify_database_connection():
         return False
     
     try:
-        # Force IPv4 by modifying connection string if it contains IPv6
-        # Render may have IPv6 connectivity issues
-        db_url = DATABASE_URL
-        # If using Supabase, try connection pooler (port 6543) which is more reliable
-        # Connection pooler uses IPv4 and is recommended for serverless/cloud deployments
-        if "supabase.co" in db_url and ":5432" in db_url:
-            # Replace direct connection (5432) with connection pooler (6543)
-            db_url = db_url.replace(":5432", ":6543")
-            print("ℹ️ Using Supabase connection pooler (port 6543) for better reliability")
-        
         # Test connection with timeout
         engine = create_engine(
-            db_url,
+            DATABASE_URL,
             poolclass=NullPool,
-            connect_args={
-                "connect_timeout": 10,
-                # Force IPv4 if possible (psycopg2 will try IPv4 first)
-                "options": "-c statement_timeout=5000"
-            },
+            connect_args={"connect_timeout": 5},
             pool_pre_ping=True
         )
         with engine.connect() as conn:
@@ -164,7 +144,6 @@ def verify_database_connection():
     except Exception as e:
         print(f"⚠️ Could not verify database connection: {e}")
         print("⚠️ App will continue with in-memory scheduler. Database features may be limited.")
-        print("💡 Tip: If using Supabase, try the connection pooler URL (port 6543) instead of direct connection (port 5432)")
         return False
 
 # CORS Setup
@@ -414,10 +393,7 @@ async def run_analysis_background(url: str, site_id: str | None):
                 print("   > Updating pages (via Direct SQL)...")
                 try:
                     db_url = os.getenv("DATABASE_URL")
-                    # Use connection pooler if available (more reliable for cloud)
-                    if db_url and "supabase.co" in db_url and ":5432" in db_url:
-                        db_url = db_url.replace(":5432", ":6543")
-                    engine = create_engine(db_url, poolclass=NullPool, connect_args={"connect_timeout": 10})
+                    engine = create_engine(db_url)
                     with engine.connect() as conn:
                         query = text("""
                             INSERT INTO pages (site_id, url, checklist, aeo_score, status, last_scanned_at)
@@ -458,15 +434,10 @@ def delete_site(site_id: str):
         raise HTTPException(status_code=500, detail="Database URL not configured")
     
     try:
-        # Use connection pooler if available (more reliable for cloud)
-        db_url = DATABASE_URL
-        if "supabase.co" in db_url and ":5432" in db_url:
-            db_url = db_url.replace(":5432", ":6543")
-        
         engine = create_engine(
-            db_url,
+            DATABASE_URL,
             poolclass=NullPool,
-            connect_args={"connect_timeout": 10},
+            connect_args={"connect_timeout": 5},
             pool_pre_ping=True
         )
         with engine.connect() as conn:
