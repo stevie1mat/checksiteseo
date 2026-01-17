@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Navbar } from "@/components/Navbar";
 import { HeroSection } from "@/components/HeroSection";
 import { FeaturesSection } from "@/components/FeaturesSection";
@@ -29,7 +30,9 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <main className="min-h-screen font-sans selection:bg-pink-500/30">
-      <AuthRedirectHandler />
+      <Suspense fallback={null}>
+        <AuthRedirectHandler />
+      </Suspense>
       <Navbar />
       <HeroSection />
       <FeaturesSection />
