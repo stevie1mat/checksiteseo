@@ -38,6 +38,14 @@ export async function updateSession(request: NextRequest) {
         return supabaseResponse;
     }
 
+    // Check if we have a code param on the root route and redirect to callback
+    const code = request.nextUrl.searchParams.get('code')
+    if (request.nextUrl.pathname === '/' && code) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/auth/callback'
+        return NextResponse.redirect(url)
+    }
+
     const {
         data: { user },
     } = await supabase.auth.getUser()
