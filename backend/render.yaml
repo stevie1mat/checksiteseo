@@ -9,7 +9,7 @@ services:
     region: oregon  # Change to your preferred region
     plan: free  # Change to 'starter' or 'standard' for paid plans
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
     envVars:
       # These will be set in Render dashboard, but listed here for reference
       - key: ALLOWED_ORIGINS

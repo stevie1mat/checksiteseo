@@ -74,11 +74,14 @@ def ensure_tables_exist():
     try:
         # Use NullPool to avoid connection pool issues during startup
         # Add connection timeout and retry logic
+        # Try to force IPv4 connection (Render may have IPv6 issues)
+        # Supabase connection strings work with both IPv4 and IPv6
+        # The error suggests IPv6 is not reachable, but psycopg2 should fallback to IPv4
         engine = create_engine(
             DATABASE_URL,
             poolclass=NullPool,
             connect_args={
-                "connect_timeout": 5,
+                "connect_timeout": 10,  # Increased timeout for Render
                 "options": "-c statement_timeout=5000"
             },
             pool_pre_ping=True  # Verify connections before using
