@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect } from 'react'
+
 /**
  * Sentry Client Initialization Component
  * 
@@ -7,12 +9,12 @@
  * It should be added to the root layout.
  */
 export function SentryInit() {
-  // Import and initialize Sentry only on client side
-  if (typeof window !== "undefined") {
+  useEffect(() => {
+    // Import and initialize Sentry only on client side
     import("../sentry.client.config").catch((error) => {
       console.error("Failed to load Sentry client config:", error);
     });
-  }
+  }, []);
   
   return null;
 }

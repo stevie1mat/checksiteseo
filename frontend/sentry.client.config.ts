@@ -22,32 +22,20 @@ if (typeof window === "undefined") {
 } else {
   // We're in the browser, safe to initialize Sentry
   
-  // Check if replay integration is available
+  // Check if integrations are available (without accessing non-existent properties)
   let replayIntegration: any = null;
   let enableReplay = false;
+  let browserTracingIntegration: any = null;
 
-  try {
-    if (typeof Sentry.replayIntegration === 'function') {
-      replayIntegration = Sentry.replayIntegration;
-      enableReplay = true;
-    }
-  } catch (e) {
-    // Replay not available
-    if (ENVIRONMENT === "development") {
-      console.warn("⚠️ Sentry replay integration not available. Session replay disabled.");
-    }
+  // Check replay integration
+  if ('replayIntegration' in Sentry && typeof (Sentry as any).replayIntegration === 'function') {
+    replayIntegration = (Sentry as any).replayIntegration;
+    enableReplay = true;
   }
 
-  // Check if browserTracingIntegration is available
-  let browserTracingIntegration: any = null;
-  try {
-    if (typeof Sentry.browserTracingIntegration === 'function') {
-      browserTracingIntegration = Sentry.browserTracingIntegration;
-    }
-  } catch (e) {
-    if (ENVIRONMENT === "development") {
-      console.warn("⚠️ Sentry browserTracingIntegration not available.");
-    }
+  // Check browser tracing integration
+  if ('browserTracingIntegration' in Sentry && typeof (Sentry as any).browserTracingIntegration === 'function') {
+    browserTracingIntegration = (Sentry as any).browserTracingIntegration;
   }
 
   // Only initialize if DSN is provided
