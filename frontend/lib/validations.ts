@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const urlSchema = z.string().url({ message: "Invalid URL format. Must include http:// or https://" });
+export const urlSchema = z.string().url({ message: "Invalid URL format. Must include http:// or https://" }).refine((val) => val.startsWith("http://") || val.startsWith("https://"), { message: "Must start with http:// or https://" });
 export const emailSchema = z.string().email({ message: "Invalid email address." });
 export const uuidSchema = z.string().uuid({ message: "Invalid ID format." });
 
@@ -30,4 +30,13 @@ export const contactSchema = z.object({
     email: emailSchema,
     message: z.string().min(1, "Message is required").max(1000),
     job_title: z.string().max(100).optional(),
+});
+
+export const answerPlanSchema = z.object({
+    user_domain: z.string().min(1, "User domain is required"),
+    site_id: uuidSchema.optional().nullable(),
+});
+
+export const cancelScanSchema = z.object({
+    site_id: uuidSchema,
 });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { uuidSchema } from '@/lib/validations';
 
 export async function DELETE(
     request: Request,
@@ -7,6 +8,13 @@ export async function DELETE(
 ) {
     try {
         const siteId = params.id
+
+        // Validation
+        const validation = uuidSchema.safeParse(siteId);
+        if (!validation.success) {
+            return NextResponse.json({ error: "Invalid Site ID" }, { status: 400 });
+        }
+
         const supabase = createClient()
 
         // 1. Verify Authentication

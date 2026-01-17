@@ -126,6 +126,11 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Domain required' }, { status: 400 })
         }
 
+        const validation = urlSchema.safeParse(domain);
+        if (!validation.success) {
+            return NextResponse.json({ error: "Invalid domain format", details: validation.error.flatten().fieldErrors }, { status: 400 });
+        }
+
         const supabase = createClient()
         const { data: { user }, error: authError } = await supabase.auth.getUser()
 

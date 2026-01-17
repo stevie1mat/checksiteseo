@@ -1,9 +1,17 @@
 import { NextResponse } from 'next/server'
+import { cancelScanSchema } from '@/lib/validations';
 
 export async function POST(request: Request) {
     try {
         const body = await request.json()
-        const { site_id } = body
+
+        // Validation
+        const validation = cancelScanSchema.safeParse(body);
+        if (!validation.success) {
+            return NextResponse.json({ error: validation.error.flatten().fieldErrors }, { status: 400 });
+        }
+
+        const { site_id } = validation.data
 
         const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 

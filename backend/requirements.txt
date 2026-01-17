@@ -17,3 +17,5 @@ groq
 curl-cffi
 playwright
 email-validator
+pytest
+pytest-asyncio
