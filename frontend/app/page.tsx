@@ -8,6 +8,7 @@ import { TestimonialsSection } from "@/components/TestimonialsSection";
 import { FAQSection } from "@/components/FAQSection";
 import { Footer } from "@/components/Footer";
 import { Metadata } from "next";
+import { AuthRedirectHandler } from "@/components/AuthRedirectHandler";
 
 export const metadata: Metadata = {
   title: "AEO Readiness Auditor | Free AI Search Optimization Check",
@@ -28,6 +29,7 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <main className="min-h-screen font-sans selection:bg-pink-500/30">
+      <AuthRedirectHandler />
       <Navbar />
       <HeroSection />
       <FeaturesSection />

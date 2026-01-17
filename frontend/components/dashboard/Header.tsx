@@ -35,11 +35,15 @@ export function DashboardHeader({ userEmail }: { userEmail?: string }) {
                             <span className="sr-only">Open sidebar</span>
                         </Button>
                     </SheetTrigger>
-                    <SheetContent side="left" className="p-0 w-64 border-r-0 bg-[#1A4036] text-white">
+                    <SheetContent side="left" className="p-0 w-72 border-r-0 bg-transparent shadow-none text-white">
                         <SidebarContent />
                     </SheetContent>
                 </Sheet>
-            </div>
+                <div className="md:hidden flex items-center">
+                    <span className="font-serif text-xl font-medium tracking-wide text-[#1A4036]">
+                        CheckSite<span className="text-[#8cd9b8]">AEO</span>
+                    </span>
+                </div>            </div>
 
             <div className="flex items-center gap-4">
                 <DropdownMenu>
