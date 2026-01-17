@@ -45,7 +45,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
             knowledgeGraph.nodes.push({ label: rels.jobTitle, type: "Role" });
         }
         if (Array.isArray(rels.knowsAbout)) {
-            rels.knowsAbout.slice(0, 3).forEach(skill => {
+            rels.knowsAbout.slice(0, 3).forEach((skill: string) => {
                 if (skill && skill.length < 20) knowledgeGraph.nodes.push({ label: skill, type: "Topic" });
             });
         }
@@ -54,12 +54,12 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
             knowledgeGraph.nodes.push({ label: rels.location, type: "Loc" });
         }
         if (Array.isArray(rels.products)) {
-            rels.products.slice(0, 2).forEach(prod => {
+            rels.products.slice(0, 2).forEach((prod: string) => {
                 if (prod && prod.length < 15) knowledgeGraph.nodes.push({ label: prod, type: "Prod" });
             });
         }
         if (Array.isArray(rels.founders)) {
-            rels.founders.slice(0, 1).forEach(f => {
+            rels.founders.slice(0, 1).forEach((f: string) => {
                 if (f && f.length < 20) knowledgeGraph.nodes.push({ label: f, type: "Person" });
             });
         }

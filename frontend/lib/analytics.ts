@@ -42,9 +42,13 @@ export const initGA = (): void => {
   }
 
   // Initialize dataLayer
-  window.dataLayer = window.dataLayer || [];
+  if (!window.dataLayer) {
+    window.dataLayer = [];
+  }
   window.gtag = function() {
-    window.dataLayer.push(arguments);
+    if (window.dataLayer) {
+      window.dataLayer.push(arguments);
+    }
   };
   window.gtag('js', new Date());
   window.gtag('config', GA_MEASUREMENT_ID, {
@@ -57,8 +61,8 @@ export const initGA = (): void => {
  */
 export const trackPageView = (url: string): void => {
   // Google Analytics
-  if (isAnalyticsEnabled()) {
-    window.gtag?.('config', GA_MEASUREMENT_ID!, {
+  if (isAnalyticsEnabled() && window.gtag) {
+    window.gtag('config', GA_MEASUREMENT_ID!, {
       page_path: url,
     });
   }
@@ -80,8 +84,8 @@ export const trackEvent = (
   eventParams?: Record<string, any>
 ): void => {
   // Google Analytics
-  if (isAnalyticsEnabled()) {
-    window.gtag?.('event', eventName, eventParams);
+  if (isAnalyticsEnabled() && window.gtag) {
+    window.gtag('event', eventName, eventParams);
   }
   
   // Mixpanel

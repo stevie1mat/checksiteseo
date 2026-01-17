@@ -67,9 +67,6 @@ export const setUserContext = (user: {
   if (!isSentryEnabled()) return;
   
   Sentry.setUser({
-    id: user.id,
-    email: user.email,
-    username: user.username,
     ...user,
   });
 };
@@ -116,17 +113,26 @@ export const setContext = (
 
 /**
  * Start a transaction (for performance monitoring)
+ * Note: In Sentry v8+, transactions are handled automatically via instrumentation
+ * Use Sentry.startSpan() directly if needed for custom transactions
  */
 export const startTransaction = (
   name: string,
   op: string = "navigation"
-): Sentry.Transaction | null => {
+): any => {
   if (!isSentryEnabled()) return null;
   
-  return Sentry.startTransaction({
-    name,
-    op,
-  });
+  // In Sentry v8+, use startSpan for custom transactions
+  // Automatic instrumentation handles most transactions
+  try {
+    if (typeof (Sentry as any).startSpan === 'function') {
+      return (Sentry as any).startSpan({ name, op }, () => {});
+    }
+  } catch (e) {
+    // Silently fail if not available
+  }
+  
+  return null;
 };
 
 // Export Sentry for advanced usage
