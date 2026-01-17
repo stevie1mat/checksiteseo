@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { analytics } from "@/lib/analytics"
 import {
     Dialog,
     DialogContent,
@@ -49,6 +50,8 @@ export function AuthDialog({ defaultView = "signin", trigger, open, onOpenChange
         const supabase = createClient()
 
         if (view === "signup") {
+            analytics.trackSignupStarted()
+            
             const { error } = await supabase.auth.signUp({
                 email,
                 password,
@@ -58,19 +61,25 @@ export function AuthDialog({ defaultView = "signin", trigger, open, onOpenChange
             })
 
             if (error) {
+                analytics.trackSignupFailed(error.message)
                 setError(error.message)
             } else {
+                analytics.trackSignupCompleted('email')
                 setSuccessMsg("Account created! Please check your email to confirm.")
             }
         } else {
+            analytics.trackSigninStarted()
+            
             const { error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             })
 
             if (error) {
+                analytics.trackSigninFailed(error.message)
                 setError(error.message)
             } else {
+                analytics.trackSigninCompleted('email')
                 router.push("/dashboard")
                 router.refresh()
                 if (onOpenChange) onOpenChange(false)

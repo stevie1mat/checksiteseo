@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Check, Sparkles, AlertCircle, Download, XCircle, Bot, FileText, Code, AlignLeft, Search, Lock, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
+import { analytics } from "@/lib/analytics"
 
 type AnalysisResult = {
     url: string
@@ -49,6 +50,9 @@ export function HeroSection() {
         setError("")
         setResult(null)
 
+        // Track scan started
+        analytics.trackScanStarted(url)
+
         try {
             const res = await fetch("http://127.0.0.1:8000/analyze", {
                 method: "POST",
@@ -61,6 +65,9 @@ export function HeroSection() {
 
             setScanStatus('complete')
 
+            // Track scan completed
+            analytics.trackScanCompleted(url, data.total_score || data.score)
+
             // Small delay to show complete state before showing results
             setTimeout(() => {
                 setResult(data)
@@ -69,8 +76,13 @@ export function HeroSection() {
             }, 1500)
 
         } catch (err: any) {
-            setError(err.message || "An error occurred.")
+            const errorMessage = err.message || "An error occurred."
+            setError(errorMessage)
             setScanStatus('error')
+            
+            // Track scan failed
+            analytics.trackScanFailed(url, errorMessage)
+            
             // Don't close immediately on error so user can see it
             setTimeout(() => setLoading(false), 3000)
         }

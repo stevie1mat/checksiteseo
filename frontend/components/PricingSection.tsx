@@ -4,6 +4,7 @@ import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { analytics } from "@/lib/analytics";
 
 export function PricingSection({
     currentPlan = "free",
@@ -91,6 +92,9 @@ export function PricingSection({
             router.push("/dashboard");
             return;
         }
+
+        // Track upgrade started
+        analytics.trackUpgradePlanStarted(planId);
 
         try {
             setLoading(planId);

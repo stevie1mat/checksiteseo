@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Rocket, ShieldCheck, Sparkles } from "lucide-react";
+import { analytics } from "@/lib/analytics";
 
 export function SignUpForm() {
     const router = useRouter();
@@ -19,6 +20,9 @@ export function SignUpForm() {
         event.preventDefault();
         setLoading(true);
         setError(null);
+
+        // Track signup started
+        analytics.trackSignupStarted();
 
         const formData = new FormData(event.currentTarget);
         const email = formData.get("email") as string;
@@ -35,9 +39,11 @@ export function SignUpForm() {
 
         if (error) {
             setError(error.message);
+            analytics.trackSignupFailed(error.message);
             setLoading(false);
         } else {
             setSuccess(true);
+            analytics.trackSignupCompleted('email');
             setLoading(false);
         }
     }

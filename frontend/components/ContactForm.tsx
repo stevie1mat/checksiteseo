@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
+import { analytics } from "@/lib/analytics";
 
 export function ContactForm() {
     const [loading, setLoading] = useState(false);
@@ -29,6 +30,9 @@ export function ContactForm() {
 
             if (!res.ok) throw new Error("Failed to send message");
 
+            // Track contact form submission
+            analytics.trackContactFormSubmitted();
+            
             alert("Message sent successfully!");
             (e.target as HTMLFormElement).reset();
         } catch (error) {

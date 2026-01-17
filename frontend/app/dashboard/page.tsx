@@ -6,6 +6,7 @@ import Link from "next/link"
 import { RescanButton } from "@/components/dashboard/RescanButton"
 import { SiteHealthGrid } from "@/components/dashboard/views/SiteHealthGrid"
 import { DashboardStats } from "@/components/dashboard/views/DashboardStats"
+import { DashboardTracker } from "@/components/dashboard/DashboardTracker"
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +34,7 @@ export default async function DashboardPage() {
 
     return (
         <div className="space-y-8 w-full p-6">
+            <DashboardTracker />
             {/* Header Section with Background */}
             <div className="bg-slate-50 border-b border-slate-200 -mt-4 -mx-4 px-8 py-8 mb-8">
                 <div className="flex items-center justify-between px-4">

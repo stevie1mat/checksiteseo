@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { analytics } from "@/lib/analytics";
 
 export function SignInForm() {
     const router = useRouter();
@@ -24,6 +25,9 @@ export function SignInForm() {
         event.preventDefault();
         setLoading(true);
         setError(null);
+
+        // Track signin started
+        analytics.trackSigninStarted();
 
         const formData = new FormData(event.currentTarget);
         const email = formData.get("email") as string;
@@ -66,11 +70,13 @@ export function SignInForm() {
             }
 
             // No MFA required, proceed
+            analytics.trackSigninCompleted('email');
             router.push("/dashboard");
             router.refresh();
 
         } catch (error: any) {
             setError(error.message);
+            analytics.trackSigninFailed(error.message);
             setLoading(false);
         }
     }

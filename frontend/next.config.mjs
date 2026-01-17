@@ -29,10 +29,10 @@ const nextConfig = {
                         key: 'Permissions-Policy',
                         value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()'
                     },
-                    {
-                        key: 'Content-Security-Policy',
-                        value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://m.stripe.network https://*.supabase.co https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' blob: data: https://*.stripe.com https://*.supabase.co; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:8000 https://api.checksiteaeo.com https://*.supabase.co https://api.stripe.com https://m.stripe.network; frame-src 'self' https://js.stripe.com https://hooks.stripe.com;"
-                    }
+                        {
+                            key: 'Content-Security-Policy',
+                            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://m.stripe.network https://*.supabase.co https://va.vercel-scripts.com https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' blob: data: https://*.stripe.com https://*.supabase.co https://www.google-analytics.com https://www.googletagmanager.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:8000 https://api.checksiteaeo.com https://*.supabase.co https://api.stripe.com https://m.stripe.network https://www.google-analytics.com https://www.googletagmanager.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com;"
+                        }
                 ]
             }
         ]
