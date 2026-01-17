@@ -120,13 +120,13 @@ def ensure_tables_exist():
         print(f"⚠️ Database initialization failed (non-critical): {e}")
         print("⚠️ App will continue with in-memory scheduler. Database features may be limited.")
 
-def initialize_scheduler_with_db():
-    """Try to upgrade scheduler to use database. Non-blocking."""
+def verify_database_connection():
+    """Verify database connection is available. Non-blocking."""
     if not DATABASE_URL:
         return False
     
     try:
-        # Test connection first
+        # Test connection with timeout
         engine = create_engine(
             DATABASE_URL,
             poolclass=NullPool,
@@ -136,14 +136,11 @@ def initialize_scheduler_with_db():
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         
-        # If connection works, upgrade scheduler
-        # Note: We can't easily swap schedulers after startup, so we'll just log success
-        # The scheduler will use in-memory mode, but database operations will work
-        print("✅ Database connection verified. Scheduler will use in-memory mode but can access DB.")
+        print("✅ Database connection verified.")
         return True
     except Exception as e:
         print(f"⚠️ Could not verify database connection: {e}")
-        print("⚠️ Using in-memory scheduler. Database features may be limited.")
+        print("⚠️ App will continue with in-memory scheduler. Database features may be limited.")
         return False
 
 # CORS Setup
@@ -167,12 +164,12 @@ async def startup_event():
     # Try to initialize database (non-blocking)
     ensure_tables_exist()
     
-    # Try to upgrade to database-backed scheduler (non-blocking)
-    # This happens in background so app can start even if DB is temporarily unavailable
+    # Verify database connection (non-blocking)
+    # This happens after startup so app can start even if DB is temporarily unavailable
     try:
-        initialize_scheduler_with_db()
+        verify_database_connection()
     except Exception as e:
-        print(f"⚠️ Scheduler upgrade failed (non-critical): {e}")
+        print(f"⚠️ Database verification failed (non-critical): {e}")
         print("⚠️ Continuing with in-memory scheduler.")
     
     # Log pending jobs
