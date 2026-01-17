@@ -18,6 +18,8 @@ if (ENABLE_MIXPANEL && MIXPANEL_TOKEN) {
       track_pageview: false, // We'll track pageviews manually
       persistence: "localStorage",
       ignore_dnt: false, // Respect Do Not Track
+      autocapture: true, // Automatically capture clicks, form submissions, etc.
+      record_sessions_percent: 100, // Record 100% of sessions
     });
   } catch (error) {
     console.warn("Failed to initialize Mixpanel:", error);
