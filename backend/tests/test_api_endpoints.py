@@ -1,14 +1,24 @@
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 from main import app, get_optional_current_user
 
 # Mock Dependencies
+class MockUser:
+    def __init__(self):
+        self.id = "test-user-id"
+        self.email = "test@example.com"
+
 async def mock_get_user():
-    return {"id": "test-user-id", "email": "test@example.com"}
+    return MockUser()
 
 # Override dependency
 app.dependency_overrides[get_optional_current_user] = mock_get_user
+app.dependency_overrides["get_current_user"] = mock_get_user # Functionally same for test
+
+from main import get_current_user
+app.dependency_overrides[get_current_user] = mock_get_user
+
 
 client = TestClient(app)
 
@@ -30,12 +40,27 @@ def mock_analyze_readiness():
 @pytest.fixture
 def mock_supabase():
     with patch("main.supabase") as mock:
-        # Mock site existence check
-        mock.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
-            {"id": "site-123", "user_id": "test-user-id", "status": "completed"}
-        ]
-        # Mock site list for limits
-        mock.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+        # Generic mock setup for chaining
+        # The key is that we need to return 'self' for intermediate calls
+        # and a final object with .data for execute()
+        
+        mock_query = MagicMock()
+        mock_query.data = [{"id": "site-123", "user_id": "test-user-id", "status": "completed"}]
+        
+        # Configure the chain
+        # supabase.table().select().eq() ... .execute()
+        mock.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_query
+        
+        # Handle multiple .eq calls (chaining)
+        # e.g. .eq().eq().execute()
+        mock.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_query
+        
+        # Handle .in_() calls
+        mock.table.return_value.select.return_value.eq.return_value.in_.return_value.execute.return_value = mock_query
+        
+        # Site Update
+        mock.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        
         yield mock
 
 def test_analyze_endpoint_guest(mock_analyze_readiness):
