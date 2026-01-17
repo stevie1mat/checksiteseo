@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { analytics } from "@/lib/analytics";
+import { GoogleSignInButton } from "./GoogleSignInButton";
 
 export function SignInForm() {
     const router = useRouter();
@@ -157,6 +158,17 @@ export function SignInForm() {
                             <Button disabled={loading} className="w-full bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold h-11 text-lg">
                                 {loading ? "Signing in..." : "Sign In"}
                             </Button>
+
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <span className="w-full border-t border-white/10" />
+                                </div>
+                                <div className="relative flex justify-center text-xs uppercase">
+                                    <span className="bg-[#1a3028] px-2 text-white/40">Or continue with</span>
+                                </div>
+                            </div>
+
+                            <GoogleSignInButton mode="signin" />
                         </form>
                     ) : (
                         <form onSubmit={handleVerifyMFA} className="space-y-4">

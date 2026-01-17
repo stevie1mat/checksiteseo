@@ -6,6 +6,7 @@ import { Analytics } from "@/components/Analytics"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { SentryInit } from "@/components/SentryInit"
+import { KeepAlivePinger } from "@/components/KeepAlivePinger"
 
 const playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-serif' });
 const inter = Inter({ subsets: ["latin"], variable: '--font-sans' });
@@ -91,6 +92,7 @@ export default function RootLayout({
         />
         <ErrorBoundary>
           <SentryInit />
+          <KeepAlivePinger />
           {children}
           <Toaster />
           <Analytics />
