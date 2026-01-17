@@ -3,6 +3,8 @@ import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster"
 import { Analytics } from "@/components/Analytics"
+import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 
 const playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-serif' });
 const inter = Inter({ subsets: ["latin"], variable: '--font-sans' });
@@ -86,9 +88,12 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        {children}
-        <Toaster />
-        <Analytics />
+        <ErrorBoundary>
+          {children}
+          <Toaster />
+          <Analytics />
+          <GlobalErrorHandler />
+        </ErrorBoundary>
       </body>
     </html>
   );

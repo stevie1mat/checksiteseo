@@ -54,7 +54,8 @@ export function HeroSection() {
         analytics.trackScanStarted(url)
 
         try {
-            const res = await fetch("http://127.0.0.1:8000/analyze", {
+            const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const res = await fetch(`${BACKEND_URL}/analyze`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ url, sync: true }),

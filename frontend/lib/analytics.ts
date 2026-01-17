@@ -1,9 +1,16 @@
 /**
- * Google Analytics 4 (GA4) Event Tracking
+ * Unified Analytics & Error Tracking
  * 
- * This utility provides a type-safe way to track events across the application.
- * Events are only sent if NEXT_PUBLIC_GA_MEASUREMENT_ID is configured.
+ * This utility provides a type-safe way to track events across multiple analytics platforms:
+ * - Google Analytics 4 (GA4)
+ * - Mixpanel (Product Analytics)
+ * - Sentry (Error Tracking)
+ * 
+ * Events are only sent if the respective service tokens are configured.
  */
+
+import { trackMixpanelEvent, trackPageView as trackMixpanelPageView, identifyUser as mixpanelIdentify, setUserProperties as mixpanelSetUserProperties } from './mixpanel';
+import { captureException, captureMessage, setUserContext as sentrySetUserContext, clearUserContext as sentryClearUserContext, addBreadcrumb } from './sentry';
 
 declare global {
   interface Window {
@@ -46,26 +53,42 @@ export const initGA = (): void => {
 };
 
 /**
- * Track a page view
+ * Track a page view across all analytics platforms
  */
 export const trackPageView = (url: string): void => {
-  if (!isAnalyticsEnabled()) return;
-
-  window.gtag?.('config', GA_MEASUREMENT_ID!, {
-    page_path: url,
+  // Google Analytics
+  if (isAnalyticsEnabled()) {
+    window.gtag?.('config', GA_MEASUREMENT_ID!, {
+      page_path: url,
+    });
+  }
+  
+  // Mixpanel
+  trackMixpanelPageView(url.split('?')[0], {
+    url,
   });
+  
+  // Sentry breadcrumb
+  addBreadcrumb(`Page view: ${url}`, 'navigation', 'info', { url });
 };
 
 /**
- * Track a custom event
+ * Track a custom event across all analytics platforms
  */
 export const trackEvent = (
   eventName: string,
   eventParams?: Record<string, any>
 ): void => {
-  if (!isAnalyticsEnabled()) return;
-
-  window.gtag?.('event', eventName, eventParams);
+  // Google Analytics
+  if (isAnalyticsEnabled()) {
+    window.gtag?.('event', eventName, eventParams);
+  }
+  
+  // Mixpanel
+  trackMixpanelEvent(eventName, eventParams);
+  
+  // Sentry breadcrumb
+  addBreadcrumb(`Event: ${eventName}`, 'user', 'info', eventParams);
 };
 
 // Predefined event types for type safety
@@ -237,5 +260,25 @@ export const analytics = {
       error,
       ...errorInfo,
     });
+    
+    // Also send to Sentry
+    captureMessage(error, 'error', errorInfo);
+  },
+  
+  // User identification (for Mixpanel and Sentry)
+  identifyUser: (userId: string, userProperties?: Record<string, any>) => {
+    // Mixpanel
+    mixpanelIdentify(userId, userProperties);
+    
+    // Sentry
+    sentrySetUserContext({
+      id: userId,
+      ...userProperties,
+    });
+  },
+  
+  // Clear user (on logout)
+  clearUser: () => {
+    sentryClearUserContext();
   },
 };
