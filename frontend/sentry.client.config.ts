@@ -30,10 +30,6 @@ if (typeof window === "undefined") {
     if (typeof Sentry.replayIntegration === 'function') {
       replayIntegration = Sentry.replayIntegration;
       enableReplay = true;
-    } else if ((Sentry as any).Replay) {
-      // Fallback for older API
-      replayIntegration = (Sentry as any).Replay;
-      enableReplay = true;
     }
   } catch (e) {
     // Replay not available
@@ -47,9 +43,6 @@ if (typeof window === "undefined") {
   try {
     if (typeof Sentry.browserTracingIntegration === 'function') {
       browserTracingIntegration = Sentry.browserTracingIntegration;
-    } else if ((Sentry as any).BrowserTracing) {
-      // Fallback for older API
-      browserTracingIntegration = (Sentry as any).BrowserTracing;
     }
   } catch (e) {
     if (ENVIRONMENT === "development") {
