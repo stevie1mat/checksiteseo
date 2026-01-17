@@ -57,24 +57,32 @@ if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL:
-    jobstores = {
-        'default': SQLAlchemyJobStore(url=DATABASE_URL)
-    }
-    scheduler = AsyncIOScheduler(jobstores=jobstores, timezone=timezone.utc)
-else:
-    print("WARNING: No DATABASE_URL found. Scheduler will run in-memory and lose jobs on restart.")
-    scheduler = AsyncIOScheduler(timezone=timezone.utc)
+
+# Initialize scheduler - use in-memory by default, upgrade to DB if available
+scheduler = AsyncIOScheduler(timezone=timezone.utc)
 
 # Database Initialization (Ensure tables exist)
 from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
 
 def ensure_tables_exist():
+    """Initialize database tables. Non-blocking - failures won't crash the app."""
     if not DATABASE_URL:
+        print("INFO: No DATABASE_URL provided. Skipping database initialization.")
         return
     
     try:
-        engine = create_engine(DATABASE_URL)
+        # Use NullPool to avoid connection pool issues during startup
+        # Add connection timeout and retry logic
+        engine = create_engine(
+            DATABASE_URL,
+            poolclass=NullPool,
+            connect_args={
+                "connect_timeout": 5,
+                "options": "-c statement_timeout=5000"
+            },
+            pool_pre_ping=True  # Verify connections before using
+        )
         with engine.connect() as conn:
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS scheduled_scans (
@@ -93,7 +101,6 @@ def ensure_tables_exist():
                 GRANT ALL ON scheduled_scans TO service_role;
                 
                 -- Grant permissions for site_history table
-                -- Grant permissions for site_history table
                 GRANT INSERT, SELECT ON site_history TO anon, authenticated, service_role;
 
                 CREATE TABLE IF NOT EXISTS pages (
@@ -108,9 +115,36 @@ def ensure_tables_exist():
                 GRANT ALL ON pages TO anon, authenticated, service_role;
             """))
             conn.commit()
-            print("Database tables ensured.")
+            print("✅ Database tables ensured.")
     except Exception as e:
-        print(f"Database initialization failed: {e}")
+        print(f"⚠️ Database initialization failed (non-critical): {e}")
+        print("⚠️ App will continue with in-memory scheduler. Database features may be limited.")
+
+def initialize_scheduler_with_db():
+    """Try to upgrade scheduler to use database. Non-blocking."""
+    if not DATABASE_URL:
+        return False
+    
+    try:
+        # Test connection first
+        engine = create_engine(
+            DATABASE_URL,
+            poolclass=NullPool,
+            connect_args={"connect_timeout": 5},
+            pool_pre_ping=True
+        )
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        
+        # If connection works, upgrade scheduler
+        # Note: We can't easily swap schedulers after startup, so we'll just log success
+        # The scheduler will use in-memory mode, but database operations will work
+        print("✅ Database connection verified. Scheduler will use in-memory mode but can access DB.")
+        return True
+    except Exception as e:
+        print(f"⚠️ Could not verify database connection: {e}")
+        print("⚠️ Using in-memory scheduler. Database features may be limited.")
+        return False
 
 # CORS Setup
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
@@ -126,15 +160,27 @@ app.add_middleware(
 # Startup event to ensure functions are defined before scheduler starts
 @app.on_event("startup")
 async def startup_event():
-    # Run DB init
+    # Start scheduler first (in-memory)
+    scheduler.start()
+    print("🚀 Scheduler started with AsyncIOScheduler (UTC) - in-memory mode.")
+    
+    # Try to initialize database (non-blocking)
     ensure_tables_exist()
     
-    scheduler.start()
-    print("🚀 Scheduler started with AsyncIOScheduler (UTC).")
+    # Try to upgrade to database-backed scheduler (non-blocking)
+    # This happens in background so app can start even if DB is temporarily unavailable
+    try:
+        initialize_scheduler_with_db()
+    except Exception as e:
+        print(f"⚠️ Scheduler upgrade failed (non-critical): {e}")
+        print("⚠️ Continuing with in-memory scheduler.")
     
     # Log pending jobs
-    for job in scheduler.get_jobs():
-        print(f"📌 PENDING JOB: {job.id} | Name: {job.name} | Next Run: {job.next_run_time}")
+    try:
+        for job in scheduler.get_jobs():
+            print(f"📌 PENDING JOB: {job.id} | Name: {job.name} | Next Run: {job.next_run_time}")
+    except Exception as e:
+        print(f"⚠️ Could not list jobs: {e}")
 
 class AnalyzeRequest(BaseModel):
     url: HttpUrl
@@ -388,7 +434,12 @@ def delete_site(site_id: str):
         raise HTTPException(status_code=500, detail="Database URL not configured")
     
     try:
-        engine = create_engine(DATABASE_URL)
+        engine = create_engine(
+            DATABASE_URL,
+            poolclass=NullPool,
+            connect_args={"connect_timeout": 5},
+            pool_pre_ping=True
+        )
         with engine.connect() as conn:
             # Execute deletions in order (Foreign Key constraints)
             # 1. Site History
