@@ -8,17 +8,24 @@
 import * as Sentry from "@sentry/nextjs";
 
 // Check if replay integration is available
-// In some Sentry versions, it might be in a different location
+// In some Sentry versions, it might not be available or have a different API
 let replayIntegration: any = null;
+let enableReplay = false;
+
 try {
   if (typeof Sentry.replayIntegration === 'function') {
     replayIntegration = Sentry.replayIntegration;
+    enableReplay = true;
   } else if ((Sentry as any).Replay) {
     // Fallback for older API
     replayIntegration = (Sentry as any).Replay;
+    enableReplay = true;
   }
 } catch (e) {
-  // Replay not available
+  // Replay not available - will disable replay features
+  if (typeof window !== "undefined" && ENVIRONMENT === "development") {
+    console.warn("⚠️ Sentry replay integration not available. Session replay disabled.");
+  }
 }
 
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
@@ -40,9 +47,11 @@ if (SENTRY_DSN) {
     // Set sample rate for profiling
     profilesSampleRate: ENVIRONMENT === "production" ? 0.1 : 1.0,
     
-    // Enable session replay (only if DSN is configured)
-    replaysSessionSampleRate: ENVIRONMENT === "production" ? 0.1 : 0.5,
-    replaysOnErrorSampleRate: 1.0,
+    // Enable session replay (only if DSN is configured and integration is available)
+    ...(enableReplay ? {
+      replaysSessionSampleRate: ENVIRONMENT === "production" ? 0.1 : 0.5,
+      replaysOnErrorSampleRate: 1.0,
+    } : {}),
   
   // Filter out sensitive data
   beforeSend(event, hint) {
