@@ -7,6 +7,20 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+// Check if replay integration is available
+// In some Sentry versions, it might be in a different location
+let replayIntegration: any = null;
+try {
+  if (typeof Sentry.replayIntegration === 'function') {
+    replayIntegration = Sentry.replayIntegration;
+  } else if ((Sentry as any).Replay) {
+    // Fallback for older API
+    replayIntegration = (Sentry as any).Replay;
+  }
+} catch (e) {
+  // Replay not available
+}
+
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
 const ENVIRONMENT = process.env.NODE_ENV || "development";
 
@@ -47,17 +61,18 @@ if (SENTRY_DSN) {
   
   // Integrations
   integrations: [
-    // Only enable replay if DSN is configured
-    ...(SENTRY_DSN ? [
-      Sentry.replayIntegration({
-        maskAllText: true,
-        blockAllMedia: true,
-      }),
-    ] : []),
+    // Browser tracing integration
     Sentry.browserTracingIntegration({
       // Disable automatic instrumentation to avoid conflicts
       enableInp: false,
     }),
+    // Session replay integration (only if available)
+    ...(replayIntegration ? [
+      replayIntegration({
+        maskAllText: true,
+        blockAllMedia: true,
+      }),
+    ] : []),
   ],
   
   // Ignore specific errors
