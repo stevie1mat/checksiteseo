@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // Enable Sentry instrumentation
+    // This is required for Sentry to work with Next.js App Router
+    experimental: {
+        instrumentationHook: true,
+    },
+    
     async headers() {
         return [
             {

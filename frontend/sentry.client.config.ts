@@ -10,8 +10,9 @@ import * as Sentry from "@sentry/nextjs";
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
 const ENVIRONMENT = process.env.NODE_ENV || "development";
 
-// Only initialize if DSN is provided
-if (SENTRY_DSN) {
+// Only initialize if DSN is provided and we're in the browser
+if (SENTRY_DSN && typeof window !== "undefined") {
+  console.log("🔧 Initializing Sentry client...");
   Sentry.init({
     dsn: SENTRY_DSN,
     environment: ENVIRONMENT,
@@ -81,6 +82,9 @@ if (SENTRY_DSN) {
       /^chrome-extension:\/\//i,
     ],
   });
+  
+  console.log("✅ Sentry client initialized successfully");
 } else if (typeof window !== "undefined" && ENVIRONMENT === "development") {
   console.warn("⚠️ Sentry DSN not configured. Error tracking disabled.");
+  console.warn("⚠️ DSN value:", SENTRY_DSN ? "Present" : "Missing");
 }

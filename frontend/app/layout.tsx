@@ -6,6 +6,10 @@ import { Analytics } from "@/components/Analytics"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 
+// Import Sentry client config to ensure it's loaded
+// This is required for client-side error tracking
+import "../sentry.client.config"
+
 const playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-serif' });
 const inter = Inter({ subsets: ["latin"], variable: '--font-sans' });
 
