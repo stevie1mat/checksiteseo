@@ -10,8 +10,22 @@ import mixpanel from "mixpanel-browser";
 const MIXPANEL_TOKEN = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN;
 const ENABLE_MIXPANEL = typeof window !== "undefined" && !!MIXPANEL_TOKEN;
 
-// Initialize Mixpanel
-if (ENABLE_MIXPANEL && MIXPANEL_TOKEN) {
+// Initialize Mixpanel - only in browser
+let mixpanelInitialized = false;
+
+function initializeMixpanel() {
+  // Only initialize once
+  if (mixpanelInitialized) return;
+  
+  if (typeof window === "undefined") return;
+  
+  if (!MIXPANEL_TOKEN) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("⚠️ Mixpanel token not found. Set NEXT_PUBLIC_MIXPANEL_TOKEN in .env.local");
+    }
+    return;
+  }
+
   try {
     mixpanel.init(MIXPANEL_TOKEN, {
       debug: process.env.NODE_ENV === "development",
@@ -20,22 +34,39 @@ if (ENABLE_MIXPANEL && MIXPANEL_TOKEN) {
       ignore_dnt: false, // Respect Do Not Track
       autocapture: true, // Automatically capture clicks, form submissions, etc.
       record_sessions_percent: 100, // Record 100% of sessions
+      loaded: (mixpanel) => {
+        // Callback when Mixpanel is loaded
+        if (process.env.NODE_ENV === "development") {
+          console.log("✅ Mixpanel loaded and ready");
+        }
+        // Send a test event to verify connection
+        mixpanel.track("Mixpanel Initialized", {
+          timestamp: new Date().toISOString(),
+          test: true,
+          source: "browser_init"
+        });
+      }
     });
     
-    // Log initialization in development
+    mixpanelInitialized = true;
+    
     if (process.env.NODE_ENV === "development") {
-      console.log("✅ Mixpanel initialized successfully");
-      // Send a test event to verify connection
-      mixpanel.track("Mixpanel Initialized", {
-        timestamp: new Date().toISOString(),
-        test: true
-      });
+      console.log("✅ Mixpanel initialization started with token:", MIXPANEL_TOKEN.substring(0, 12) + "...");
     }
   } catch (error) {
     console.error("❌ Failed to initialize Mixpanel:", error);
+    mixpanelInitialized = false;
   }
-} else if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
-  console.warn("⚠️ Mixpanel not enabled. Set NEXT_PUBLIC_MIXPANEL_TOKEN in .env.local");
+}
+
+// Initialize when module loads (if in browser)
+if (typeof window !== "undefined") {
+  // Use requestIdleCallback or setTimeout to ensure DOM is ready
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(initializeMixpanel, { timeout: 1000 });
+  } else {
+    setTimeout(initializeMixpanel, 0);
+  }
 }
 
 /**
@@ -65,12 +96,32 @@ export const trackMixpanelEvent = (
   eventName: string,
   properties?: Record<string, any>
 ): void => {
-  if (!ENABLE_MIXPANEL) return;
+  if (typeof window === "undefined") return;
   
-  mixpanel.track(eventName, {
-    ...properties,
-    timestamp: new Date().toISOString(),
-  });
+  // Ensure Mixpanel is initialized
+  if (!mixpanelInitialized && MIXPANEL_TOKEN) {
+    initializeMixpanel();
+  }
+  
+  if (!ENABLE_MIXPANEL || !MIXPANEL_TOKEN) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("⚠️ Mixpanel not enabled. Event not tracked:", eventName);
+    }
+    return;
+  }
+  
+  try {
+    mixpanel.track(eventName, {
+      ...properties,
+      timestamp: new Date().toISOString(),
+    });
+    
+    if (process.env.NODE_ENV === "development") {
+      console.log("📊 Mixpanel event tracked:", eventName, properties);
+    }
+  } catch (error) {
+    console.error("❌ Failed to track Mixpanel event:", error);
+  }
 };
 
 /**
@@ -95,13 +146,24 @@ export const incrementUserProperty = (property: string, value: number = 1): void
  * Track page view
  */
 export const trackPageView = (pageName: string, properties?: Record<string, any>): void => {
-  if (!ENABLE_MIXPANEL) return;
+  if (typeof window === "undefined") return;
   
-  mixpanel.track("Page Viewed", {
-    page_name: pageName,
-    page_url: typeof window !== "undefined" ? window.location.href : "",
-    ...properties,
-  });
+  // Ensure Mixpanel is initialized
+  if (!mixpanelInitialized && MIXPANEL_TOKEN) {
+    initializeMixpanel();
+  }
+  
+  if (!ENABLE_MIXPANEL || !MIXPANEL_TOKEN) return;
+  
+  try {
+    mixpanel.track("Page Viewed", {
+      page_name: pageName,
+      page_url: window.location.href,
+      ...properties,
+    });
+  } catch (error) {
+    console.error("❌ Failed to track page view:", error);
+  }
 };
 
 /**
