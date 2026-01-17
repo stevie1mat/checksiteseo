@@ -5,10 +5,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { Analytics } from "@/components/Analytics"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
-
-// Import Sentry client config to ensure it's loaded
-// This is required for client-side error tracking
-import "../sentry.client.config"
+import { SentryInit } from "@/components/SentryInit"
 
 const playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-serif' });
 const inter = Inter({ subsets: ["latin"], variable: '--font-sans' });
@@ -93,6 +90,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <ErrorBoundary>
+          <SentryInit />
           {children}
           <Toaster />
           <Analytics />

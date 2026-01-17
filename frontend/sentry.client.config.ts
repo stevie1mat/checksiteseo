@@ -68,21 +68,8 @@ if (SENTRY_DSN) {
     return event;
   },
   
-  // Integrations
-  integrations: [
-    // Browser tracing integration
-    Sentry.browserTracingIntegration({
-      // Disable automatic instrumentation to avoid conflicts
-      enableInp: false,
-    }),
-    // Session replay integration (only if available)
-    ...(replayIntegration ? [
-      replayIntegration({
-        maskAllText: true,
-        blockAllMedia: true,
-      }),
-    ] : []),
-  ],
+    // Integrations
+    integrations,
   
   // Ignore specific errors
   ignoreErrors: [
