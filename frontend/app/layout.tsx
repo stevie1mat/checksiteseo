@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster"
-import { Analytics } from "@/components/Analytics"
+import { Analytics as CustomAnalytics } from "@/components/Analytics"
+import { Analytics as VercelAnalytics } from "@vercel/analytics/next"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { SentryInit } from "@/components/SentryInit"
@@ -95,7 +96,8 @@ export default function RootLayout({
           <KeepAlivePinger />
           {children}
           <Toaster />
-          <Analytics />
+          <CustomAnalytics />
+          <VercelAnalytics />
           <GlobalErrorHandler />
         </ErrorBoundary>
       </body>
