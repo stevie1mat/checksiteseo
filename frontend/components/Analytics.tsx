@@ -3,13 +3,14 @@
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { initGA, trackPageView, isAnalyticsEnabled } from '@/lib/analytics'
+import { isMixpanelEnabled } from '@/lib/mixpanel'
 
 /**
  * Analytics Component
  * 
  * This component:
  * 1. Initializes Google Analytics on mount
- * 2. Tracks page views on route changes
+ * 2. Tracks page views on route changes (GA + Mixpanel)
  * 
  * Add this component to your root layout.
  */
@@ -21,11 +22,16 @@ export function Analytics() {
     if (!isAnalyticsEnabled()) {
       initGA()
     }
+    
+    // Log Mixpanel status in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mixpanel enabled:', isMixpanelEnabled())
+    }
   }, [])
 
   useEffect(() => {
-    // Track page views on route changes
-    if (isAnalyticsEnabled() && pathname) {
+    // Track page views on route changes (sends to both GA and Mixpanel)
+    if (pathname) {
       trackPageView(pathname)
     }
   }, [pathname])

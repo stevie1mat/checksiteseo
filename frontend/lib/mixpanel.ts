@@ -21,9 +21,21 @@ if (ENABLE_MIXPANEL && MIXPANEL_TOKEN) {
       autocapture: true, // Automatically capture clicks, form submissions, etc.
       record_sessions_percent: 100, // Record 100% of sessions
     });
+    
+    // Log initialization in development
+    if (process.env.NODE_ENV === "development") {
+      console.log("✅ Mixpanel initialized successfully");
+      // Send a test event to verify connection
+      mixpanel.track("Mixpanel Initialized", {
+        timestamp: new Date().toISOString(),
+        test: true
+      });
+    }
   } catch (error) {
-    console.warn("Failed to initialize Mixpanel:", error);
+    console.error("❌ Failed to initialize Mixpanel:", error);
   }
+} else if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  console.warn("⚠️ Mixpanel not enabled. Set NEXT_PUBLIC_MIXPANEL_TOKEN in .env.local");
 }
 
 /**
