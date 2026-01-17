@@ -10,9 +10,12 @@ import * as Sentry from "@sentry/nextjs";
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
 const ENVIRONMENT = process.env.NODE_ENV || "development";
 
-// Only initialize if DSN is provided and we're in the browser
-if (SENTRY_DSN && typeof window !== "undefined") {
-  console.log("🔧 Initializing Sentry client...");
+// Only initialize if DSN is provided
+// This file runs in the browser, so window is always available
+if (SENTRY_DSN) {
+  if (typeof window !== "undefined") {
+    console.log("🔧 Initializing Sentry client...");
+  }
   Sentry.init({
     dsn: SENTRY_DSN,
     environment: ENVIRONMENT,
