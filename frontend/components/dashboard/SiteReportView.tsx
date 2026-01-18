@@ -169,7 +169,7 @@ export function SiteReportView({ domain, initialReport, siteId, tier = 'free' }:
             <div className="mt-8">
                 {/* 0. EXECUTIVE SUMMARY (Overview Only) */}
                 {(activeTab === 'overview') && (
-                    <OverviewTab activeReport={activeReport} setActiveTab={setActiveTab} siteId={siteId} tier={tier} />
+                    <OverviewTab activeReport={activeReport} setActiveTab={setActiveTab} siteId={siteId} tier={tier} domain={domain} />
                 )}
 
                 {/* 1. TECHNICAL VIEW */}

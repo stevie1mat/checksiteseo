@@ -12,11 +12,12 @@ interface OverviewTabProps {
     setActiveTab: (tab: 'overview' | 'technical' | 'content' | 'authority') => void
     siteId?: string
     tier?: string
+    domain?: string
 }
 
 // ... imports remain the same
 
-export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free' }: OverviewTabProps) {
+export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free', domain }: OverviewTabProps) {
     const { toast } = useToast()
     const isFree = tier === 'free'
 
@@ -31,9 +32,24 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free' 
             })
             return
         }
-        if (!userEmail || !domain) return;
-        // ... existing logic
+        // TODO: Implement schedule scan logic
     };
+
+    const handleCancelScan = async () => {
+        if (isFree) {
+            toast({
+                title: "Upgrade required",
+                description: "Weekly monitoring is available on the Plus plan.",
+                variant: "destructive"
+            })
+            return
+        }
+        // TODO: Implement cancel scan logic
+    };
+
+    const hasPendingScan = false; // TODO: Get from state/API
+    const isScheduling = false; // TODO: Get from state
+    const isCancelling = false; // TODO: Get from state
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -382,7 +398,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free' 
                             {/* User Query */}
                             <div className="flex gap-2 justify-end">
                                 <div className="bg-slate-100 text-slate-700 text-xs py-2 px-3 rounded-2xl rounded-tr-sm max-w-[85%] shadow-sm">
-                                    {activeReport.authority?.ai_preview?.query || `Who is the best choice for ${domain}?`}
+                                    {activeReport.authority?.ai_preview?.query || (domain ? `Who is the best choice for ${domain}?` : 'Who is the best choice?')}
                                 </div>
                                 <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
                                     <span className="text-[10px] font-bold text-slate-500">U</span>
