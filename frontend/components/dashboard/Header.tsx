@@ -77,10 +77,7 @@ export function DashboardHeader({ userEmail }: { userEmail?: string }) {
                             </div>
                         )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
-                            <User className="mr-2 h-4 w-4" />
-                            Profile
-                        </DropdownMenuItem>
+
                         <DropdownMenuItem onClick={() => router.push('/dashboard/billing')}>
                             <CreditCard className="mr-2 h-4 w-4" />
                             Billing

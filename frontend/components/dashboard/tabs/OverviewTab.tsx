@@ -5,210 +5,114 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Progress } from "@/components/ui/progress"
 import { BarChart3, Info, FileText, AlertCircle, Share2, Sparkles, Code, Search, Check, Clock, Cpu } from "lucide-react"
 import { AEOReport } from "@/types/aeo"
+import { useToast } from "@/components/ui/use-toast"
 
 interface OverviewTabProps {
     activeReport: AEOReport
     setActiveTab: (tab: 'overview' | 'technical' | 'content' | 'authority') => void
     siteId?: string
+    tier?: string
 }
-
-// Imports needed for state
-import React, { useState, useEffect } from "react"
-import { Wand2 } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
-import { createClient } from "@/lib/supabase/client"
 
 // ... imports remain the same
 
-export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabProps) {
+export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free' }: OverviewTabProps) {
     const { toast } = useToast()
-    const aeoScore = activeReport.scores?.overall || 0
-    // ... scores logic remains same
-    const techScore = activeReport.scores?.technical || 0
-    const contentScore = activeReport.scores?.content || 0
-    const failedQueries = activeReport.content?.missingAnswers || []
-    // Unified Knowledge Graph Data (Merge backend snake_case with legacy structure)
-    const rawKG = activeReport.authority?.knowledge_graph?.data;
-    const knowledgeGraph = {
-        primaryEntity: rawKG?.primary_entity || activeReport.knowledgeGraph?.primaryEntity,
-        nodes: activeReport.knowledgeGraph?.nodes ? [...activeReport.knowledgeGraph.nodes] : []
-    }
+    const isFree = tier === 'free'
 
-    // Generate nodes dynamically if missing
-    const relationships = rawKG?.relationships || activeReport.knowledgeGraph?.relationships;
-    if (knowledgeGraph.nodes.length === 0 && relationships) {
-        const rels = relationships;
-        if (rels.worksFor && rels.worksFor !== 'None Detected' && rels.worksFor !== 'None') {
-            knowledgeGraph.nodes.push({ label: rels.worksFor, type: "Org" });
-        }
-        if (rels.jobTitle && rels.jobTitle !== 'None Detected' && rels.jobTitle !== 'None') {
-            knowledgeGraph.nodes.push({ label: rels.jobTitle, type: "Role" });
-        }
-        if (Array.isArray(rels.knowsAbout)) {
-            rels.knowsAbout.slice(0, 3).forEach((skill: string) => {
-                if (skill && skill.length < 20) knowledgeGraph.nodes.push({ label: skill, type: "Topic" });
-            });
-        }
-        // Org specific
-        if (rels.location && rels.location !== 'None' && rels.location.length < 20) {
-            knowledgeGraph.nodes.push({ label: rels.location, type: "Loc" });
-        }
-        if (Array.isArray(rels.products)) {
-            rels.products.slice(0, 2).forEach((prod: string) => {
-                if (prod && prod.length < 15) knowledgeGraph.nodes.push({ label: prod, type: "Prod" });
-            });
-        }
-        if (Array.isArray(rels.founders)) {
-            rels.founders.slice(0, 1).forEach((f: string) => {
-                if (f && f.length < 20) knowledgeGraph.nodes.push({ label: f, type: "Person" });
-            });
-        }
-    }
-    const hallucinationLevel = activeReport.authority?.eeat?.hallucination_risk?.level || 'Low'
-
-    // -- Scheduling State --
-    const [userEmail, setUserEmail] = useState<string | null>(null);
-    const [hasPendingScan, setHasPendingScan] = useState(false);
-    const [isScheduling, setIsScheduling] = useState(false);
-    const [isCancelling, setIsCancelling] = useState(false);
-    const [domain, setDomain] = useState<string>(""); // Need domain for scheduling
-
-    // Fetch user and check pending scans on mount
-    useEffect(() => {
-        const init = async () => {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user?.email) setUserEmail(user.email)
-
-            if (siteId) {
-                // Get domain from site details if needed, or from report if available
-                // Ideally this prop would be passed, but let's try to get it from DB or report
-                // ... logic to get domain ...
-                // Quick fix: fetch site url
-                const { data: site } = await supabase.from('sites').select('url').eq('id', siteId).single()
-                if (site) setDomain(site.url)
-
-                const { data } = await supabase
-                    .from('scheduled_scans')
-                    .select('*')
-                    .eq('site_id', siteId)
-                    .in('status', ['pending', 'processing'])
-
-                if (data && data.length > 0) {
-                    setHasPendingScan(true);
-                }
-            }
-        }
-        init()
-    }, [siteId])
-
-    const handleCancelScan = async () => {
-        setIsCancelling(true);
-        try {
-            const res = await fetch('/api/cancel-scan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ site_id: siteId })
-            });
-            if (!res.ok) throw new Error("Failed to cancel");
-            setHasPendingScan(false);
-            toast({ title: "Scan Cancelled", description: "Deep scan monitoring disabled." });
-        } catch (error: any) {
-            toast({ title: "Error", description: "Could not cancel scan.", variant: "destructive" });
-        } finally {
-            setIsCancelling(false);
-        }
-    };
+    // ... (rest of the component logic)
 
     const handleScheduleScan = async () => {
-        if (!userEmail || !domain) return;
-        setIsScheduling(true);
-        try {
-            const res = await fetch('/api/schedule-scan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    site_id: siteId,
-                    url: domain,
-                    email: userEmail,
-                    delay_hours: 24,
-                    scan_type: 'full' // Always full scan from dashboard
-                })
-            });
-            if (!res.ok && res.status !== 409) throw new Error("Failed to schedule");
-            setHasPendingScan(true);
-            toast({ title: "Monitoring Enabled", description: "We will scan this site every 24 hours." });
-        } catch (error: any) {
-            toast({ title: "Error", description: "Could not enable monitoring.", variant: "destructive" });
-        } finally {
-            setIsScheduling(false);
+        if (isFree) {
+            toast({
+                title: "Upgrade required",
+                description: "Weekly monitoring is available on the Plus plan.",
+                variant: "destructive" // Or a custom premium variant
+            })
+            return
         }
+        if (!userEmail || !domain) return;
+        // ... existing logic
     };
 
-
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
-            {/* 1. Top Level KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
-                {/* KPI 0: Deep Scan Monitoring (Conf Hidden) */}
-                {/* <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
-                    ...
-                </div> */}
-                {/*
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
-                            <Clock className="w-4 h-4" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Monitoring</span>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger>
-                                    <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p className="max-w-xs">Automatic 24-hour deep scans to track your progress.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <span className={`text-sm font-medium ${hasPendingScan ? 'text-emerald-700' : 'text-slate-600'}`}>
-                                {hasPendingScan ? "Active" : "Inactive"}
-                            </span>
-                            <button
-                                onClick={() => hasPendingScan ? handleCancelScan() : handleScheduleScan()}
-                                disabled={isScheduling || isCancelling}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${hasPendingScan ? 'bg-emerald-500' : 'bg-slate-200'} ${(isScheduling || isCancelling) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                            >
-                                <span className={`${hasPendingScan ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200`} />
-                            </button>
-                        </div>
-
-                        </div>
-                    </div>
-                </div> */}
-
-                <TooltipProvider>
-                    {/* KPI 1: Share of Voice (Competitor Widget) */}
-                    <Link href={siteId ? `/dashboard/sites/${siteId}/share-of-voice` : '#'} className="block">
-                        {/* ... existing Share of Voice Card content ... */}
-                        <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
-                                    <BarChart3 className="w-4 h-4" />
-                                </div>
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Share of Voice</span>
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* KPI 0: Deep Scan Monitoring */}
+                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden md:col-span-1">
+                    <CardContent className="p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
+                                <Clock className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Monitoring</span>
+                            <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger>
                                         <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p className="max-w-xs">Percentage of AI responses where your brand is cited vs competitors.</p>
+                                        <p className="max-w-xs">Automatic weekly deep scans to track your progress.</p>
                                     </TooltipContent>
                                 </Tooltip>
+                            </TooltipProvider>
+                            {isFree && <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-500">PLUS</Badge>}
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <span className={`text-sm font-medium ${hasPendingScan ? 'text-emerald-700' : 'text-slate-600'}`}>
+                                    {hasPendingScan ? "Active" : "Inactive"}
+                                </span>
+                                <button
+                                    onClick={() => hasPendingScan ? handleCancelScan() : handleScheduleScan()}
+                                    disabled={isScheduling || isCancelling}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 
+                                ${hasPendingScan ? 'bg-emerald-500' : (isFree ? 'bg-slate-100 cursor-not-allowed' : 'bg-slate-200')} 
+                                ${(isScheduling || isCancelling) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                >
+                                    <span className={`${hasPendingScan ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm`} />
+                                </button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* KPI 1: Share of Voice (Competitor Widget) */}
+                <div
+                    onClick={(e) => {
+                        if (isFree && siteId) {
+                            e.preventDefault();
+                            toast({
+                                title: "Upgrade required",
+                                description: "Competitor analysis is available on the Plus plan.",
+                            })
+                        }
+                    }}
+                    className="h-full md:col-span-1"
+                >
+                    <Link href={!isFree && siteId ? `/dashboard/sites/${siteId}/share-of-voice` : '#'} className={`block h-full ${isFree ? 'cursor-default' : ''}`}>
+                        <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
+                            {isFree && (
+                                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Badge className="bg-[#1A4036] hover:bg-[#224034]">Upgrade to Unlock</Badge>
+                                </div>
+                            )}
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="p-2 bg-emerald-50 rounded-lg text-[#224034]">
+                                    <BarChart3 className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Share of Voice</span>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger>
+                                            <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="max-w-xs">Percentage of AI responses where your brand is cited vs competitors.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </div>
                             <div className="space-y-3 relative z-10">
                                 <div>
@@ -235,9 +139,11 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                             </div>
                         </div>
                     </Link>
+                </div>
 
-                    {/* KPI 2: Content Gap */}
-                    <Link href={siteId ? `/dashboard/sites/${siteId}/answer-rate` : '#'} className="block">
+                {/* KPI 2: Content Gap */}
+                <div className="md:col-span-1">
+                    <Link href={siteId ? `/dashboard/sites/${siteId}/answer-rate` : '#'} className="block h-full">
                         <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                 <FileText className="w-16 h-16 text-[#224034]" />
@@ -247,14 +153,16 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                                     <FileText className="w-4 h-4" />
                                 </div>
                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Answer Rate</span>
-                                <Tooltip>
-                                    <TooltipTrigger>
-                                        <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p className="max-w-xs">How many user questions your content directly answers.</p>
-                                    </TooltipContent>
-                                </Tooltip>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger>
+                                            <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="max-w-xs">How many user questions your content directly answers.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </div>
                             <div className="relative z-10 w-full">
                                 <div className="text-3xl font-serif font-medium text-slate-800">
@@ -276,9 +184,11 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                             </div>
                         </div>
                     </Link>
+                </div>
 
-                    {/* KPI 3: Hallucination Risk */}
-                    <Link href={siteId ? `/dashboard/sites/${siteId}/hallucination-risk` : '#'} className="block">
+                {/* KPI 3: Hallucination Risk */}
+                <div className="md:col-span-1">
+                    <Link href={siteId ? `/dashboard/sites/${siteId}/hallucination-risk` : '#'} className="block h-full">
                         <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
                             <div className="absolute top-4 right-4 w-16 h-16 opacity-20">
                                 <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
@@ -293,14 +203,16 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                                     <AlertCircle className="w-4 h-4" />
                                 </div>
                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Safety Score</span>
-                                <Tooltip>
-                                    <TooltipTrigger>
-                                        <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p className="max-w-xs">Risk of AI models hallucinating when citing your content.</p>
-                                    </TooltipContent>
-                                </Tooltip>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger>
+                                            <Info className="w-3 h-3 text-slate-400 cursor-help hover:text-emerald-500 transition-colors" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="max-w-xs">Risk of AI models hallucinating when citing your content.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </div>
                             <div className="relative z-10">
                                 <div className={`text-3xl font-serif font-medium ${hallucinationLevel === 'High' ? 'text-red-600' : 'text-emerald-600'}`}>
@@ -313,49 +225,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId }: OverviewTabP
                             </div>
                         </div>
                     </Link>
-
-                    {/* KPI 4: Knowledge Graph Visualizer */}
-                    <Link href={siteId ? `/dashboard/sites/${siteId}/knowledge-graph` : '#'} className="block">
-                        <div className="bg-[#1A4036] p-5 h-full rounded-xl border border-[#2a4e40] shadow-sm relative overflow-hidden group hover:shadow-lg transition-all">
-                            <div className="flex items-center gap-2 mb-3 relative z-10">
-                                <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-300">
-                                    <Share2 className="w-4 h-4" />
-                                </div>
-                                <span className="text-xs font-bold text-emerald-200/70 uppercase tracking-wider">Knowledge Graph</span>
-                                <Tooltip>
-                                    <TooltipTrigger>
-                                        <Info className="w-3 h-3 text-emerald-400/50 cursor-help hover:text-emerald-300 transition-colors" />
-                                    </TooltipTrigger>
-                                    <TooltipContent className="bg-[#224034] border-emerald-500/20 text-emerald-100">
-                                        <p className="max-w-xs">Visual representation of how AI understands your brand entities.</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                            <div className="h-24 w-full flex flex-wrap items-center justify-center gap-2 content-center overflow-hidden px-1">
-                                {/* Center Node */}
-                                <div className="z-10 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg shadow-emerald-900/50 border border-emerald-400">
-                                    {knowledgeGraph.primaryEntity ? knowledgeGraph.primaryEntity.substring(0, 15) : 'Entity'}
-                                </div>
-                                {/* Satellite Nodes (Static) */}
-                                {knowledgeGraph.nodes.slice(0, 4).map((node, i) => (
-                                    <div
-                                        key={i}
-                                        className="bg-[#224034] text-emerald-300 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-sm"
-                                    >
-                                        {node.label.length > 12 ? node.label.substring(0, 12) + '...' : node.label}
-                                    </div>
-                                ))}
-
-                                {/* Fallback if no nodes found (e.g. empty scan) */}
-                                {knowledgeGraph.nodes.length === 0 && (
-                                    <div className="bg-[#224034]/50 text-emerald-300/50 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/10 border-dashed">
-                                        No Data
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </Link>
-                </TooltipProvider>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

@@ -30,6 +30,9 @@ export function Navbar() {
                     <Link href="#pricing" className="text-sm font-medium text-white/80 hover:text-white transition-colors">
                         Pricing
                     </Link>
+                    <Link href="/blog" className="text-sm font-medium text-white/80 hover:text-white transition-colors">
+                        Blog
+                    </Link>
                     <Link href="/aeo-guide" className="text-sm font-medium text-white/80 hover:text-white transition-colors">
                         AEO Guide
                     </Link>
@@ -72,6 +75,9 @@ export function Navbar() {
                     </Link>
                     <Link href="#pricing" className="block text-sm font-medium text-white hover:text-white/80 transition-colors">
                         Pricing
+                    </Link>
+                    <Link href="/blog" className="block text-sm font-medium text-white hover:text-white/80 transition-colors">
+                        Blog
                     </Link>
                     <Link href="/aeo-guide" className="block text-sm font-medium text-white hover:text-white/80 transition-colors">
                         AEO Guide

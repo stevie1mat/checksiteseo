@@ -6,7 +6,12 @@ import Link from "next/link"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { formatDistanceToNow } from "date-fns"
+import { formatDistanceToNow, differenceInDays } from "date-fns"
+import { useToast } from "@/components/ui/use-toast"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useState, useEffect } from "react"
+import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 import {
     Dialog,
     DialogContent,
@@ -22,10 +27,6 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Site } from "@/lib/types"
-import { createClient } from "@/lib/supabase/client"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useState, useEffect } from "react"
-import { cn } from "@/lib/utils"
 
 interface SiteHealthGridProps {
     sites: Site[]
@@ -33,6 +34,7 @@ interface SiteHealthGridProps {
 }
 
 export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProps) {
+    const { toast } = useToast()
     const router = useRouter()
     const searchParams = useSearchParams()
     const searchQuery = searchParams.get('search')?.toLowerCase() || ''
@@ -53,6 +55,19 @@ export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProp
     const supabase = createClient()
 
     const handleDeleteClick = (site: Site) => {
+        // Free Plan Restriction: 15 days lock
+        if (isFreePlan) {
+            const daysSinceCreation = differenceInDays(new Date(), new Date(site.created_at))
+            if (daysSinceCreation < 15) {
+                toast({
+                    title: "Deletion Locked",
+                    description: `Free tier sites cannot be deleted for 15 days after creation. (${15 - daysSinceCreation} days remaining)`,
+                    variant: "destructive"
+                })
+                return
+            }
+        }
+
         setSiteToDelete(site)
         setDeleteDialogOpen(true)
     }
@@ -170,6 +185,10 @@ export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProp
                                 const previousScore = history.length > 1 ? history[history.length - 2].aeo_score : currentScore;
                                 const delta = currentScore - previousScore;
 
+                                const daysSinceCreation = differenceInDays(new Date(), new Date(site.created_at))
+                                const isLocked = isFreePlan && daysSinceCreation < 15
+                                const daysRemaining = 15 - daysSinceCreation
+
                                 return (
                                     <TableRow key={site.id} className="group border-slate-100 hover:bg-slate-50 transition-all duration-200">
                                         <TableCell className="py-4 pl-6">
@@ -231,23 +250,24 @@ export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProp
                                                 <TooltipProvider>
                                                     <Tooltip delayDuration={0}>
                                                         <TooltipTrigger asChild>
-                                                            <span tabIndex={0}>
+                                                            <span tabIndex={0} className={isLocked ? "cursor-not-allowed" : ""}>
                                                                 <Button
                                                                     size="sm"
                                                                     variant="ghost"
                                                                     className={cn(
                                                                         "h-8 w-8 p-0 text-slate-400 border border-transparent transition-all shadow-none",
-                                                                        "hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100"
+                                                                        !isLocked && "hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100",
+                                                                        isLocked && "opacity-50 cursor-not-allowed hover:bg-transparent"
                                                                     )}
-                                                                    onClick={() => handleDeleteClick(site)}
-                                                                    disabled={deletingId === site.id}
+                                                                    onClick={() => !isLocked && handleDeleteClick(site)}
+                                                                    disabled={deletingId === site.id || isLocked}
                                                                 >
                                                                     {deletingId === site.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                                                 </Button>
                                                             </span>
                                                         </TooltipTrigger>
                                                         <TooltipContent className="max-w-[200px] text-center">
-                                                            <p>Delete site</p>
+                                                            <p>{isLocked ? `Deletion locked for ${daysRemaining} more days` : "Delete site"}</p>
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 </TooltipProvider>

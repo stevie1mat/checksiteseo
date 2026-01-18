@@ -52,7 +52,7 @@ export function GoogleSignInButton({ mode = "signin", className, text }: GoogleS
         <Button
             variant="outline"
             type="button"
-            className={`w-full bg-white text-[#224034] hover:bg-gray-50 border-white/20 h-11 text-base font-medium flex items-center justify-center gap-2 ${className}`}
+            className={`w-full bg-white text-[#224034] hover:bg-gray-50 hover:text-[#224034] border-white/20 h-11 text-base font-medium flex items-center justify-center gap-2 ${className}`}
             onClick={handleGoogleSignIn}
             disabled={isLoading}
         >

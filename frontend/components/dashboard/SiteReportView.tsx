@@ -13,9 +13,10 @@ interface SiteReportViewProps {
     domain: string
     initialReport?: AEOReport
     siteId?: string
+    tier?: string
 }
 
-export function SiteReportView({ domain, initialReport, siteId }: SiteReportViewProps) {
+export function SiteReportView({ domain, initialReport, siteId, tier = 'free' }: SiteReportViewProps) {
     const { report, isLoading } = useAEOScan(domain, siteId)
     const [activeTab, setActiveTabState] = useState<'overview' | 'technical' | 'content' | 'authority'>('overview');
 
@@ -168,7 +169,7 @@ export function SiteReportView({ domain, initialReport, siteId }: SiteReportView
             <div className="mt-8">
                 {/* 0. EXECUTIVE SUMMARY (Overview Only) */}
                 {(activeTab === 'overview') && (
-                    <OverviewTab activeReport={activeReport} setActiveTab={setActiveTab} siteId={siteId} />
+                    <OverviewTab activeReport={activeReport} setActiveTab={setActiveTab} siteId={siteId} tier={tier} />
                 )}
 
                 {/* 1. TECHNICAL VIEW */}
@@ -178,7 +179,7 @@ export function SiteReportView({ domain, initialReport, siteId }: SiteReportView
 
                 {/* 2. CONTENT VIEW */}
                 {(activeTab === 'content') && (
-                    <ContentTab activeReport={activeReport} siteId={siteId} />
+                    <ContentTab activeReport={activeReport} siteId={siteId} domain={domain} tier={tier} />
                 )}
 
                 {/* 3. AUTHORITY VIEW */}

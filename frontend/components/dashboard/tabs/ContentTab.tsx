@@ -1,6 +1,8 @@
 import Link from "next/link"
+import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Check, AlertCircle, FileText, XCircle, ArrowRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Check, AlertCircle, FileText, XCircle, ArrowRight, Search, Loader2, Sparkles, AlertTriangle } from "lucide-react"
 import {
     Table,
     TableBody,
@@ -14,11 +16,37 @@ import { AEOReport } from "@/types/aeo"
 interface ContentTabProps {
     activeReport: AEOReport
     siteId?: string
+    domain?: string
 }
 
-export function ContentTab({ activeReport, activeReport: { content }, siteId }: ContentTabProps & { activeReport: { content: any } }) {
+export function ContentTab({ activeReport, activeReport: { content }, siteId, domain }: ContentTabProps & { activeReport: { content: any } }) {
     // Helper Accessors (Safeguarded)
     const failedQueries = activeReport.content?.missingAnswers || []
+
+    // Ambiguity Analysis State
+    const [ambiguityLoading, setAmbiguityLoading] = useState(false)
+    const [ambiguityData, setAmbiguityData] = useState<any>(null)
+    const [error, setError] = useState<string | null>(null)
+
+    const handleAnalyzeAmbiguity = async () => {
+        if (!domain) return
+        setAmbiguityLoading(true)
+        setError(null)
+        try {
+            const res = await fetch('/api/analyze-ambiguity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_domain: domain })
+            })
+            if (!res.ok) throw new Error("Analysis failed")
+            const data = await res.json()
+            setAmbiguityData(data)
+        } catch (err) {
+            setError("Could not analyze content. Please try again.")
+        } finally {
+            setAmbiguityLoading(false)
+        }
+    }
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
@@ -174,6 +202,94 @@ export function ContentTab({ activeReport, activeReport: { content }, siteId }: 
                         </div>
                     </div>
                 )}
+
+                {/* NEW: Ambiguity Inspector */}
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 overflow-hidden relative">
+                    <div className="flex justify-between items-start mb-6">
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                                    <Search className="w-4 h-4" />
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-800">Ambiguity Inspector</h3>
+                                <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50">Plus Feature</Badge>
+                            </div>
+                            <p className="text-slate-500 text-sm max-w-xl">
+                                AI Agents hate vague content. We identify words like "best," "fast," or "experienced" and suggest concrete data replacements to boost E-E-A-T.
+                            </p>
+                        </div>
+                        {!ambiguityData && (
+                            isFree ? (
+                                <Button
+                                    disabled
+                                    className="bg-slate-100 text-slate-400 border border-slate-200"
+                                >
+                                    <Sparkles className="w-4 h-4 mr-2" /> Upgrade to Inspect
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={handleAnalyzeAmbiguity}
+                                    disabled={ambiguityLoading}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-200"
+                                >
+                                    {ambiguityLoading ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="w-4 h-4 mr-2" /> Inspect Content
+                                        </>
+                                    )}
+                                </Button>
+                            )
+                        )}
+                    </div>
+
+                    {error && (
+                        <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center gap-2 mb-4">
+                            <AlertTriangle className="w-4 h-4" />
+                            {error}
+                        </div>
+                    )}
+
+                    {ambiguityData && (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                            {ambiguityData.improvements && ambiguityData.improvements.length > 0 ? (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {ambiguityData.improvements.map((item: any, i: number) => (
+                                        <div key={i} className="p-4 rounded-lg border border-purple-100 bg-purple-50/30 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold uppercase tracking-wider text-purple-400">{item.category}</span>
+                                                </div>
+                                                <p className="text-slate-600 font-medium font-serif italic">"{item.originalText}"</p>
+                                            </div>
+                                            <div className="shrink-0 flex items-center gap-3">
+                                                <ArrowRight className="w-4 h-4 text-purple-300 hidden md:block" />
+                                                <div className="bg-white px-4 py-2 rounded-lg border border-purple-100 shadow-sm">
+                                                    <p className="text-sm font-bold text-purple-700">{item.suggestedFix}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                    <Check className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                                    <p className="text-slate-600 font-medium">No ambiguity found!</p>
+                                    <p className="text-slate-400 text-sm">Your content is concrete and data-rich.</p>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end pt-4">
+                                <Button variant="ghost" onClick={() => setAmbiguityData(null)} className="text-slate-400 hover:text-slate-600">
+                                    Reset Analysis
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     )

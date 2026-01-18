@@ -25,6 +25,10 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
         .eq('user_id', user.id)
         .single()
 
+    // Fetch user profile for tier
+    const { data: profile } = await supabase.from('profiles').select('subscription_tier').eq('id', user.id).single()
+    const tier = profile?.subscription_tier || 'free'
+
     if (!site) {
         notFound()
     }
@@ -60,7 +64,7 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
             </div>
 
             {/* @ts-ignore */}
-            <SiteReportView siteId={site.id} domain={site.url} initialReport={{
+            <SiteReportView siteId={site.id} domain={site.url} tier={tier} initialReport={{
                 domain: site.url,
                 scannedAt: latestScan?.last_scanned_at || null,
                 status: site.status === 'analyzing' ? 'processing' : (site.status === 'error' ? 'failed' : 'completed'),
