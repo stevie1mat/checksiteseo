@@ -17,9 +17,10 @@ interface ContentTabProps {
     activeReport: AEOReport
     siteId?: string
     domain?: string
+    tier?: string
 }
 
-export function ContentTab({ activeReport, activeReport: { content }, siteId, domain }: ContentTabProps & { activeReport: { content: any } }) {
+export function ContentTab({ activeReport, activeReport: { content }, siteId, domain, tier }: ContentTabProps & { activeReport: { content: any } }) {
     // Helper Accessors (Safeguarded)
     const failedQueries = activeReport.content?.missingAnswers || []
 
@@ -219,7 +220,7 @@ export function ContentTab({ activeReport, activeReport: { content }, siteId, do
                             </p>
                         </div>
                         {!ambiguityData && (
-                            isFree ? (
+                            (tier === 'free' || !tier) ? (
                                 <Button
                                     disabled
                                     className="bg-slate-100 text-slate-400 border border-slate-200"
