@@ -21,7 +21,18 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
     const { toast } = useToast()
     const isFree = tier === 'free'
 
-    // ... (rest of the component logic)
+    // Helper variables
+    const failedQueries = activeReport.content?.missingAnswers || []
+    const techScore = typeof activeReport.scores?.technical === 'number' ? Math.round(activeReport.scores.technical) : 0
+    const contentScore = typeof activeReport.scores?.content === 'number' ? Math.round(activeReport.scores.content) : 0
+    const aeoScore = typeof activeReport.scores?.overall === 'number' ? Math.round(activeReport.scores.overall) : 0
+    
+    // Hallucination level - check if there's a hallucination risk indicator
+    const hallucinationLevel = activeReport.authority?.eeat?.hallucination_risk?.level === 'High' 
+                               ? 'High' : 'Low'
+    
+    // Knowledge graph data
+    const knowledgeGraph = activeReport.authority?.knowledge_graph || {} as any
 
     const handleScheduleScan = async () => {
         if (isFree) {
@@ -412,7 +423,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                                 <div className="bg-emerald-50/50 border border-emerald-100 text-slate-700 text-xs py-2.5 px-3 rounded-2xl rounded-tl-sm max-w-[90%] leading-relaxed shadow-sm">
                                     {activeReport.authority?.ai_preview?.response || (
                                         <span>
-                                            I found several options. <span className="bg-emerald-200/50 text-emerald-800 font-semibold px-1 py-0.5 rounded border border-emerald-200/50">{knowledgeGraph.primaryEntity || "The Requested Entity"}</span> is a leading provider in this space...
+                                            I found several options. <span className="bg-emerald-200/50 text-emerald-800 font-semibold px-1 py-0.5 rounded border border-emerald-200/50">{(knowledgeGraph as any).primaryEntity || (knowledgeGraph as any).primary_entity || "The Requested Entity"}</span> is a leading provider in this space...
                                         </span>
                                     )}
                                 </div>
@@ -436,7 +447,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                                     Based on our scan, <strong>{activeReport.technical.sitemap ? "your site is crawlable" : "crawlers may struggle to find your content"}</strong>.
                                 </p>
                                 <p className="text-emerald-100/90 text-sm leading-relaxed">
-                                    We found <strong>{knowledgeGraph.primaryEntity ? `a clear primary entity ("${knowledgeGraph.primaryEntity}")` : "no clear primary entity"}</strong>, which {knowledgeGraph.primaryEntity ? "helps" : "hurts"} AI understanding.
+                                    We found <strong>{((knowledgeGraph as any).primaryEntity || (knowledgeGraph as any).primary_entity) ? `a clear primary entity ("${(knowledgeGraph as any).primaryEntity || (knowledgeGraph as any).primary_entity}")` : "no clear primary entity"}</strong>, which {((knowledgeGraph as any).primaryEntity || (knowledgeGraph as any).primary_entity) ? "helps" : "hurts"} AI understanding.
                                 </p>
                                 <div className="p-4 bg-black/20 rounded-lg border border-white/5 mt-4">
                                     <p className="text-xs text-emerald-400 uppercase font-bold mb-2 tracking-wider">AI Perspective</p>

@@ -50,15 +50,22 @@ export function HeroSection() {
         setError("")
         setResult(null)
 
+        // Auto-add https:// if missing protocol
+        let targetUrl = url.trim()
+        if (!/^https?:\/\//i.test(targetUrl)) {
+            targetUrl = `https://${targetUrl}`
+            setUrl(targetUrl) // Update UI
+        }
+
         // Track scan started
-        analytics.trackScanStarted(url)
+        analytics.trackScanStarted(targetUrl)
 
         try {
             const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
             const res = await fetch(`${BACKEND_URL}/analyze`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url, sync: true }),
+                body: JSON.stringify({ url: targetUrl, sync: true }),
             })
 
             if (!res.ok) throw new Error("Analysis failed.")
@@ -80,10 +87,10 @@ export function HeroSection() {
             const errorMessage = err.message || "An error occurred."
             setError(errorMessage)
             setScanStatus('error')
-            
+
             // Track scan failed
             analytics.trackScanFailed(url, errorMessage)
-            
+
             // Don't close immediately on error so user can see it
             setTimeout(() => setLoading(false), 3000)
         }
