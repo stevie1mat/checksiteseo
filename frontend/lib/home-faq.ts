@@ -5,6 +5,16 @@ export type HomeFaqItem = {
 
 export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
+    question: "What is an AEO checker tool?",
+    answer:
+      "An AEO checker tool audits how well your website can be discovered, understood, and cited by answer engines like ChatGPT, Perplexity, and Gemini.",
+  },
+  {
+    question: "How does an AEO checking tool work?",
+    answer:
+      "An AEO checking tool crawls your page and evaluates technical signals, content clarity, and authority indicators that influence AI-generated answers.",
+  },
+  {
     question: "What is AEO and how is it different from SEO?",
     answer:
       "AEO (Answer Engine Optimization) focuses on optimizing content for AI-powered answer engines like ChatGPT, Perplexity, and Google's AI Overview. While SEO targets traditional search rankings, AEO ensures your content is properly formatted, cited, and trustworthy for AI models to reference and recommend.",
@@ -28,6 +38,16 @@ export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     question: "How often should I run AEO audits?",
     answer:
       "We recommend weekly audits for active content and after major content updates. Frequent scans help you catch technical and content regressions early.",
+  },
+  {
+    question: "What is AEO readiness?",
+    answer:
+      "AEO readiness is a measure of how prepared your site is to be selected and cited by AI answer engines based on technical setup, content quality, and trust signals.",
+  },
+  {
+    question: "What does AEO monitoring track?",
+    answer:
+      "AEO monitoring tracks score changes over time so you can detect drops in crawlability, answer quality, and authority before they hurt AI search visibility.",
   },
   {
     question: "Does CheckSite AEO integrate with my existing tools?",

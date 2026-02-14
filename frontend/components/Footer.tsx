@@ -136,6 +136,10 @@ export function Footer() {
                     <div>
                         <h4 className="font-semibold mb-4 text-white">Resources</h4>
                         <ul className="space-y-3 text-sm text-white/60">
+                            <li><Link href="/aeo-checker-tool" className="hover:text-white transition-colors">AEO Checker Tool</Link></li>
+                            <li><Link href="/aeo-checking-tool" className="hover:text-white transition-colors">AEO Checking Tool</Link></li>
+                            <li><Link href="/aeo-readiness" className="hover:text-white transition-colors">AEO Readiness</Link></li>
+                            <li><Link href="/aeo-monitoring" className="hover:text-white transition-colors">AEO Monitoring</Link></li>
                             <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
                             <li><Link href="/documentation" className="hover:text-white transition-colors">Documentation</Link></li>
                             <li><Link href="/aeo-guide" className="hover:text-white transition-colors">AEO Guide</Link></li>

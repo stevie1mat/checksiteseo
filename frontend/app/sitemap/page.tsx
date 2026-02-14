@@ -1,7 +1,7 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import Link from "next/link";
-import { Home, Layout, FileText, Info, Shield, HelpCircle, Box, CreditCard, Key, BookOpen, Layers, Newspaper, Mail, Users, Briefcase } from "lucide-react";
+import { Home, Shield, Box, BookOpen, Layers, Users } from "lucide-react";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -46,6 +46,10 @@ export default function SitemapPage() {
             icon: BookOpen,
             description: "Learn and grow with our guides.",
             links: [
+                { name: "AEO Checker Tool", href: "/aeo-checker-tool", description: "Run a free AEO checker tool audit for your website." },
+                { name: "AEO Checking Tool", href: "/aeo-checking-tool", description: "Try the AEO checking tool workflow used for instant website audits." },
+                { name: "AEO Readiness", href: "/aeo-readiness", description: "Understand and improve your AEO readiness score." },
+                { name: "AEO Monitoring", href: "/aeo-monitoring", description: "Track AEO performance changes over time." },
                 { name: "Documentation", href: "/documentation", description: "Comprehensive guides and tutorials." },
                 { name: "Blog", href: "/blog", description: "Latest insights on AEO and search trends." },
                 { name: "FAQ", href: "/#faq", description: "Answers to common questions." },
@@ -87,7 +91,7 @@ export default function SitemapPage() {
                         <h1 className="font-serif text-5xl">Sitemap</h1>
                     </div>
                     <p className="text-xl text-white/80 max-w-2xl">
-                        A detailed directory of every page on CheckSite AEO. Find exactly what you're looking for.
+                        A detailed directory of every page on CheckSite AEO. Find exactly what you are looking for.
                     </p>
                 </div>
             </section>

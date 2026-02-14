@@ -125,12 +125,17 @@ export function HeroSection() {
 
             <div className="text-center max-w-4xl mx-auto space-y-6 z-10">
                 <h1 className="font-serif text-5xl md:text-7xl leading-tight">
-                    Free AEO Checker <br />
+                    Free AEO Checker Tool <br />
                     <span className="italic opacity-90">for AI search visibility.</span>
                 </h1>
                 <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto leading-relaxed">
-                    Run an Answer Engine Optimization audit and see how your site performs across technical readiness, content structure, and trust signals.
+                    Use this AEO checking tool to audit technical readiness, content structure, and trust signals across answer engines.
                 </p>
+                <div className="flex flex-wrap justify-center gap-2 text-xs text-white/60 font-medium">
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5">AEO checker tool</span>
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5">AEO readiness</span>
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5">AEO monitoring</span>
+                </div>
 
                 {/* Search Input Box - Refined */}
                 {!result && (
@@ -162,6 +167,19 @@ export function HeroSection() {
                         <p className="mt-4 text-xs text-white/30 text-center font-light tracking-wide">
                             Instant Analysis • No Credit Card Required • Free for 14 Days
                         </p>
+                        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                            <Link href="/aeo-checker-tool" className="text-xs text-emerald-200 hover:text-white transition-colors underline-offset-4 hover:underline">
+                                View Sample Report
+                            </Link>
+                            <span className="text-white/30">•</span>
+                            <Link href="/aeo-readiness" className="text-xs text-emerald-200 hover:text-white transition-colors underline-offset-4 hover:underline">
+                                Learn AEO Readiness
+                            </Link>
+                            <span className="text-white/30">•</span>
+                            <Link href="/aeo-monitoring" className="text-xs text-emerald-200 hover:text-white transition-colors underline-offset-4 hover:underline">
+                                Learn AEO Monitoring
+                            </Link>
+                        </div>
                     </div>
                 )}
                 {error && <p className="text-red-300 mt-4 text-sm bg-red-900/20 p-2 rounded">{error}</p>}
