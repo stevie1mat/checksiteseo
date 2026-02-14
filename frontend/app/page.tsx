@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Navbar } from "@/components/Navbar";
 import { HeroSection } from "@/components/HeroSection";
+import { HomeResourceLinksSection } from "@/components/HomeResourceLinksSection";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { HowItWorksSection } from "@/components/HowItWorksSection";
 import { BenefitsSection } from "@/components/BenefitsSection";
@@ -71,6 +72,7 @@ export default function Home() {
       </Suspense>
       <Navbar />
       <HeroSection />
+      <HomeResourceLinksSection />
       <FeaturesSection />
       <HowItWorksSection />
       <BenefitsSection />

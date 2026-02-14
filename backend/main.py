@@ -2,7 +2,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl, EmailStr, Field
 from analyzer import analyze_readiness, generate_content_strategy, generate_answer_strategy, analyze_ambiguity_issues
@@ -20,6 +20,7 @@ from email_templates import get_email_html
 from dependencies import get_current_user, get_optional_current_user
 
 import stripe
+from urllib.parse import urlparse
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -935,22 +936,49 @@ class CheckoutRequest(BaseModel):
     site_id: str | None = None
     user_id: str | None = None
 
+def _normalize_origin(url: str | None) -> str | None:
+    if not url:
+        return None
+    parsed = urlparse(url.strip())
+    if parsed.scheme in {"http", "https"} and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return None
+
+def _resolve_frontend_base_url(http_request: Request) -> str:
+    configured_app_url = _normalize_origin(os.getenv("NEXT_PUBLIC_APP_URL")) or _normalize_origin(os.getenv("APP_URL"))
+    allowed_origins = {
+        origin
+        for origin in (_normalize_origin(value) for value in ALLOWED_ORIGINS)
+        if origin
+    }
+
+    request_origin = _normalize_origin(http_request.headers.get("origin"))
+    referer_origin = _normalize_origin(http_request.headers.get("referer"))
+    header_origin = request_origin or referer_origin
+
+    if header_origin and header_origin in allowed_origins:
+        return header_origin
+    if configured_app_url:
+        return configured_app_url
+    return "http://localhost:3000"
+
 @app.post("/create-checkout-session")
-async def create_checkout_session(request: CheckoutRequest):
+async def create_checkout_session(payload: CheckoutRequest, http_request: Request):
     if not STRIPE_SECRET_KEY:
         raise HTTPException(status_code=500, detail="Stripe is not configured")
 
-    price_id = STRIPE_PRICE_ID_PLUS if request.plan == "plus" else STRIPE_PRICE_ID_PRO
+    price_id = STRIPE_PRICE_ID_PLUS if payload.plan == "plus" else STRIPE_PRICE_ID_PRO
     
     # Handle 'pro' mapping if needed, or strictly check
-    if request.plan == "pro":
+    if payload.plan == "pro":
         price_id = STRIPE_PRICE_ID_PRO
-    elif request.plan == "plus":
+    elif payload.plan == "plus":
         price_id = STRIPE_PRICE_ID_PLUS
     else:
         raise HTTPException(status_code=400, detail="Invalid plan selected")
 
     try:
+        frontend_base_url = _resolve_frontend_base_url(http_request)
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[
@@ -960,13 +988,13 @@ async def create_checkout_session(request: CheckoutRequest):
                 },
             ],
             mode='subscription',
-            success_url=os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000") + "/dashboard?payment=success",
-            cancel_url=os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000") + "/pricing?payment=cancelled",
-            customer_email=request.email,
+            success_url=frontend_base_url + "/dashboard?payment=success",
+            cancel_url=frontend_base_url + "/pricing?payment=cancelled",
+            customer_email=payload.email,
             metadata={
-                "site_id": request.site_id,
-                "plan": request.plan,
-                "user_id": request.user_id
+                "site_id": payload.site_id,
+                "plan": payload.plan,
+                "user_id": payload.user_id
             },
             allow_promotion_codes=True,
         )
@@ -974,8 +1002,6 @@ async def create_checkout_session(request: CheckoutRequest):
     except Exception as e:
         logger.error(f"Stripe checkout creation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-from fastapi import Request
 
 @app.post("/webhook")
 async def stripe_webhook(request: Request):
