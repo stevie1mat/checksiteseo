@@ -42,8 +42,14 @@ export async function DELETE(
         const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
         console.log(`[Delete Proxy] Deleting site ${siteId} via backend...`);
 
+        const { data: { session } } = await supabase.auth.getSession()
+        const token = session?.access_token
+
         const apiResponse = await fetch(`${BACKEND_URL}/sites/${siteId}`, {
             method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
         });
 
         if (!apiResponse.ok) {

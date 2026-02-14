@@ -4,20 +4,14 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, MapPin, Clock } from "lucide-react";
 import { ApplicationDialog } from "@/components/careers/ApplicationDialog";
 import { Metadata } from "next";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-    title: "Careers | CheckSiteAEO",
-    description: "Join the CheckSiteAEO team and help us shape the future of Answer Engine Optimization. Explore our open positions.",
-    openGraph: {
-        title: "Careers | CheckSiteAEO",
-        description: "Join the CheckSiteAEO team and help us shape the future of Answer Engine Optimization. Explore our open positions.",
-    },
-    twitter: {
-        card: "summary_large_image",
-        title: "Careers | CheckSiteAEO",
-        description: "Join the CheckSiteAEO team and help us shape the future of Answer Engine Optimization.",
-    },
-};
+export const metadata: Metadata = createPageMetadata({
+    title: "Careers at CheckSiteAEO",
+    description: "Explore open roles at CheckSiteAEO and help build the future of Answer Engine Optimization.",
+    path: "/careers",
+    keywords: ["CheckSiteAEO careers", "AEO jobs", "AI search startup jobs"],
+});
 
 export default function CareersPage() {
     const jobs = [
@@ -55,7 +49,7 @@ export default function CareersPage() {
             <section className="bg-[#224034] text-white pt-32 pb-20 px-6 text-center">
                 <h1 className="font-serif text-5xl md:text-6xl mb-6">Join the AEO Revolution</h1>
                 <p className="text-xl text-white/80 max-w-2xl mx-auto">
-                    We're building the future of search optimization. Help us shape how information is discovered in the AI age.
+                    We are building the future of search optimization. Help us shape how information is discovered in the AI age.
                 </p>
             </section>
 

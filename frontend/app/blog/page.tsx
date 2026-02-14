@@ -3,20 +3,14 @@ import { Footer } from "@/components/Footer";
 import { ArrowRight, Clock } from "lucide-react";
 import Link from "next/link";
 import { Metadata } from "next";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-    title: "Blog | CheckSiteAEO",
-    description: "Latest insights, guides, and news about Answer Engine Optimization (AEO) and the future of search.",
-    openGraph: {
-        title: "Blog | CheckSiteAEO",
-        description: "Latest insights, guides, and news about Answer Engine Optimization (AEO).",
-    },
-    twitter: {
-        card: "summary",
-        title: "Blog | CheckSiteAEO",
-        description: "Stay ahead of the curve with our AEO insights.",
-    },
-};
+export const metadata: Metadata = createPageMetadata({
+    title: "AEO Blog: Answer Engine Optimization Insights",
+    description: "Read practical guides, experiments, and case studies on Answer Engine Optimization and AI search visibility.",
+    path: "/blog",
+    keywords: ["AEO blog", "answer engine optimization guide", "AI search SEO"],
+});
 
 const blogPosts = [
     {

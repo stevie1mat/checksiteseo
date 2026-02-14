@@ -2,20 +2,15 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Plug } from "lucide-react";
 import { Metadata } from "next";
+import Image from "next/image";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-    title: "Integrations | CheckSiteAEO",
-    description: "Connect CheckSiteAEO with your favorite tools. Support for WordPress, Shopify, Webflow, and more.",
-    openGraph: {
-        title: "Integrations | CheckSiteAEO",
-        description: "Connect CheckSiteAEO with your favorite tools. Support for WordPress, Shopify, Webflow, and more.",
-    },
-    twitter: {
-        card: "summary_large_image",
-        title: "Integrations | CheckSiteAEO",
-        description: "Seamlessly integrate AEO auditing into your workflow.",
-    },
-};
+export const metadata: Metadata = createPageMetadata({
+    title: "Integrations: WordPress, Shopify, Webflow and More",
+    description: "See supported CheckSiteAEO integrations across CMS and web platforms for streamlined AEO audits.",
+    path: "/integrations",
+    keywords: ["AEO integrations", "WordPress AEO", "Shopify AEO", "Webflow AEO"],
+});
 
 export default function IntegrationsPage() {
     const integrations = [
@@ -56,7 +51,7 @@ export default function IntegrationsPage() {
 
                                 <div className="w-16 h-16 bg-slate-100 rounded-full mb-4 flex items-center justify-center text-slate-400 group-hover:bg-[#8cd9b8]/20 group-hover:text-[#224034] transition-colors overflow-hidden p-3">
                                     {tool.logo ? (
-                                        <img src={tool.logo} alt={tool.name} className="w-full h-full object-contain" />
+                                        <Image src={tool.logo} alt={tool.name} width={48} height={48} className="w-full h-full object-contain" />
                                     ) : (
                                         <Plug className="w-8 h-8" />
                                     )}
@@ -68,8 +63,8 @@ export default function IntegrationsPage() {
                     </div>
 
                     <div className="mt-20 text-center">
-                        <h3 className="text-2xl font-serif text-[#224034] mb-4">Don't see your platform?</h3>
-                        <p className="text-slate-600 mb-8">We're constantly adding support for new CMSs and frameworks. Let us know what you use.</p>
+                        <h3 className="text-2xl font-serif text-[#224034] mb-4">Do not see your platform?</h3>
+                        <p className="text-slate-600 mb-8">We are constantly adding support for new CMSs and frameworks. Let us know what you use.</p>
                         <a href="/contact" className="font-semibold text-[#224034] hover:underline">Request Platform Support →</a>
                     </div>
                 </div>

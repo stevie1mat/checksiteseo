@@ -3,44 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
+import { HOME_FAQ_ITEMS } from "@/lib/home-faq";
 
 export function FAQSection() {
     const [openIndex, setOpenIndex] = useState<number | null>(0);
-
-    const faqs = [
-        {
-            question: "What is AEO and how is it different from SEO?",
-            answer: "AEO (Answer Engine Optimization) focuses on optimizing content for AI-powered answer engines like ChatGPT, Perplexity, and Google's AI Overview. While SEO targets traditional search rankings, AEO ensures your content is properly formatted, cited, and trustworthy for AI models to reference and recommend."
-        },
-        {
-            question: "How does CheckSite AEO analyze my content?",
-            answer: "We use advanced AI models to evaluate your content across three key areas: Technical Readiness (robots.txt, schema, HTTPS), Content Structure (readability, visual context, question targeting), and Authority Signals (E-E-A-T indicators). Our platform provides a comprehensive score and actionable recommendations."
-        },
-        {
-            question: "What is the content gap analysis feature?",
-            answer: "Our AI analyzes your page content and identifies missing topics that answer engines expect to see. This helps you fill content gaps that could improve your chances of being cited by AI models. It's contextually aware and provides relevant suggestions based on your specific industry and niche."
-        },
-        {
-            question: "Can I try CheckSite AEO before committing?",
-            answer: "Yes! We offer a completely free tier with 5 URL scans per month, and all paid plans come with a 14-day free trial. No credit card required to start. You can test the full platform and see results before making any commitment."
-        },
-        {
-            question: "How often should I run AEO audits?",
-            answer: "We recommend running audits weekly for active content and after any major content updates. Our Pro plan includes automated weekly reports and real-time monitoring, so you're always aware of your AEO readiness status as algorithms evolve."
-        },
-        {
-            question: "Does CheckSite AEO integrate with my existing tools?",
-            answer: "Yes! Our Pro and Enterprise plans include API access for seamless integration with your CMS, analytics platforms, and workflow tools. We support webhooks, REST API, and custom integrations for larger teams."
-        },
-        {
-            question: "What makes your E-E-A-T analysis unique?",
-            answer: "We use the same AI models that power answer engines to evaluate your content's expertise, experience, authoritativeness, and trustworthiness. This gives you insights into exactly how AI perceives your brand, helping you identify and address trust issues before they impact visibility."
-        },
-        {
-            question: "Is there a limit to how many URLs I can analyze?",
-            answer: "The Free plan allows 5 scans per month. Pro plan includes unlimited scans for any number of domains. Enterprise plans offer bulk domain management and white-label reports for agencies managing multiple clients."
-        }
-    ];
 
     return (
         <section id="faq" className="py-24 bg-[#F9FBFA]">
@@ -58,7 +24,7 @@ export function FAQSection() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {faqs.map((faq, index) => (
+                    {HOME_FAQ_ITEMS.map((faq, index) => (
                         <div
                             key={index}
                             className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:border-[#8cd9b8] transition-all duration-300"

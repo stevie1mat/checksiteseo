@@ -52,46 +52,42 @@ export function TestimonialsSection() {
         }
     ];
 
-    return null;
-    /* return (
-        <section className="py-24 bg-white">
+    return (
+        <section className="py-24 bg-white" aria-labelledby="testimonials-title">
             <div className="max-w-7xl mx-auto px-6">
                 <div className="text-center mb-16">
                     <div className="inline-block px-4 py-1 rounded-full border border-emerald-200 text-xs font-bold tracking-widest uppercase text-emerald-700 mb-6 bg-emerald-50">
                         Testimonials
                     </div>
-                    {/* <h2 className="font-serif text-4xl md:text-5xl text-[#224034] max-w-2xl mx-auto leading-tight">
+                    <h2 id="testimonials-title" className="font-serif text-4xl md:text-5xl text-[#224034] max-w-2xl mx-auto leading-tight">
                         Trusted by teams worldwide.
                     </h2>
                     <p className="text-slate-500 mt-6 max-w-xl mx-auto text-lg">
                         See how companies are winning with AEO optimization.
-                    </p> * /}
+                    </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {testimonials.map((testimonial, index) => (
-                        <div
-                            key={index}
-                            className={`rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 ${index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
+                        <figure
+                            key={testimonial.name}
+                            className={`rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 ${index % 2 === 0 ? "bg-white" : "bg-emerald-50/30"
                                 }`}
                         >
-                            {/* Rating Stars * /}
-                            <div className="flex gap-1 mb-4">
+                            <div className="flex gap-1 mb-4" aria-label={`${testimonial.rating} out of 5 stars`}>
                                 {[...Array(testimonial.rating)].map((_, i) => (
-                                    <Star key={i} className="w-4 h-4 fill-[#8cd9b8] text-[#8cd9b8]" />
+                                    <Star key={`${testimonial.name}-${i}`} className="w-4 h-4 fill-[#8cd9b8] text-[#8cd9b8]" />
                                 ))}
                             </div>
 
-                            {/* Quote * /}
-                            <div className="mb-6">
-                                <span className="text-4xl text-[#224034] font-serif opacity-20 leading-none">"</span>
+                            <blockquote className="mb-6">
+                                <span className="text-4xl text-[#224034] font-serif opacity-20 leading-none">&ldquo;</span>
                                 <p className="text-slate-600 leading-relaxed italic mt-2">
                                     {testimonial.quote}
                                 </p>
-                            </div>
+                            </blockquote>
 
-                            {/* Author Info * /}
-                            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                            <figcaption className="flex items-center justify-between pt-4 border-t border-gray-100">
                                 <div>
                                     <p className="font-semibold text-[#224034]">{testimonial.name}</p>
                                     <p className="text-xs text-slate-500">{testimonial.role}</p>
@@ -100,11 +96,11 @@ export function TestimonialsSection() {
                                 <div className="bg-[#224034] text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
                                     {testimonial.metric}
                                 </div>
-                            </div>
-                        </div>
+                            </figcaption>
+                        </figure>
                     ))}
                 </div>
             </div>
         </section>
-    ); */
+    );
 }

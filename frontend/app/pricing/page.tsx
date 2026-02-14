@@ -2,20 +2,14 @@ import { Navbar } from "@/components/Navbar";
 import { PricingSection } from "@/components/PricingSection";
 import { Footer } from "@/components/Footer";
 import { Metadata } from "next";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-    title: "Pricing | CheckSiteAEO",
-    description: "Simple, transparent pricing for AEO audits. Start for free and upgrade as you grow.",
-    openGraph: {
-        title: "Pricing | CheckSiteAEO",
-        description: "Simple, transparent pricing for AEO audits. Start for free and upgrade as you grow.",
-    },
-    twitter: {
-        card: "summary_large_image",
-        title: "Pricing | CheckSiteAEO",
-        description: "Flexible plans for every stage of your AEO journey.",
-    },
-};
+export const metadata: Metadata = createPageMetadata({
+    title: "AEO Checker Pricing Plans",
+    description: "Compare CheckSiteAEO pricing plans for AEO audits, monitoring, and AI search optimization.",
+    path: "/pricing",
+    keywords: ["AEO pricing", "AEO checker plans", "AI SEO tool pricing"],
+});
 
 export default function PricingPage() {
     const jsonLd = {

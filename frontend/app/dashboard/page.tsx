@@ -30,7 +30,19 @@ export default async function DashboardPage() {
         .limit(30, { referencedTable: 'site_history' }) // Last 30 points per site
 
     const siteCount = sites?.length || 0
-    const FREE_PLAN_LIMIT = 3 // 3 sites for free plan
+    // Fetch user profile for subscription tier
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_tier')
+        .eq('id', user?.id)
+        .single()
+
+    const tier = profile?.subscription_tier || 'free'
+    const isFreePlan = tier === 'free'
+
+    let maxSites = 3
+    if (tier === 'plus') maxSites = 50
+    if (tier === 'pro') maxSites = 100000
 
     return (
         <div className="space-y-8 w-full p-6">
@@ -42,17 +54,17 @@ export default async function DashboardPage() {
                         <h1 className="font-serif text-3xl text-[#224034]">Overview</h1>
                         <p className="text-slate-500 mt-1">Track your AEO performance across all sites.</p>
                     </div>
-                    <AddSiteDialog currentSiteCount={siteCount} maxSites={FREE_PLAN_LIMIT} />
+                    <AddSiteDialog currentSiteCount={siteCount} maxSites={maxSites} />
                 </div>
             </div>
 
             <div className="px-4 space-y-8">
                 {/* Active Top Cards */}
-                <DashboardStats siteCount={siteCount} maxSites={FREE_PLAN_LIMIT} sites={sites || []} />
+                <DashboardStats siteCount={siteCount} maxSites={maxSites} sites={sites || []} />
 
                 {/* Site Health Grid */}
                 {sites && sites.length > 0 ? (
-                    <SiteHealthGrid sites={sites} isFreePlan={true} />
+                    <SiteHealthGrid sites={sites} isFreePlan={isFreePlan} />
                 ) : (
                     <Card className="border-slate-200 shadow-xs min-h-[400px]">
                         <CardHeader>

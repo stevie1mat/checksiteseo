@@ -5,31 +5,62 @@ import { FeaturesSection } from "@/components/FeaturesSection";
 import { HowItWorksSection } from "@/components/HowItWorksSection";
 import { BenefitsSection } from "@/components/BenefitsSection";
 import { PricingSection } from "@/components/PricingSection";
-import { TestimonialsSection } from "@/components/TestimonialsSection";
 import { FAQSection } from "@/components/FAQSection";
 import { Footer } from "@/components/Footer";
 import { Metadata } from "next";
 import { AuthRedirectHandler } from "@/components/AuthRedirectHandler";
+import { HOME_FAQ_ITEMS } from "@/lib/home-faq";
+import { createPageMetadata, absoluteUrl } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "AEO Readiness Auditor | Free AI Search Optimization Check",
-  description: "Get a free Answer Engine Optimization (AEO) audit. See how your site performs with LLMs like ChatGPT, Claude, and Gemini.",
-  openGraph: {
-    title: "AEO Readiness Auditor | Free AI Search Optimization Check",
-    description: "Get a free Answer Engine Optimization (AEO) audit. See how your site performs with LLMs like ChatGPT, Claude, and Gemini.",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "CheckSiteAEO Dashboard" }],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "AEO Readiness Auditor | Free AI Search Optimization Check",
-    description: "Get a free Answer Engine Optimization (AEO) audit. Optimize your site for AI search.",
-    images: ["/og-image.png"],
-  }
-};
+export const metadata: Metadata = createPageMetadata({
+  title: "AEO Checker: Free Answer Engine Optimization Audit",
+  description:
+    "Run a free AEO checker audit to improve AI search visibility in ChatGPT, Perplexity, Claude, and Gemini. Get technical, content, and authority scoring in minutes.",
+  path: "/",
+  keywords: [
+    "AEO checker",
+    "answer engine optimization",
+    "AI search optimization",
+    "AEO audit",
+    "LLM SEO",
+    "ChatGPT citation optimization",
+  ],
+});
 
 export default function Home() {
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": HOME_FAQ_ITEMS.map((item) => ({
+      "@type": "Question",
+      "name": item.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.answer,
+      },
+    })),
+  };
+
+  const webPageJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "AEO Checker: Free Answer Engine Optimization Audit",
+    "url": absoluteUrl("/"),
+    "description":
+      "Run a free AEO checker audit to improve AI search visibility in ChatGPT, Perplexity, Claude, and Gemini.",
+    "inLanguage": "en-US",
+  };
+
   return (
     <main className="min-h-screen font-sans selection:bg-pink-500/30">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageJsonLd) }}
+      />
       <Suspense fallback={null}>
         <AuthRedirectHandler />
       </Suspense>
@@ -39,7 +70,6 @@ export default function Home() {
       <HowItWorksSection />
       <BenefitsSection />
       <PricingSection redirectTo="/dashboard/billing" />
-      <TestimonialsSection />
       <FAQSection />
       <Footer />
     </main>

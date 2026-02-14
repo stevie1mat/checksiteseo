@@ -147,7 +147,7 @@ def verify_database_connection():
         return False
 
 # CORS Setup
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -429,7 +429,7 @@ async def run_analysis_background(url: str, site_id: str | None):
              supabase.table("sites").update({"status": "error"}).eq("id", site_id).execute()
 
 @app.delete("/sites/{site_id}")
-def delete_site(site_id: str):
+def delete_site(site_id: str, user: dict = Depends(get_current_user)):
     if not DATABASE_URL:
         raise HTTPException(status_code=500, detail="Database URL not configured")
     
@@ -441,6 +441,24 @@ def delete_site(site_id: str):
             pool_pre_ping=True
         )
         with engine.connect() as conn:
+            # 0. Check Ownership
+            site_check = conn.execute(text("SELECT user_id FROM sites WHERE id = :site_id"), {"site_id": site_id}).fetchone()
+            if not site_check:
+                 raise HTTPException(status_code=404, detail="Site not found")
+            
+            # DEBUG LOGGING
+            print(f"DEBUG: DELETE SITE - Site ID: {site_id}")
+            print(f"DEBUG: Current User: {user}")
+            # Handle user object type (dict or Pydantic model)
+            current_user_id = user.get("id") if isinstance(user, dict) else getattr(user, "id", None)
+            owner_id = site_check[0]
+            print(f"DEBUG: Owner ID from DB: {owner_id}")
+            print(f"DEBUG: Current User ID: {current_user_id}")
+            
+            if str(owner_id) != str(current_user_id):
+                 print(f"DEBUG: Permission Denied. '{owner_id}' != '{current_user_id}'")
+                 raise HTTPException(status_code=403, detail="You do not have permission to delete this site.")
+
             # Execute deletions in order (Foreign Key constraints)
             # 1. Site History
             conn.execute(text("DELETE FROM site_history WHERE site_id = :site_id"), {"site_id": site_id})
@@ -453,10 +471,17 @@ def delete_site(site_id: str):
             
             conn.commit()
             
-            if result.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Site not found")
+            # 5. Remove from Scheduler (Critical for Plus/Pro users)
+            try:
+                scheduler.remove_job(site_id)
+                print(f"🗑️ Removed recurring job for site: {site_id}")
+            except Exception:
+                # Job might not exist
+                pass
                 
         return {"message": "Site deleted successfully"}
+    except HTTPException as he:
+        raise he
     except Exception as e:
         logger.error(f"Delete failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1074,31 +1099,25 @@ async def initiate_verification(
     if tier == "plus": MAX_SITES = 50
     if tier == "pro": MAX_SITES = 100000 # Unlimited
     
-    # 4. Check Limit (only if NOT checking an existing site logic below)
-    # Actually, we should check if the site ALREADY exists first, because if it does, we shouldn't block re-verification of an existing site.
-    
-    # Check existing FIRST to allow re-verification of existing sites
-    existing = supabase.table("sites").select("*").eq("user_id", user.id).eq("url", request.url).execute()
-    
-    if not existing.data:
-        # Only enforce limit if we are about to CREATE a NEW site
-        if current_count >= MAX_SITES:
-            raise HTTPException(
-                status_code=403, 
-                detail=f"Plan limit reached. You can only add {MAX_SITES} sites on the {tier.capitalize()} plan. Please upgrade or delete a site."
-            )
-
     # --- END LIMIT CHECK ---
     
-    if existing.data:
-        site = existing.data[0]
+    # Check if site ALREADY exists (Global Check)
+    # We first check if ANYONE owns this site
+    existing_global = supabase.table("sites").select("*").eq("url", request.url).execute()
+
+    if existing_global.data:
+        site = existing_global.data[0]
+        
+        # If site exists and is owned by SOMEONE ELSE
+        if site["user_id"] != user.id:
+            raise HTTPException(status_code=400, detail="This site has already been added by another account.")
+            
+        # If matches current user, return existing token (allow re-verification)
         if site.get("verified_at"):
              return {"message": "Site already verified", "site_id": site["id"], "verified": True}
         
-        # Return existing token
         token = site.get("verification_token")
         if not token:
-             # Generate one if missing (migration overlap)
              token = str(uuid.uuid4())
              supabase.table("sites").update({"verification_token": token}).eq("id", site["id"]).execute()
              
@@ -1108,6 +1127,14 @@ async def initiate_verification(
             "filename": "checksite-verification.txt",
             "verified": False
         }
+
+    # Site does not exist globally. This is a NEW site.
+    # Enforce Limit Check here
+    if current_count >= MAX_SITES:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Plan limit reached. You can only add {MAX_SITES} sites on the {tier.capitalize()} plan. Please upgrade or delete a site."
+        )
 
     # Create new
     token = str(uuid.uuid4())

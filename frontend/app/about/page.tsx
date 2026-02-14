@@ -2,20 +2,14 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Bot, Target, Users, Globe } from "lucide-react";
 import { Metadata } from "next";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-    title: "About Us | CheckSiteAEO",
-    description: "Learn about our mission to help content creators and businesses adapt to the new era of Answer Engine Optimization (AEO).",
-    openGraph: {
-        title: "About Us | CheckSiteAEO",
-        description: "Learn about our mission to help content creators and businesses adapt to the new era of Answer Engine Optimization (AEO).",
-    },
-    twitter: {
-        card: "summary_large_image",
-        title: "About Us | CheckSiteAEO",
-        description: "Pioneering Answer Engine Optimization for the AI era.",
-    },
-};
+export const metadata: Metadata = createPageMetadata({
+    title: "About CheckSiteAEO",
+    description: "Learn about the team and mission behind CheckSiteAEO and our approach to Answer Engine Optimization.",
+    path: "/about",
+    keywords: ["about CheckSiteAEO", "AEO company", "answer engine optimization platform"],
+});
 
 export default function AboutPage() {
     const jsonLd = {
@@ -43,7 +37,7 @@ export default function AboutPage() {
                 <div className="max-w-4xl mx-auto text-center">
                     <h1 className="font-serif text-5xl md:text-6xl mb-6">Pioneering AEO</h1>
                     <p className="text-xl text-white/80 leading-relaxed max-w-2xl mx-auto">
-                        We're on a mission to help content creators and businesses adapt to the new era of Answer Engine Optimization.
+                        We are on a mission to help content creators and businesses adapt to the new era of Answer Engine Optimization.
                     </p>
                 </div>
             </section>

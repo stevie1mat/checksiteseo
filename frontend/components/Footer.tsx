@@ -1,9 +1,58 @@
+"use client";
+
+import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { Bot, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { trackEvent } from "@/lib/analytics";
 
 export function Footer() {
+    const [newsletterEmail, setNewsletterEmail] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [newsletterStatus, setNewsletterStatus] = useState<{
+        type: "success" | "error";
+        message: string;
+    } | null>(null);
+
+    const handleNewsletterSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        const email = newsletterEmail.trim().toLowerCase();
+        if (!email) {
+            setNewsletterStatus({ type: "error", message: "Enter a valid email address." });
+            return;
+        }
+
+        setIsSubmitting(true);
+        setNewsletterStatus(null);
+
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/contact`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    first_name: "Newsletter",
+                    last_name: "Subscriber",
+                    email,
+                    message: "Please add this email to the CheckSite AEO newsletter."
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Subscription failed");
+            }
+
+            trackEvent("newsletter_subscribed", { email_domain: email.split("@")[1] || "unknown" });
+            setNewsletterStatus({ type: "success", message: "Subscribed successfully. Check your inbox soon." });
+            setNewsletterEmail("");
+        } catch {
+            setNewsletterStatus({ type: "error", message: "Could not subscribe right now. Please try again later." });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <footer className="bg-[#224034] text-white">
             {/* Newsletter Section */}
@@ -16,15 +65,34 @@ export function Footer() {
                                 Get weekly insights, algorithm updates, and best practices delivered to your inbox.
                             </p>
                         </div>
-                        <div className="flex gap-3 w-full md:w-auto">
-                            <Input
-                                placeholder="Enter your email"
-                                className="bg-white/10 border-white/20 text-white placeholder:text-white/40 h-12 min-w-[280px]"
-                            />
-                            <Button className="bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold h-12 px-6 whitespace-nowrap">
-                                Subscribe
-                            </Button>
-                        </div>
+                        <form className="w-full md:w-auto" onSubmit={handleNewsletterSubmit}>
+                            <div className="flex gap-3 w-full md:w-auto">
+                                <Input
+                                    type="email"
+                                    required
+                                    value={newsletterEmail}
+                                    onChange={(event) => setNewsletterEmail(event.target.value)}
+                                    placeholder="Enter your email"
+                                    className="bg-white/10 border-white/20 text-white placeholder:text-white/40 h-12 min-w-[280px]"
+                                />
+                                <Button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="bg-[#8cd9b8] text-[#224034] hover:bg-[#7bcfa7] font-semibold h-12 px-6 whitespace-nowrap"
+                                >
+                                    {isSubmitting ? "Subscribing..." : "Subscribe"}
+                                </Button>
+                            </div>
+                            {newsletterStatus && (
+                                <p
+                                    role="status"
+                                    aria-live="polite"
+                                    className={`mt-3 text-sm ${newsletterStatus.type === "success" ? "text-emerald-200" : "text-red-200"}`}
+                                >
+                                    {newsletterStatus.message}
+                                </p>
+                            )}
+                        </form>
                     </div>
                 </div>
             </div>
@@ -81,7 +149,7 @@ export function Footer() {
                         <h4 className="font-semibold mb-4 text-white">Company</h4>
                         <ul className="space-y-3 text-sm text-white/60">
                             <li><Link href="/about" className="hover:text-white transition-colors">About Us</Link></li>
-                            <li><Link href="#" className="hover:text-white transition-colors">Public Roadmap</Link></li>
+                            <li><Link href="/changelog" className="hover:text-white transition-colors">Public Roadmap</Link></li>
                             <li><Link href="/careers" className="hover:text-white transition-colors">Careers</Link></li>
                             <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
                             <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>

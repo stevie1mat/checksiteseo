@@ -1,20 +1,14 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Metadata } from "next";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-    title: "Changelog | CheckSiteAEO",
-    description: "Stay up to date with the latest features, improvements, and bug fixes for CheckSiteAEO.",
-    openGraph: {
-        title: "Changelog | CheckSiteAEO",
-        description: "Stay up to date with the latest features, improvements, and bug fixes for CheckSiteAEO.",
-    },
-    twitter: {
-        card: "summary_large_image",
-        title: "Changelog | CheckSiteAEO",
-        description: "See what's new in CheckSiteAEO.",
-    }
-};
+export const metadata: Metadata = createPageMetadata({
+    title: "Changelog: Product Updates",
+    description: "Track product updates, performance improvements, and new AEO features in CheckSiteAEO.",
+    path: "/changelog",
+    keywords: ["CheckSiteAEO changelog", "AEO product updates"],
+});
 
 export default function ChangelogPage() {
     const updates = [
@@ -76,7 +70,7 @@ export default function ChangelogPage() {
             <section className="bg-[#224034] text-white pt-32 pb-20 px-6 text-center">
                 <h1 className="font-serif text-5xl mb-6">Changelog</h1>
                 <p className="text-xl text-white/80 max-w-2xl mx-auto">
-                    See what's new and improved in CheckSite AEO.
+                    See what is new and improved in CheckSite AEO.
                 </p>
             </section>
 

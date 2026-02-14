@@ -3,20 +3,14 @@ import { Footer } from "@/components/Footer";
 import { Mail, MessageSquare } from "lucide-react";
 import { ContactForm } from "@/components/ContactForm";
 import { Metadata } from "next";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-    title: "Contact Us | CheckSiteAEO",
-    description: "Get in touch with the CheckSiteAEO team. We're here to help with your SEO and AEO auditing needs.",
-    openGraph: {
-        title: "Contact Us | CheckSiteAEO",
-        description: "Get in touch with the CheckSiteAEO team.",
-    },
-    twitter: {
-        card: "summary_large_image",
-        title: "Contact Us | CheckSiteAEO",
-        description: "Get in touch with the CheckSiteAEO team. We're here to help.",
-    },
-};
+export const metadata: Metadata = createPageMetadata({
+    title: "Contact CheckSiteAEO",
+    description: "Contact the CheckSiteAEO team for product questions, support, and enterprise AEO needs.",
+    path: "/contact",
+    keywords: ["contact CheckSiteAEO", "AEO support", "AI SEO support"],
+});
 
 export default function ContactPage() {
     return (
@@ -26,7 +20,7 @@ export default function ContactPage() {
             <div className="relative z-10 text-white pt-48 pb-12 px-6">
                 <div className="max-w-4xl mx-auto text-center">
                     <h1 className="font-serif text-4xl md:text-5xl mb-4">Get in touch</h1>
-                    <p className="text-white/80">We'd love to hear from you. Our team is always here to chat.</p>
+                    <p className="text-white/80">We would love to hear from you. Our team is always here to chat.</p>
                 </div>
             </div>
 
@@ -49,7 +43,7 @@ export default function ContactPage() {
                                 <Mail className="w-6 h-6 text-emerald-400" />
                             </div>
                             <h3 className="font-semibold text-lg text-white mb-1">Email us</h3>
-                            <p className="text-sm text-white/60 mb-4">We'll respond within 24 hours.</p>
+                            <p className="text-sm text-white/60 mb-4">We will respond within 24 hours.</p>
                             <a href="mailto:hello@checksiteaeo.com" className="inline-flex items-center text-emerald-400 font-medium hover:text-emerald-300 transition-colors group/link">
                                 hello@checksiteaeo.com <span className="ml-2 group-hover/link:translate-x-1 transition-transform">→</span>
                             </a>

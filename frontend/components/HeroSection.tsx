@@ -1,11 +1,11 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, Sparkles, AlertCircle, Download, XCircle, Bot, FileText, Code, AlignLeft, Search, Lock, Loader2 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Check, Sparkles, AlertCircle, XCircle, Code, AlignLeft, Lock } from "lucide-react"
 import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
 import { analytics } from "@/lib/analytics"
 
@@ -44,17 +44,31 @@ export function HeroSection() {
     const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle')
 
     const handleAnalyze = async () => {
-        if (!url) return
+        const rawUrl = url.trim()
+        if (!rawUrl) {
+            setError("Please enter a website URL.")
+            return
+        }
+
         setLoading(true)
         setScanStatus('scanning')
         setError("")
         setResult(null)
 
         // Auto-add https:// if missing protocol
-        let targetUrl = url.trim()
+        let targetUrl = rawUrl
         if (!/^https?:\/\//i.test(targetUrl)) {
             targetUrl = `https://${targetUrl}`
             setUrl(targetUrl) // Update UI
+        }
+
+        try {
+            new URL(targetUrl)
+        } catch {
+            setError("Please enter a valid URL.")
+            setLoading(false)
+            setScanStatus('idle')
+            return
         }
 
         // Track scan started
@@ -74,7 +88,7 @@ export function HeroSection() {
             setScanStatus('complete')
 
             // Track scan completed
-            analytics.trackScanCompleted(url, data.total_score || data.score)
+            analytics.trackScanCompleted(targetUrl, data.total_score || data.score)
 
             // Small delay to show complete state before showing results
             setTimeout(() => {
@@ -83,13 +97,13 @@ export function HeroSection() {
                 setScanStatus('idle')
             }, 1500)
 
-        } catch (err: any) {
-            const errorMessage = err.message || "An error occurred."
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : "An error occurred."
             setError(errorMessage)
             setScanStatus('error')
 
             // Track scan failed
-            analytics.trackScanFailed(url, errorMessage)
+            analytics.trackScanFailed(targetUrl, errorMessage)
 
             // Don't close immediately on error so user can see it
             setTimeout(() => setLoading(false), 3000)
@@ -111,11 +125,11 @@ export function HeroSection() {
 
             <div className="text-center max-w-4xl mx-auto space-y-6 z-10">
                 <h1 className="font-serif text-5xl md:text-7xl leading-tight">
-                    The future of <br />
-                    <span className="italic opacity-90">search visibility.</span>
+                    Free AEO Checker <br />
+                    <span className="italic opacity-90">for AI search visibility.</span>
                 </h1>
                 <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto leading-relaxed">
-                    CheckSite AEO is the AI-powered platform built to streamline your technical readiness for the next generation of Answer Engines.
+                    Run an Answer Engine Optimization audit and see how your site performs across technical readiness, content structure, and trust signals.
                 </p>
 
                 {/* Search Input Box - Refined */}
@@ -128,6 +142,7 @@ export function HeroSection() {
 
                             <div className="relative flex items-center bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1.5 focus-within:bg-white/10 focus-within:border-white/20 transition-all shadow-2xl">
                                 <Input
+                                    type="url"
                                     value={url}
                                     onChange={(e) => setUrl(e.target.value)}
                                     onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
@@ -267,7 +282,7 @@ export function HeroSection() {
                                         <p className="font-semibold text-slate-700 text-sm">Sitemap.xml</p>
                                         <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.sitemap?.details?.[0] || "N/A"}</p>
                                     </div>
-                                    <Check className="w-5 h-5 text-emerald-500" />
+                                    {(result.breakdown?.technical?.sitemap?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
                                 </div>
                                 {/* HTTPS */}
                                 <div className="flex justify-between items-start">
@@ -275,7 +290,7 @@ export function HeroSection() {
                                         <p className="font-semibold text-slate-700 text-sm">HTTPS Secured</p>
                                         <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.https?.details?.[0] || "N/A"}</p>
                                     </div>
-                                    <Check className="w-5 h-5 text-emerald-500" />
+                                    {(result.breakdown?.technical?.https?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
                                 </div>
                             </div>
                         </div>
@@ -312,7 +327,7 @@ export function HeroSection() {
                                     {result.breakdown?.content?.readability?.details?.find(d => d.startsWith("Suggestion:")) && (
                                         <div className="mt-2 bg-orange-50/50 rounded-lg p-2 border border-orange-100 text-xs">
                                             <span className="font-bold text-orange-600 block mb-0.5">AI Rewrite Suggestion:</span>
-                                            <span className="text-slate-600 italic">"{result.breakdown.content.readability.details.find(d => d.startsWith("Suggestion:"))?.replace("Suggestion:", "").trim()}"</span>
+                                            <span className="text-slate-600 italic">&ldquo;{result.breakdown.content.readability.details.find(d => d.startsWith("Suggestion:"))?.replace("Suggestion:", "").trim()}&rdquo;</span>
                                         </div>
                                     )}
                                 </div>
@@ -480,8 +495,14 @@ export function HeroSection() {
                             </p>
 
                             <div className="pt-2 space-y-3">
-                                <Button className="w-full bg-[#224034] hover:bg-[#1a3329] text-white h-11 text-base font-semibold shadow-lg shadow-[#224034]/20">
+                                <Button
+                                    asChild
+                                    onClick={() => analytics.trackSignupStarted()}
+                                    className="w-full bg-[#224034] hover:bg-[#1a3329] text-white h-11 text-base font-semibold shadow-lg shadow-[#224034]/20"
+                                >
+                                    <Link href="/signup">
                                     Create Free Account
+                                    </Link>
                                 </Button>
                                 <p className="text-xs text-slate-400">
                                     No credit card required • Free for 14 days

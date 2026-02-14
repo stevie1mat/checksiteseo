@@ -7,44 +7,55 @@ import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { SentryInit } from "@/components/SentryInit"
 import { KeepAlivePinger } from "@/components/KeepAlivePinger"
+import { SITE_URL, OG_IMAGE, SITE_NAME, TWITTER_HANDLE } from "@/lib/seo"
 
 const playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-serif' });
 const inter = Inter({ subsets: ["latin"], variable: '--font-sans' });
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL ? process.env.NEXT_PUBLIC_APP_URL : "http://localhost:3000";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(baseUrl),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "AEO Readiness Auditor | CheckSiteAEO",
-    template: "%s | CheckSiteAEO"
+    default: "AEO Checker & Answer Engine Optimization Tool | CheckSiteAEO",
+    template: "%s | CheckSiteAEO",
   },
-  description: "Analyze your site for LLM readability, citation readiness, and AEO optimization. Get actionable insights to improve your visibility in AI search results.",
-  keywords: ["AEO", "AI Search", "LLM Optimization", "SEO", "Site Audit", "Citation Readiness"],
+  description:
+    "Analyze your website with a free AEO checker to improve AI search visibility, citation readiness, and answer engine performance.",
+  keywords: [
+    "AEO checker",
+    "answer engine optimization",
+    "AI search optimization",
+    "LLM optimization",
+    "site audit",
+    "citation readiness",
+  ],
   authors: [{ name: "CheckSiteAEO Team" }],
-  creator: "CheckSiteAEO",
+  creator: SITE_NAME,
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: baseUrl,
-    title: "AEO Readiness Auditor | Optimize for AI Search",
-    description: "Analyze your site for LLM readability and citation readiness. detailed reports and scoring for the era of AI search.",
-    siteName: "CheckSiteAEO",
+    url: SITE_URL,
+    title: "AEO Checker & Answer Engine Optimization Tool",
+    description:
+      "Analyze your website for AI search visibility and citation readiness with detailed technical, content, and authority scoring.",
+    siteName: SITE_NAME,
     images: [
       {
-        url: "/og-image.png", // Ensure this exists or replace with a valid path
+        url: OG_IMAGE,
         width: 1200,
         height: 630,
-        alt: "CheckSiteAEO Dashboard Preview",
+        alt: "CheckSiteAEO AEO checker dashboard preview",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "AEO Readiness Auditor | Optimize for AI Search",
-    description: "Is your site ready for AI search engine optimization? Run a free audit now.",
-    images: ["/og-image.png"],
-    creator: "@checksiteaeo", // Replace with actual handle if available
+    title: "AEO Checker & Answer Engine Optimization Tool",
+    description: "Run a free AEO checker audit and improve visibility in AI-generated answers.",
+    images: [OG_IMAGE],
+    creator: TWITTER_HANDLE,
   },
   robots: {
     index: true,
@@ -67,7 +78,7 @@ export default function RootLayout({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "CheckSiteAEO",
+    "name": SITE_NAME,
     "applicationCategory": "SEO Tool",
     "operatingSystem": "Web",
     "offers": {
