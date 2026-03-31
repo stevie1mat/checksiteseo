@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, Sparkles, AlertCircle, XCircle, Code, AlignLeft, Lock } from "lucide-react"
+import { Check, Sparkles, AlertCircle, XCircle, Code, AlignLeft, Lock, Copy } from "lucide-react"
 import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
 import { analytics } from "@/lib/analytics"
 
@@ -27,11 +27,35 @@ type AnalysisResult = {
             freshness: { score: number; details: string[] }
             word_count: { score: number; details: string[] }
             gap?: { score: number; details: string[] } // Optional
+            geo?: { score: number; details: string[] } // Optional
         }
         authority: {
             eeat: { score: number; details: string[] }
         }
     }
+}
+
+function AIFixBox({ text }: { text: string }) {
+    if (!text) return null;
+    return (
+        <div className="mt-3 bg-slate-950 rounded-xl p-4 border border-slate-800 relative overflow-hidden shadow-inner group">
+            <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+            <div className="flex justify-between items-start mb-2">
+                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">AI Optimized Fix</p>
+                <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-6 w-6 text-slate-400 hover:text-white hover:bg-slate-800 -mt-1 -mr-1" 
+                    onClick={() => navigator.clipboard.writeText(text)}
+                >
+                    <Copy className="h-3 w-3" />
+                </Button>
+            </div>
+            <p className="text-emerald-50 font-medium font-mono text-xs leading-relaxed">
+                {text}
+            </p>
+        </div>
+    );
 }
 
 export function HeroSection() {
@@ -125,16 +149,16 @@ export function HeroSection() {
 
             <div className="text-center max-w-4xl mx-auto space-y-6 z-10">
                 <h1 className="font-serif text-5xl md:text-7xl leading-tight">
-                    Free AEO Checker Tool <br />
+                    Free AEO & GEO Checker Tool <br />
                     <span className="italic opacity-90">for AI search visibility.</span>
                 </h1>
                 <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto leading-relaxed">
-                    Use this AEO checking tool to audit technical readiness, content structure, and trust signals across answer engines.
+                    Use this AEO & GEO checking tool to audit technical readiness, generative formatting, and trust signals across answer engines.
                 </p>
                 <div className="flex flex-wrap justify-center gap-2 text-xs text-white/60 font-medium">
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5">AEO checker tool</span>
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5">AEO & GEO checker</span>
                     <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5">AEO readiness</span>
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5">AEO monitoring</span>
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5">GEO monitoring</span>
                 </div>
 
                 {/* Search Input Box - Refined */}
@@ -173,11 +197,11 @@ export function HeroSection() {
                             </Link>
                             <span className="text-white/30">•</span>
                             <Link href="/aeo-readiness" className="text-xs text-emerald-200 hover:text-white transition-colors underline-offset-4 hover:underline">
-                                Learn AEO Readiness
+                                Learn AEO & GEO Readiness
                             </Link>
                             <span className="text-white/30">•</span>
                             <Link href="/aeo-monitoring" className="text-xs text-emerald-200 hover:text-white transition-colors underline-offset-4 hover:underline">
-                                Learn AEO Monitoring
+                                Learn AEO & GEO Monitoring
                             </Link>
                         </div>
                     </div>
@@ -201,7 +225,7 @@ export function HeroSection() {
                             </div>
                             <div className="space-y-1">
                                 <p className="text-slate-500 text-lg font-medium">Target: <span className="text-slate-800">{result.url}</span></p>
-                                <p className="text-slate-400 text-sm">Generated on {new Date().toLocaleDateString()} • AEO Monitor Engine v1.0</p>
+                                <p className="text-slate-400 text-sm">Generated on {new Date().toLocaleDateString()} • AEO & GEO Monitor Engine v1.0</p>
                             </div>
                         </div>
                     </div>
@@ -216,7 +240,7 @@ export function HeroSection() {
 
                                 {/* Total Score Section */}
                                 <div className="text-center">
-                                    <p className="text-emerald-200/80 font-medium uppercase tracking-widest text-xs mb-3">Overall AEO Readiness</p>
+                                    <p className="text-emerald-200/80 font-medium uppercase tracking-widest text-xs mb-3">Overall AEO & GEO Readiness</p>
                                     <div className="flex items-center justify-center gap-3">
                                         <div className="text-7xl md:text-8xl font-serif tracking-tighter leading-none">
                                             {result.total_score || 0}
@@ -271,44 +295,59 @@ export function HeroSection() {
                             </div>
                             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
                                 {/* Robots */}
-                                <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                                    <div>
-                                        <p className="font-semibold text-slate-700 text-sm">Robots.txt</p>
-                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.robots?.details?.[0] || "N/A"}</p>
+                                <div className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-semibold text-slate-700 text-sm">Robots.txt</p>
+                                            <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.robots?.details?.[0] || "N/A"}</p>
+                                        </div>
+                                        {(result.breakdown?.technical?.robots?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
                                     </div>
-                                    {(result.breakdown?.technical?.robots?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
+                                    {(result.breakdown?.technical?.robots?.score || 0) <= 50 && <AIFixBox text="Create a robots.txt file at your site root to control AI crawler access." />}
                                 </div>
                                 {/* LLMs */}
-                                <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                                    <div>
-                                        <p className="font-semibold text-slate-700 text-sm">LLMs.txt</p>
-                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.llms?.details?.[0] || "N/A"}</p>
+                                <div className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-semibold text-slate-700 text-sm">LLMs.txt</p>
+                                            <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.llms?.details?.[0] || "N/A"}</p>
+                                        </div>
+                                        {(result.breakdown?.technical?.llms?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
                                     </div>
-                                    {(result.breakdown?.technical?.llms?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <XCircle className="w-5 h-5 text-red-400" />}
+                                    {(result.breakdown?.technical?.llms?.score || 0) <= 50 && <AIFixBox text="Create an /llms.txt file summarizing your core offerings for LLM agents." />}
                                 </div>
                                 {/* Schema */}
-                                <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                                    <div>
-                                        <p className="font-semibold text-slate-700 text-sm">Schema.org</p>
-                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.schema?.details?.[0] || "N/A"}</p>
+                                <div className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-semibold text-slate-700 text-sm">Schema.org</p>
+                                            <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.schema?.details?.[0] || "N/A"}</p>
+                                        </div>
+                                        {(result.breakdown?.technical?.schema?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
                                     </div>
-                                    {(result.breakdown?.technical?.schema?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
+                                    {(result.breakdown?.technical?.schema?.score || 0) <= 50 && <AIFixBox text="Implement JSON-LD schema markup (Organization/WebSite) to explicitly describe your entities to AI." />}
                                 </div>
                                 {/* Sitemap */}
-                                <div className="flex justify-between items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                                    <div>
-                                        <p className="font-semibold text-slate-700 text-sm">Sitemap.xml</p>
-                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.sitemap?.details?.[0] || "N/A"}</p>
+                                <div className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-semibold text-slate-700 text-sm">Sitemap.xml</p>
+                                            <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.sitemap?.details?.[0] || "N/A"}</p>
+                                        </div>
+                                        {(result.breakdown?.technical?.sitemap?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
                                     </div>
-                                    {(result.breakdown?.technical?.sitemap?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
+                                    {(result.breakdown?.technical?.sitemap?.score || 0) <= 50 && <AIFixBox text="Generate and submit an XML sitemap to help AI consistently discover your pages." />}
                                 </div>
                                 {/* HTTPS */}
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="font-semibold text-slate-700 text-sm">HTTPS Secured</p>
-                                        <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.https?.details?.[0] || "N/A"}</p>
+                                <div className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-semibold text-slate-700 text-sm">HTTPS Secured</p>
+                                            <p className="text-xs text-slate-500 mt-1">{result.breakdown?.technical?.https?.details?.[0] || "N/A"}</p>
+                                        </div>
+                                        {(result.breakdown?.technical?.https?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
                                     </div>
-                                    {(result.breakdown?.technical?.https?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
+                                    {(result.breakdown?.technical?.https?.score || 0) <= 50 && <AIFixBox text="Install an SSL certificate to ensure trusted, encrypted connections." />}
                                 </div>
                             </div>
                         </div>
@@ -321,14 +360,17 @@ export function HeroSection() {
                             </div>
                             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
                                 {/* Questions */}
-                                <div className="flex justify-between items-center pb-4 border-b border-gray-50">
-                                    <div>
-                                        <p className="font-semibold text-slate-700 text-sm">Question Targeting</p>
-                                        <p className="text-xs text-slate-500 mt-0.5">Headers asking questions</p>
+                                <div className="pb-4 border-b border-gray-50">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="font-semibold text-slate-700 text-sm">Question Targeting</p>
+                                            <p className="text-xs text-slate-500 mt-0.5">Headers asking questions</p>
+                                        </div>
+                                        <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                                            {result.breakdown?.content?.questions?.details?.[0]?.split('/')[0] || 0} / 5
+                                        </Badge>
                                     </div>
-                                    <Badge variant="secondary" className="bg-slate-100 text-slate-700">
-                                        {result.breakdown?.content?.questions?.details?.[0]?.split('/')[0] || 0} / 5
-                                    </Badge>
+                                    {((parseInt(result.breakdown?.content?.questions?.details?.[0]?.split('/')[0] || "0")) < 5) && <AIFixBox text="Add H2/H3 headers phrased as natural questions (e.g., 'What is...?', 'How does...?') to trigger AI answer cards." />}
                                 </div>
                                 {/* Readability */}
                                 <div className="pb-4 border-b border-gray-50">
@@ -342,15 +384,10 @@ export function HeroSection() {
                                             {(result.breakdown?.content?.readability?.details?.[0] || "N/A").split('(')[0]}
                                         </Badge>
                                     </div>
-                                    {result.breakdown?.content?.readability?.details?.find(d => d.startsWith("Suggestion:")) && (
-                                        <div className="mt-2 bg-orange-50/50 rounded-lg p-2 border border-orange-100 text-xs">
-                                            <span className="font-bold text-orange-600 block mb-0.5">AI Rewrite Suggestion:</span>
-                                            <span className="text-slate-600 italic">&ldquo;{result.breakdown.content.readability.details.find(d => d.startsWith("Suggestion:"))?.replace("Suggestion:", "").trim()}&rdquo;</span>
-                                        </div>
-                                    )}
+                                    <AIFixBox text={result.breakdown?.content?.readability?.details?.find(d => d.startsWith("Suggestion:"))?.replace("Suggestion:", "").trim() || ""} />
                                 </div>
                                 {/* Visual Context */}
-                                <div className=" pb-4 border-b border-gray-50">
+                                <div className="pb-4 border-b border-gray-50">
                                     <div className="flex justify-between mb-2">
                                         <p className="font-semibold text-slate-700 text-sm">Visual Context</p>
                                         <p className="text-xs font-medium text-slate-600">{result.breakdown?.content?.visual?.details?.[0] || "0% Alt Text"}</p>
@@ -358,22 +395,40 @@ export function HeroSection() {
                                     <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                                         <div className="h-full bg-blue-500 rounded-full" style={{ width: (result.breakdown?.content?.visual?.details?.[0]?.split('%')[0] || "0") + '%' }}></div>
                                     </div>
+                                    {(parseInt(result.breakdown?.content?.visual?.details?.[0]?.split('%')[0] || "0") < 100) && <AIFixBox text="Add descriptive alt-text to your images so multimodal AI models can process them." />}
                                 </div>
                                 {/* Freshness */}
-                                <div className="flex justify-between items-center pb-4 border-b border-gray-50">
-                                    <div>
-                                        <p className="font-semibold text-slate-700 text-sm">Content Freshness</p>
-                                        <p className="text-xs text-slate-500 mt-0.5">Dates validated in metadata</p>
+                                <div className="pb-4 border-b border-gray-50">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="font-semibold text-slate-700 text-sm">Content Freshness</p>
+                                            <p className="text-xs text-slate-500 mt-0.5">Dates validated in metadata</p>
+                                        </div>
+                                        {(result.breakdown?.content?.freshness?.score || 0) > 0 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
                                     </div>
-                                    {(result.breakdown?.content?.freshness?.score || 0) > 0 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
+                                    {(result.breakdown?.content?.freshness?.score || 0) === 0 && <AIFixBox text="Update your article metadata with article:published_time to signal fresh content to AI." />}
                                 </div>
                                 {/* Word Count */}
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <p className="font-semibold text-slate-700 text-sm">Word Count</p>
-                                        <p className="text-xs text-slate-500 mt-0.5">{result.breakdown?.content?.word_count?.details?.[0] || "N/A"}</p>
+                                <div className="pb-4 border-b border-gray-50">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="font-semibold text-slate-700 text-sm">Word Count</p>
+                                            <p className="text-xs text-slate-500 mt-0.5">{result.breakdown?.content?.word_count?.details?.[0] || "N/A"}</p>
+                                        </div>
+                                        {(result.breakdown?.content?.word_count?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
                                     </div>
-                                    {(result.breakdown?.content?.word_count?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
+                                    {(result.breakdown?.content?.word_count?.score || 0) <= 50 && <AIFixBox text="Expand your page content to >500 words to provide enough contextual depth for AI analysis." />}
+                                </div>
+                                {/* GEO Analysis */}
+                                <div className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="font-semibold text-slate-700 text-sm">GEO Analysis</p>
+                                            <p className="text-xs text-slate-500 mt-0.5">{result.breakdown?.content?.geo?.details?.[0] || "Generative Engine Optimization Formats"}</p>
+                                        </div>
+                                        {(result.breakdown?.content?.geo?.score || 0) > 50 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
+                                    </div>
+                                    {(result.breakdown?.content?.geo?.score || 0) <= 50 && <AIFixBox text="Restructure paragraphs into direct, concise `<p>` answer blocks to maximize citation extraction in AI Overviews." />}
                                 </div>
                             </div>
                         </div>
@@ -419,9 +474,12 @@ export function HeroSection() {
                                         <p className="text-xs font-semibold text-red-500 uppercase tracking-wider mb-3">Weaknesses & Risks</p>
                                         <ul className="space-y-3">
                                             {result.breakdown?.authority?.eeat?.details?.filter(s => s.startsWith("Con:")).slice(0, 5).map((signal, i) => (
-                                                <li key={i} className="flex items-start gap-3 text-sm text-slate-600 border-b border-gray-50 pb-2 last:border-0 last:pb-0">
-                                                    <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
-                                                    <span className="text-sm leading-relaxed">{signal.replace("Con:", "").trim()}</span>
+                                                <li key={i} className="border-b border-gray-50 pb-4 mb-2 last:border-0 last:pb-0 last:mb-0">
+                                                    <div className="flex items-start gap-3 text-sm text-slate-600 mb-2">
+                                                        <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
+                                                        <span className="text-sm leading-relaxed">{signal.replace("Con:", "").trim()}</span>
+                                                    </div>
+                                                    <AIFixBox text={`Address this risk: ${signal.replace("Con:", "").trim()}`} />
                                                 </li>
                                             ))}
                                             {(result.breakdown?.authority?.eeat?.details?.filter(s => s.startsWith("Con:"))?.length || 0) > 5 && (
@@ -485,7 +543,105 @@ export function HeroSection() {
                         )}
 
                     </div>
+
+                    {/* AI Fix Pack Results Dashboard */}
+                    <div className="w-full mt-16 bg-[#0B1120] text-slate-300 rounded-3xl p-6 md:p-12 shadow-2xl animate-in slide-in-from-bottom-20 duration-1000 border border-slate-800/60 relative overflow-hidden text-left mb-4">
+                        {/* Background glow effects */}
+                        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+                        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2" />
+                        
+                        <div className="relative z-10">
+
+                        {/* Conversion Block (DFY Upgrade) */}
+                        <div className="font-sans">
+                            <div className="text-center mb-12">
+                                <h3 className="text-3xl md:text-4xl font-serif text-white">Ready to Fix All Your AI Search Issues? Sign Up Today.</h3>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6 max-w-5xl mx-auto mb-12 text-left">
+                                {/* Technical/Core */}
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Robots.txt Analysis</h4><p className="text-slate-500 text-xs mt-0.5">Control how AI agent bots crawl your site.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">LLMs.txt Generation</h4><p className="text-slate-500 text-xs mt-0.5">Direct LLMs swiftly to your core services.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">JSON-LD Schema</h4><p className="text-slate-500 text-xs mt-0.5">Speak directly to AI models in raw code.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Sitemap Tracking</h4><p className="text-slate-500 text-xs mt-0.5">Ensure AI bots index all your valid pages.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">HTTPS Protocols</h4><p className="text-slate-500 text-xs mt-0.5">Maintain secure handshakes for AI trust.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Technical Health</h4><p className="text-slate-500 text-xs mt-0.5">Flag slow load times penalizing AI extraction.</p></div></div>
+                                </div>
+
+                                {/* Content/Context */}
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Question Targeting</h4><p className="text-slate-500 text-xs mt-0.5">Optimize headers for exact voice searches.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Readability Scoring</h4><p className="text-slate-500 text-xs mt-0.5">Match the Flesch-Kincaid grade AI prefers.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Visual Context</h4><p className="text-slate-500 text-xs mt-0.5">Audit descriptive Alt-texts for multimodal AI.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Content Freshness</h4><p className="text-slate-500 text-xs mt-0.5">Signal recency via article:published_time.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Word Count Depth</h4><p className="text-slate-500 text-xs mt-0.5">Hit the context sweet spot for RAG pipelines.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Missing Topics Gap</h4><p className="text-slate-500 text-xs mt-0.5">Discover exact keywords your page lacks.</p></div></div>
+                                </div>
+
+                                {/* Authority/E-E-A-T & AI Optimization */}
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Brand Entities</h4><p className="text-slate-500 text-xs mt-0.5">Map your organization globally to the KG.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Author Signals</h4><p className="text-slate-500 text-xs mt-0.5">Validate E-E-A-T expertise automatically.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Trust Markers</h4><p className="text-slate-500 text-xs mt-0.5">Detect necessary policies and legal links.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">AI Auto-Rewrites</h4><p className="text-slate-500 text-xs mt-0.5">1-click AI generation for missing metadata.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Code Snippet Exports</h4><p className="text-slate-500 text-xs mt-0.5">Copy and paste schema directly to your CMS.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Visibility Over Time</h4><p className="text-slate-500 text-xs mt-0.5">Track ChatGPT ranking metrics week-by-week.</p></div></div>
+                                </div>
+                                
+                                {/* Extra New Features (GEO) */}
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">GEO Analysis Check</h4><p className="text-slate-500 text-xs mt-0.5">Generative Engine Optimization formatting.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">AI Answers Extraction</h4><p className="text-slate-500 text-xs mt-0.5">Analyze how often you are quoted as a source.</p></div></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Citation Link Gap</h4><p className="text-slate-500 text-xs mt-0.5">Find E-E-A-T linked mentions you are missing.</p></div></div>
+                                </div>
+                            </div>
+                            
+                            <div className="text-center">
+                                <Button asChild className="w-full md:w-auto px-12 bg-emerald-500 hover:bg-emerald-600 text-white h-14 text-lg font-bold shadow-xl shadow-emerald-500/20 rounded-xl transition-all hover:scale-105">
+                                    <Link href="/signup">Create Free Account</Link>
+                                </Button>
+                                <p className="text-xs text-slate-500 mt-4 tracking-wide uppercase font-semibold">Instant access • No credit card required</p>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
+            </div>
             )}
 
             {/* Registration Modal */}
