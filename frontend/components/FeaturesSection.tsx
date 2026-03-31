@@ -11,9 +11,9 @@ export function FeaturesSection() {
         },
         {
             icon: Target,
-            title: "Built for AI Citations",
+            title: "AEO & GEO Optimization",
             description:
-                "Optimize for the answer engines that matter, including ChatGPT, Gemini, Claude, Perplexity, Grok, and DeepSeek.",
+                "Optimize for answer engines (AEO) to be found, and use Generative Engine Optimization (GEO) formatting so AI models effortlessly extract your citations.",
         },
         {
             icon: TrendingUp,

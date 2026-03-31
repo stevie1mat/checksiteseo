@@ -42,10 +42,10 @@ function AIFixBox({ text }: { text: string }) {
             <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
             <div className="flex justify-between items-start mb-2">
                 <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">AI Optimized Fix</p>
-                <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    className="h-6 w-6 text-slate-400 hover:text-white hover:bg-slate-800 -mt-1 -mr-1" 
+                <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-slate-400 hover:text-white hover:bg-slate-800 -mt-1 -mr-1"
                     onClick={() => navigator.clipboard.writeText(text)}
                 >
                     <Copy className="h-3 w-3" />
@@ -149,16 +149,19 @@ export function HeroSection() {
 
             <div className="text-center max-w-4xl mx-auto space-y-6 z-10">
                 <h1 className="font-serif text-5xl md:text-7xl leading-tight">
-                    Fix Your <span className="text-emerald-400">AEO & GEO</span> Issues <br />
-                    <span className="italic opacity-90">for AI search visibility.</span>
+                    Fix Your <span className="text-emerald-400">ChatGPT & AI</span> Search Rankings
+                    <span className="block mt-4 text-3xl md:text-5xl italic opacity-90 font-light">in under 30 seconds.</span>
                 </h1>
-                <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto leading-relaxed">
-                    Use this AEO & GEO checking tool to audit technical readiness, generative formatting, and trust signals across answer engines.
+                <p className="text-lg md:text-xl text-white/70 max-w-3xl mx-auto leading-relaxed">
+                    Find what’s blocking your AI rankings and get exact fixes you can apply instantly.
                 </p>
-                <div className="flex flex-wrap justify-center gap-2 text-xs text-white/60 font-medium">
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5">AEO & GEO checker</span>
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5">AEO readiness</span>
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5">GEO monitoring</span>
+                <div className="flex flex-wrap justify-center gap-2 text-xs text-white/60 font-medium mt-6">
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">ChatGPT SEO</span>
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">Perplexity Ranking Check</span>
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">Claude Optimization</span>
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">AI Search Visibility</span>
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">Google Gemini SEO</span>
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">Answer Engine Optimization</span>
                 </div>
 
                 {/* Search Input Box - Refined */}
@@ -169,23 +172,22 @@ export function HeroSection() {
                         <div className="relative">
                             <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
 
-                            <div className="relative flex items-center bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1.5 focus-within:bg-white/10 focus-within:border-white/20 transition-all shadow-2xl">
+                            <form onSubmit={(e) => { e.preventDefault(); handleAnalyze(); }} className="relative flex items-center bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1.5 focus-within:bg-white/10 focus-within:border-white/20 transition-all shadow-2xl">
                                 <Input
                                     type="url"
                                     value={url}
                                     onChange={(e) => setUrl(e.target.value)}
-                                    onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
                                     placeholder="Enter your website URL"
                                     className="border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 h-12 text-base px-4 flex-1"
                                 />
                                 <Button
-                                    onClick={handleAnalyze}
+                                    type="submit"
                                     disabled={loading}
                                     className="bg-[#8cd9b8] hover:bg-[#7bcfa7] text-[#16211d] h-11 px-6 rounded-md font-bold text-sm tracking-wide whitespace-nowrap shadow-lg shadow-[#8cd9b8]/20 transition-all transform active:scale-95"
                                 >
-                                    {loading ? "Scanning..." : "Analyze Now"}
+                                    {loading ? "Scanning..." : "Fix My AI Rankings"}
                                 </Button>
-                            </div>
+                            </form>
                         </div>
 
                         <p className="mt-4 text-xs text-white/30 text-center font-light tracking-wide">
@@ -549,99 +551,99 @@ export function HeroSection() {
                         {/* Background glow effects */}
                         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
                         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2" />
-                        
+
                         <div className="relative z-10">
 
-                        {/* Conversion Block (DFY Upgrade) */}
-                        <div className="font-sans">
-                            <div className="text-center mb-12">
-                                <h3 className="text-3xl md:text-4xl font-serif text-white">Ready to Fix All Your AI Search Issues? Sign Up Today.</h3>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6 max-w-5xl mx-auto mb-12 text-left">
-                                {/* Technical/Core */}
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Robots.txt Analysis</h4><p className="text-slate-500 text-xs mt-0.5">Control how AI agent bots crawl your site.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">LLMs.txt Generation</h4><p className="text-slate-500 text-xs mt-0.5">Direct LLMs swiftly to your core services.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">JSON-LD Schema</h4><p className="text-slate-500 text-xs mt-0.5">Speak directly to AI models in raw code.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Sitemap Tracking</h4><p className="text-slate-500 text-xs mt-0.5">Ensure AI bots index all your valid pages.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">HTTPS Protocols</h4><p className="text-slate-500 text-xs mt-0.5">Maintain secure handshakes for AI trust.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Technical Health</h4><p className="text-slate-500 text-xs mt-0.5">Flag slow load times penalizing AI extraction.</p></div></div>
+                            {/* Conversion Block (DFY Upgrade) */}
+                            <div className="font-sans">
+                                <div className="text-center mb-12">
+                                    <h3 className="text-3xl md:text-4xl font-serif text-white">Ready to Fix All Your AI Search Issues? Sign Up Today.</h3>
                                 </div>
 
-                                {/* Content/Context */}
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Question Targeting</h4><p className="text-slate-500 text-xs mt-0.5">Optimize headers for exact voice searches.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Readability Scoring</h4><p className="text-slate-500 text-xs mt-0.5">Match the Flesch-Kincaid grade AI prefers.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Visual Context</h4><p className="text-slate-500 text-xs mt-0.5">Audit descriptive Alt-texts for multimodal AI.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Content Freshness</h4><p className="text-slate-500 text-xs mt-0.5">Signal recency via article:published_time.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Word Count Depth</h4><p className="text-slate-500 text-xs mt-0.5">Hit the context sweet spot for RAG pipelines.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Missing Topics Gap</h4><p className="text-slate-500 text-xs mt-0.5">Discover exact keywords your page lacks.</p></div></div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6 max-w-5xl mx-auto mb-12 text-left">
+                                    {/* Technical/Core */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Robots.txt Analysis</h4><p className="text-slate-500 text-xs mt-0.5">Control how AI agent bots crawl your site.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">LLMs.txt Generation</h4><p className="text-slate-500 text-xs mt-0.5">Direct LLMs swiftly to your core services.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">JSON-LD Schema</h4><p className="text-slate-500 text-xs mt-0.5">Speak directly to AI models in raw code.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Sitemap Tracking</h4><p className="text-slate-500 text-xs mt-0.5">Ensure AI bots index all your valid pages.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">HTTPS Protocols</h4><p className="text-slate-500 text-xs mt-0.5">Maintain secure handshakes for AI trust.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Technical Health</h4><p className="text-slate-500 text-xs mt-0.5">Flag slow load times penalizing AI extraction.</p></div></div>
+                                    </div>
+
+                                    {/* Content/Context */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Question Targeting</h4><p className="text-slate-500 text-xs mt-0.5">Optimize headers for exact voice searches.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Readability Scoring</h4><p className="text-slate-500 text-xs mt-0.5">Match the Flesch-Kincaid grade AI prefers.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Visual Context</h4><p className="text-slate-500 text-xs mt-0.5">Audit descriptive Alt-texts for multimodal AI.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Content Freshness</h4><p className="text-slate-500 text-xs mt-0.5">Signal recency via article:published_time.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Word Count Depth</h4><p className="text-slate-500 text-xs mt-0.5">Hit the context sweet spot for RAG pipelines.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Missing Topics Gap</h4><p className="text-slate-500 text-xs mt-0.5">Discover exact keywords your page lacks.</p></div></div>
+                                    </div>
+
+                                    {/* Authority/E-E-A-T & AI Optimization */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Brand Entities</h4><p className="text-slate-500 text-xs mt-0.5">Map your organization globally to the KG.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Author Signals</h4><p className="text-slate-500 text-xs mt-0.5">Validate E-E-A-T expertise automatically.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Trust Markers</h4><p className="text-slate-500 text-xs mt-0.5">Detect necessary policies and legal links.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">AI Auto-Rewrites</h4><p className="text-slate-500 text-xs mt-0.5">1-click AI generation for missing metadata.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Code Snippet Exports</h4><p className="text-slate-500 text-xs mt-0.5">Copy and paste schema directly to your CMS.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Visibility Over Time</h4><p className="text-slate-500 text-xs mt-0.5">Track ChatGPT ranking metrics week-by-week.</p></div></div>
+                                    </div>
+
+                                    {/* Extra New Features (GEO) */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">GEO Analysis Check</h4><p className="text-slate-500 text-xs mt-0.5">Generative Engine Optimization formatting.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">AI Answers Extraction</h4><p className="text-slate-500 text-xs mt-0.5">Analyze how often you are quoted as a source.</p></div></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Citation Link Gap</h4><p className="text-slate-500 text-xs mt-0.5">Find E-E-A-T linked mentions you are missing.</p></div></div>
+                                    </div>
                                 </div>
 
-                                {/* Authority/E-E-A-T & AI Optimization */}
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Brand Entities</h4><p className="text-slate-500 text-xs mt-0.5">Map your organization globally to the KG.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Author Signals</h4><p className="text-slate-500 text-xs mt-0.5">Validate E-E-A-T expertise automatically.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Trust Markers</h4><p className="text-slate-500 text-xs mt-0.5">Detect necessary policies and legal links.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">AI Auto-Rewrites</h4><p className="text-slate-500 text-xs mt-0.5">1-click AI generation for missing metadata.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Code Snippet Exports</h4><p className="text-slate-500 text-xs mt-0.5">Copy and paste schema directly to your CMS.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Visibility Over Time</h4><p className="text-slate-500 text-xs mt-0.5">Track ChatGPT ranking metrics week-by-week.</p></div></div>
-                                </div>
-                                
-                                {/* Extra New Features (GEO) */}
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">GEO Analysis Check</h4><p className="text-slate-500 text-xs mt-0.5">Generative Engine Optimization formatting.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">AI Answers Extraction</h4><p className="text-slate-500 text-xs mt-0.5">Analyze how often you are quoted as a source.</p></div></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-3"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /><div><h4 className="text-white font-medium text-sm">Citation Link Gap</h4><p className="text-slate-500 text-xs mt-0.5">Find E-E-A-T linked mentions you are missing.</p></div></div>
+                                <div className="text-center">
+                                    <Button asChild className="w-full md:w-auto px-12 bg-emerald-500 hover:bg-emerald-600 text-white h-14 text-lg font-bold shadow-xl shadow-emerald-500/20 rounded-xl transition-all hover:scale-105">
+                                        <Link href="/signup">Create Free Account</Link>
+                                    </Button>
+                                    <p className="text-xs text-slate-500 mt-4 tracking-wide uppercase font-semibold">Instant access • No credit card required</p>
                                 </div>
                             </div>
-                            
-                            <div className="text-center">
-                                <Button asChild className="w-full md:w-auto px-12 bg-emerald-500 hover:bg-emerald-600 text-white h-14 text-lg font-bold shadow-xl shadow-emerald-500/20 rounded-xl transition-all hover:scale-105">
-                                    <Link href="/signup">Create Free Account</Link>
-                                </Button>
-                                <p className="text-xs text-slate-500 mt-4 tracking-wide uppercase font-semibold">Instant access • No credit card required</p>
-                            </div>
+
                         </div>
-
                     </div>
                 </div>
-            </div>
             )}
 
             {/* Registration Modal */}
@@ -675,7 +677,7 @@ export function HeroSection() {
                                     className="w-full bg-[#224034] hover:bg-[#1a3329] text-white h-11 text-base font-semibold shadow-lg shadow-[#224034]/20"
                                 >
                                     <Link href="/signup">
-                                    Create Free Account
+                                        Create Free Account
                                     </Link>
                                 </Button>
                                 <p className="text-xs text-slate-400">

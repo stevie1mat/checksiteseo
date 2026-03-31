@@ -60,6 +60,11 @@ export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
       "We evaluate expertise, experience, authoritativeness, and trustworthiness using the same style of model signals used by answer engines, so you can identify trust gaps before they impact visibility.",
   },
   {
+    question: "What is GEO (Generative Engine Optimization)?",
+    answer:
+      "GEO involves structuring your content exactly how AI models want to read it. While AEO focuses on making sure the AI can find and trust your answers, GEO ensures your paragraphs are formatted as direct, extractable citations so you get featured at the top of AI Overviews.",
+  },
+  {
     question: "Is there a limit to how many URLs I can analyze?",
     answer:
       "The Free plan includes 5 scans per month, while paid plans increase scan and site limits substantially.",

@@ -16,8 +16,8 @@ export function BenefitsSection() {
         },
         {
             icon: FileCheck,
-            title: "Comprehensive Reports",
-            description: "Detailed breakdowns of technical, content, and authority metrics in one dashboard.",
+            title: "AEO & GEO Reporting",
+            description: "Detailed breakdowns of technical AEO readiness alongside Generative Engine textual formatting metrics.",
             metric: "50+ Checks"
         },
         {
