@@ -859,6 +859,39 @@ async def analyze_readiness(url: str, scan_mode: str = "full"):
         
     aeo_score = int(sum(overall_components) / len(overall_components)) if overall_components else 0
     
+    # --- Calculate Engine Specific Scores ---
+    # Perplexity (Pro Search): Highly reliant on real-time citations and schema.
+    has_freshness = content.get("freshness", {}).get("score", 0) > 0
+    schema_ok = len(tech.get("schema", {}).get("types", [])) > 0
+    perplexity_score = aeo_score
+    if not has_freshness: perplexity_score -= 15
+    if not schema_ok: perplexity_score -= 10
+    
+    # Gemini (Google Gemini): Deeply tied to Google's traditional crawler logic.
+    robots_ok = tech.get("robots", {}).get("status") == "valid"
+    is_long_form = content.get("word_count", {}).get("score", 0) >= 100
+    gemini_score = aeo_score
+    if not robots_ok: gemini_score -= 20
+    if not is_long_form: gemini_score -= 10
+    
+    # ChatGPT (GPT-4o Search): Values multimodal accessibility and conversational flow.
+    visual_score = content.get("visual", {}).get("score", 0)
+    readability_score = content.get("readability", {}).get("score", 0)
+    chatgpt_score = int((aeo_score * 0.4) + (visual_score * 0.3) + (readability_score * 0.3))
+    
+    # Claude (3.5 Sonnet): Favors long-form, logically structured content with clear headers and answers.
+    has_questions = content.get("questions", {}).get("score", 0) > 0
+    claude_score = aeo_score
+    if not is_long_form: claude_score -= 15
+    if not has_questions: claude_score -= 10
+    
+    engine_scores = {
+        "chatgpt": min(100, max(0, chatgpt_score)),
+        "claude": min(100, max(0, claude_score)),
+        "gemini": min(100, max(0, gemini_score)),
+        "perplexity": min(100, max(0, perplexity_score))
+    }
+    
     return {
         "url": url,
         "aeo_score": aeo_score,
@@ -868,6 +901,7 @@ async def analyze_readiness(url: str, scan_mode: str = "full"):
         "total_score": aeo_score, # For backward compatibility
         "breakdown": results,
         "competitors": competitors_data,
+        "engine_scores": engine_scores,
         "scan_mode": scan_mode
     }
 

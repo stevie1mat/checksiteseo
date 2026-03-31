@@ -5,13 +5,19 @@ import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, Sparkles, AlertCircle, XCircle, Code, AlignLeft, Lock, Copy } from "lucide-react"
+import { Check, Sparkles, AlertCircle, XCircle, Code, AlignLeft, Lock, Copy, Bot } from "lucide-react"
 import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
 import { analytics } from "@/lib/analytics"
 
 type AnalysisResult = {
     url: string
     total_score: number
+    engine_scores?: {
+        chatgpt: number
+        claude: number
+        gemini: number
+        perplexity: number
+    }
     breakdown: {
         technical: {
             robots: { score: number; details: string[] }
@@ -174,7 +180,7 @@ export function HeroSection() {
 
                             <form onSubmit={(e) => { e.preventDefault(); handleAnalyze(); }} className="relative flex items-center bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1.5 focus-within:bg-white/10 focus-within:border-white/20 transition-all shadow-2xl">
                                 <Input
-                                    type="url"
+                                    type="text"
                                     value={url}
                                     onChange={(e) => setUrl(e.target.value)}
                                     placeholder="Enter your website URL"
@@ -283,6 +289,38 @@ export function HeroSection() {
                                 </div>
 
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Engine Specific Estimates */}
+                    <div className="mb-12">
+                        <div className="flex items-center gap-2 mb-6">
+                            <Bot className="w-6 h-6 text-emerald-600" />
+                            <h3 className="font-serif text-2xl text-[#224034]">AI Engine Visibility Estimate</h3>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[
+                                { name: 'ChatGPT', score: result.engine_scores?.chatgpt ?? Math.min(100, (result.total_score || 0) + 2), desc: 'GPT-4o Search' },
+                                { name: 'Claude', score: result.engine_scores?.claude ?? Math.min(100, (result.total_score || 0)), desc: 'Claude 3.5 Sonnet' },
+                                { name: 'Gemini', score: result.engine_scores?.gemini ?? Math.min(100, Math.max(0, (result.total_score || 0) + 1)), desc: 'Google Gemini' },
+                                { name: 'Perplexity', score: result.engine_scores?.perplexity ?? Math.min(100, Math.max(0, (result.total_score || 0) - 3)), desc: 'Pro Search' },
+                            ].map((engine) => (
+                                <div key={engine.name} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-col items-center justify-center relative overflow-hidden group hover:border-emerald-200 transition-all">
+                                    <div className="text-slate-800 font-bold text-lg">{engine.name}</div>
+                                    <div className="text-slate-400 text-xs mb-3">{engine.desc}</div>
+                                    
+                                    <div className="flex items-baseline gap-1">
+                                        <span className={`text-3xl font-bold tracking-tighter ${engine.score >= 80 ? 'text-emerald-500' : engine.score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>{engine.score}</span>
+                                        <span className="text-sm text-slate-400 font-medium">/ 100</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-1.5 mt-4 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full rounded-full transition-all duration-1000 ${engine.score >= 80 ? 'bg-emerald-500' : engine.score >= 50 ? 'bg-amber-400' : 'bg-red-500'}`} 
+                                            style={{ width: `${engine.score}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
 
