@@ -149,7 +149,7 @@ export function HeroSection() {
 
             <div className="text-center max-w-4xl mx-auto space-y-6 z-10">
                 <h1 className="font-serif text-5xl md:text-7xl leading-tight">
-                    Free AEO & GEO Checker Tool <br />
+                    Fix Your <span className="text-emerald-400">AEO & GEO</span> Issues <br />
                     <span className="italic opacity-90">for AI search visibility.</span>
                 </h1>
                 <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto leading-relaxed">
