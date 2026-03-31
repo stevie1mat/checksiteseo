@@ -20,11 +20,11 @@ type AnalysisResult = {
     }
     breakdown: {
         technical: {
-            robots: { score: number; details: string[] }
-            llms: { score: number; details: string[] }
-            schema: { score: number; details: string[] }
-            https: { score: number; details: string[] }
-            sitemap: { score: number; details: string[] }
+            robots: { score: number; details: string[]; status?: string }
+            llms: { score: number; details: string[]; status?: string }
+            schema: { score: number; details: string[]; types?: string[] }
+            https: { score: number; details: string[]; status?: string }
+            sitemap: { score: number; details: string[]; status?: string }
         }
         content: {
             questions: { score: number; details: string[] }
@@ -163,11 +163,8 @@ export function HeroSection() {
                 </p>
                 <div className="flex flex-wrap justify-center gap-2 text-xs text-white/60 font-medium mt-6">
                     <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">ChatGPT SEO</span>
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">Perplexity Ranking Check</span>
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">Claude Optimization</span>
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">AI Search Visibility</span>
+                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">Perplexity Rankings</span>
                     <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">Google Gemini SEO</span>
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">Answer Engine Optimization</span>
                 </div>
 
                 {/* Search Input Box - Refined */}
@@ -298,27 +295,56 @@ export function HeroSection() {
                             <Bot className="w-6 h-6 text-emerald-600" />
                             <h3 className="font-serif text-2xl text-[#224034]">AI Engine Visibility Estimate</h3>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {[
-                                { name: 'ChatGPT', score: result.engine_scores?.chatgpt ?? Math.min(100, (result.total_score || 0) + 2), desc: 'GPT-4o Search' },
-                                { name: 'Claude', score: result.engine_scores?.claude ?? Math.min(100, (result.total_score || 0)), desc: 'Claude 3.5 Sonnet' },
-                                { name: 'Gemini', score: result.engine_scores?.gemini ?? Math.min(100, Math.max(0, (result.total_score || 0) + 1)), desc: 'Google Gemini' },
-                                { name: 'Perplexity', score: result.engine_scores?.perplexity ?? Math.min(100, Math.max(0, (result.total_score || 0) - 3)), desc: 'Pro Search' },
+                                { 
+                                    name: 'ChatGPT', 
+                                    score: result.engine_scores?.chatgpt ?? Math.min(100, (result.total_score || 0) + 2), 
+                                    desc: 'GPT-4o Search',
+                                    fix: (result.breakdown?.content?.visual?.score || 100) < 100 ? "Add rich alt-text to images for vision processing." : 
+                                         (result.breakdown?.content?.readability?.score || 100) < 80 ? "Simplify overall text readability." : 
+                                         "Optimize content for natural language parsing."
+                                },
+                                { 
+                                    name: 'Gemini', 
+                                    score: result.engine_scores?.gemini ?? Math.min(100, Math.max(0, (result.total_score || 0) + 1)), 
+                                    desc: 'Google Gemini',
+                                    fix: (result.breakdown?.technical?.robots?.status !== "valid") ? "Unblock Googlebot in robots.txt." : 
+                                         (result.breakdown?.content?.word_count?.score || 100) < 100 ? "Develop more comprehensive long-form content." : 
+                                         "Improve traditional on-page structural signals."
+                                },
+                                { 
+                                    name: 'Perplexity', 
+                                    score: result.engine_scores?.perplexity ?? Math.min(100, Math.max(0, (result.total_score || 0) - 3)), 
+                                    desc: 'Pro Search',
+                                    fix: (result.breakdown?.content?.freshness?.score || 100) === 0 ? "Add Article:published_time schema for recency." : 
+                                         (result.breakdown?.technical?.schema?.score || 100) <= 50 ? "Implement rich JSON-LD schema data." : 
+                                         "Build out deep authoritative citations/outlinks."
+                                },
                             ].map((engine) => (
-                                <div key={engine.name} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-col items-center justify-center relative overflow-hidden group hover:border-emerald-200 transition-all">
+                                <div key={engine.name} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col items-center justify-start relative overflow-hidden group hover:border-emerald-200 transition-all h-full">
                                     <div className="text-slate-800 font-bold text-lg">{engine.name}</div>
                                     <div className="text-slate-400 text-xs mb-3">{engine.desc}</div>
                                     
-                                    <div className="flex items-baseline gap-1">
-                                        <span className={`text-3xl font-bold tracking-tighter ${engine.score >= 80 ? 'text-emerald-500' : engine.score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>{engine.score}</span>
+                                    <div className="flex items-baseline gap-1 mt-auto">
+                                        <span className={`text-3xl font-bold tracking-tighter ${engine.score >= 85 ? 'text-emerald-600' : engine.score >= 72 ? 'text-emerald-400' : engine.score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>{engine.score}</span>
                                         <span className="text-sm text-slate-400 font-medium">/ 100</span>
                                     </div>
-                                    <div className="w-full bg-slate-100 h-1.5 mt-4 rounded-full overflow-hidden">
+                                    <div className="w-full bg-slate-100 h-1.5 mt-3 rounded-full overflow-hidden shrink-0">
                                         <div 
-                                            className={`h-full rounded-full transition-all duration-1000 ${engine.score >= 80 ? 'bg-emerald-500' : engine.score >= 50 ? 'bg-amber-400' : 'bg-red-500'}`} 
+                                            className={`h-full rounded-full transition-all duration-1000 ${engine.score >= 85 ? 'bg-emerald-500' : engine.score >= 72 ? 'bg-emerald-400' : engine.score >= 50 ? 'bg-amber-400' : 'bg-red-500'}`} 
                                             style={{ width: `${engine.score}%` }}
                                         ></div>
                                     </div>
+                                    
+                                    {engine.fix && engine.score < 90 && (
+                                        <div className="mt-4 pt-3 border-t border-gray-100 w-full text-center shrink-0">
+                                            <div className="text-[10px] text-red-500 font-bold uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
+                                                <AlertCircle className="w-3 h-3" /> Core Issue
+                                            </div>
+                                            <p className="text-xs text-slate-600 leading-tight">{engine.fix}</p>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
