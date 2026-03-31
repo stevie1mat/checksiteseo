@@ -140,6 +140,9 @@ export function Footer() {
                             <li><Link href="/aeo-checking-tool" className="hover:text-white transition-colors">AEO Checking Tool</Link></li>
                             <li><Link href="/aeo-readiness" className="hover:text-white transition-colors">AEO Readiness</Link></li>
                             <li><Link href="/aeo-monitoring" className="hover:text-white transition-colors">AEO Monitoring</Link></li>
+                            <li><Link href="/aeo-audit" className="hover:text-white transition-colors">Free AEO Audit</Link></li>
+                            <li><Link href="/aeo-software" className="hover:text-white transition-colors">Best AEO Software</Link></li>
+                            <li><Link href="/aeo-tracker" className="hover:text-white transition-colors">AEO Tracker Hub</Link></li>
                             <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
                             <li><Link href="/documentation" className="hover:text-white transition-colors">Documentation</Link></li>
                             <li><Link href="/aeo-guide" className="hover:text-white transition-colors">AEO Guide</Link></li>

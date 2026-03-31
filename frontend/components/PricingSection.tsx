@@ -25,57 +25,57 @@ export function PricingSection({
 
     const plans = [
         {
-            name: "Free",
+            name: "Free Trial",
             price: "$0",
-            period: "forever",
-            description: "Perfect for trying out AEO",
+            period: "14 days",
+            description: "Full access to all AI SEO features",
             features: [
-                "3 sites included",
-                "5 URL scans per month",
-                "Basic technical checks",
-                "Content readability score",
-                "Email support",
-                "Public roadmap access"
+                "Scan 1 URL",
+                "Full Technical Audit",
+                "AI Content Gap Analysis",
+                "ChatGPT Visibility Score",
+                "Perplexity Readiness Check",
+                "No credit card required"
             ],
-            cta: "Start Free",
+            cta: "Start Free Trial",
             buttonVariant: "outline",
             popular: false,
             id: "free"
         },
         {
             name: "Plus",
-            price: "$15",
+            price: "$49",
             period: "per month",
-            description: "For serious content creators",
+            description: "Automated fixes for site owners",
             features: [
-                "50 sites included",
-                "50 URL scans per month",
-                "Full AEO analysis suite",
-                "AI content gap detection",
-                "Priority email support",
-                "Weekly reports",
-                "Content optimization tools"
+                "Everything in Free Trial",
+                "WordPress & Shopify Sync",
+                "Email Update Notifications",
+                "One-Click Approval Workflow",
+                "Google Gemini SEO logic",
+                "Claude Optimization tips",
+                "50 URL scans / month"
             ],
-            cta: "Subscribe to Plus",
+            cta: "Go Plus",
             buttonVariant: "primary",
             popular: true,
             id: "plus"
         },
         {
             name: "Pro",
-            price: "$25",
+            price: "$199",
             period: "per month",
-            description: "For agencies and businesses",
+            description: "Full store automation for teams",
             features: [
-                "Unlimited sites",
-                "Unlimited URL scans",
                 "Everything in Plus",
-                "E-E-A-T authority scoring",
-                "API access",
-                "Competitor analysis",
-                "Custom integrations"
+                "Full Store Automation",
+                "Bulk Sync (Multiple Sites)",
+                "White-label Client Notifications",
+                "API Access (Bulk Audit)",
+                "Competitor Intelligence",
+                "Unlimited URL scans"
             ],
-            cta: "Subscribe to Pro",
+            cta: "Go Pro",
             buttonVariant: "outline",
             popular: false,
             id: "pro"
@@ -220,12 +220,23 @@ export function PricingSection({
                                 </div>
 
                                 <ul className="space-y-4 mb-8">
-                                    {plan.features.map((feature, idx) => (
-                                        <li key={idx} className="flex items-start gap-3">
-                                            <Check className="w-5 h-5 text-[#8cd9b8] shrink-0 mt-0.5" />
-                                            <span className="text-slate-600 text-sm">{feature}</span>
-                                        </li>
-                                    ))}
+                                    {plan.features.map((feature, idx) => {
+                                        const isInherited = feature.startsWith("Everything in");
+                                        const isHighlight = feature.includes("Sync") || feature.includes("Automation");
+                                        
+                                        return (
+                                            <li key={idx} className={`flex items-start gap-3 ${isInherited ? 'pb-3 border-b border-gray-50 mb-3' : ''}`}>
+                                                <Check className={`w-5 h-5 shrink-0 mt-0.5 ${isInherited ? 'text-[#1a3329]' : 'text-[#8cd9b8]'}`} />
+                                                <span className={`text-sm leading-relaxed ${
+                                                    isInherited ? 'font-bold text-[#1a3329]' : 
+                                                    isHighlight ? 'font-semibold text-slate-800' : 
+                                                    'text-slate-600'
+                                                }`}>
+                                                    {feature}
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
 
                                 <Button

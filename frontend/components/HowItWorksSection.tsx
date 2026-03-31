@@ -54,9 +54,9 @@ export function HowItWorksSection() {
                             <Share2 className="w-10 h-10 text-emerald-400" />
                         </div>
                         <div>
-                            <h3 className="text-white font-serif text-xl mb-3">Entity Strategy</h3>
+                            <h3 className="text-white font-serif text-xl mb-3">Approve & Sync</h3>
                             <p className="text-white/50 text-sm leading-relaxed max-w-xs mx-auto">
-                                Structured knowledge graph ready for citation.
+                                Review Al-generated fixes. One click syncs updates directly to your store.
                             </p>
                         </div>
                     </div>

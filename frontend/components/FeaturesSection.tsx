@@ -17,9 +17,9 @@ export function FeaturesSection() {
         },
         {
             icon: TrendingUp,
-            title: "Track Progress Over Time",
+            title: "One-Click Store Sync",
             description:
-                "Use AEO monitoring to detect regressions early and verify that every technical and content update moves your visibility forward.",
+                "Integrate directly with WordPress and Shopify. Get notified of AI ranking drops and apply our suggested fixes to your store with a single click after review.",
         },
     ];
 
