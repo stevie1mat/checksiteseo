@@ -112,7 +112,7 @@ export default function AeoCheckerToolPage() {
           </ul>
           <div className="flex flex-wrap gap-3">
             <Button asChild className="bg-[#224034] hover:bg-[#1a3329] text-white">
-              <Link href="/#pricing">Start Free Audit</Link>
+              <Link href="/">Start Free Audit</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href="/aeo-readiness">Learn AEO Readiness</Link>

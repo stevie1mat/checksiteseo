@@ -46,7 +46,7 @@ export default function AeoAuditPage() {
             Get a complete, actionable AEO checklist. Run a free AEO check to find out exactly what's blocking your site from ChatGPT and Gemini answers.
           </p>
           <Button asChild size="lg" className="bg-[#8cd9b8] hover:bg-[#7bcfa7] text-[#16211d] h-14 px-8 rounded-full font-bold text-lg shadow-lg">
-            <Link href="/#pricing">Run Your Free AEO Audit</Link>
+            <Link href="/">Run Your Free AEO Audit</Link>
           </Button>
         </div>
       </section>
