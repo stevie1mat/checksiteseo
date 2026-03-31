@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, LayoutDashboard, Settings, CreditCard, LogOut, ChevronRight } from "lucide-react"
+import { Home, LayoutDashboard, Settings, CreditCard, LogOut, ChevronRight, BookOpen, LifeBuoy } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
@@ -11,7 +11,9 @@ const sidebarItems = [
     { name: "Overview", href: "/dashboard", icon: Home },
     { name: "My Sites", href: "/dashboard/sites", icon: LayoutDashboard },
     { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings }
+    { name: "Settings", href: "/dashboard/settings", icon: Settings },
+    { name: "Guide", href: "/aeo-guide", icon: BookOpen },
+    { name: "Support", href: "/contact", icon: LifeBuoy }
 ]
 
 export function SidebarContent({ subscriptionTier = 'free' }: { subscriptionTier?: string }) {

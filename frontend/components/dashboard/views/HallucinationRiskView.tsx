@@ -37,7 +37,7 @@ export function HallucinationRiskView({ siteId, domain, initialData }: Hallucina
     useEffect(() => {
         const fetchIssues = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/analyze-ambiguity`, {
+                const res = await fetch('/api/analyze-ambiguity', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_domain: domain })
@@ -67,7 +67,7 @@ export function HallucinationRiskView({ siteId, domain, initialData }: Hallucina
         setSimulating(true);
         setShowReport(false);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/analyze-ambiguity`, {
+            const res = await fetch('/api/analyze-ambiguity', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_domain: domain })

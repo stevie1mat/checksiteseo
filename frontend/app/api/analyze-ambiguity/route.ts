@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server'
-import { scheduleScanSchema } from '@/lib/validations';
 import { createClient } from '@/lib/supabase/server'
+import { z } from "zod";
+
+const analyzeAmbiguitySchema = z.object({
+    user_domain: z.string().min(1, "Domain is required"),
+});
 
 export async function POST(request: Request) {
     try {
         const supabase = createClient()
         const { data: { user }, error: authError } = await supabase.auth.getUser()
+
         if (authError || !user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
@@ -17,36 +22,30 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json()
-
-        // Validation
-        const validation = scheduleScanSchema.safeParse(body);
+        const validation = analyzeAmbiguitySchema.safeParse(body);
         if (!validation.success) {
             return NextResponse.json({ error: validation.error.flatten().fieldErrors }, { status: 400 });
         }
 
-        const { site_id, url, email, delay_hours, scan_type } = validation.data
-
+        const { user_domain } = validation.data
         const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-        console.log(`[Schedule Scan API] Proxying to Backend for: ${url} (Type: ${scan_type || 'full'})`)
-
-        const apiResponse = await fetch(`${BACKEND_URL}/schedule-scan`, {
+        const apiResponse = await fetch(`${BACKEND_URL}/analyze-ambiguity`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ site_id, url, email, delay_hours, scan_type }),
-            signal: AbortSignal.timeout(60000) // 60s timeout
+            body: JSON.stringify({ user_domain }),
+            signal: AbortSignal.timeout(60000)
         });
 
-        // Forward the response status and body from the backend
-        const data = await apiResponse.json();
+        const data = await apiResponse.json().catch(() => ({}))
         return NextResponse.json(data, { status: apiResponse.status });
 
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Internal Server Error'
-        console.error('[Schedule Scan API] Error:', error)
+        console.error('[Analyze Ambiguity API] Error:', error)
         return NextResponse.json(
             { error: message },
             { status: 500 }

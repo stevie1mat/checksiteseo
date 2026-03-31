@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server'
 import { answerPlanSchema } from '@/lib/validations';
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
     try {
+        const supabase = createClient()
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { data: { session } } = await supabase.auth.getSession()
+        const token = session?.access_token
+        if (!token) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
         const body = await request.json()
 
         // Validation
@@ -11,7 +24,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: validation.error.flatten().fieldErrors }, { status: 400 });
         }
 
-        const { site_id, user_domain } = validation.data
+        const { user_domain } = validation.data
 
         // Note: site_id not strictly needed by backend yet, but user_domain is.
         // We might accept just site_id and fetch domain, but AnswerRateView passes siteId and domain.
@@ -23,7 +36,10 @@ export async function POST(request: Request) {
 
         const apiResponse = await fetch(`${BACKEND_URL}/generate-answer-plan`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify({ user_domain }),
             signal: AbortSignal.timeout(60000) // 60s timeout
         });
@@ -35,10 +51,11 @@ export async function POST(request: Request) {
         const data = await apiResponse.json();
         return NextResponse.json(data);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Internal Server Error'
         console.error('[Generate Answer Plan API] Error:', error)
         return NextResponse.json(
-            { error: error.message || 'Internal Server Error' },
+            { error: message },
             { status: 500 }
         )
     }

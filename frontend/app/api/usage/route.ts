@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: Request) {
+export async function GET() {
     try {
         const supabase = createClient()
         const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -21,12 +21,12 @@ export async function GET(request: Request) {
         const tier = profile?.subscription_tier || 'free'
 
         // 2. Define Limits
-        const LIMITS: Record<string, number> = {
+        const LIMITS: Record<string, number | null> = {
             "free": 5,
             "plus": 50,
-            "pro": 1000
+            "pro": null
         }
-        const limit = LIMITS[tier] || 5
+        const limit = LIMITS[tier] ?? 5
 
         // 3. Count Scans This Month
         const now = new Date()
@@ -55,11 +55,12 @@ export async function GET(request: Request) {
             count: usageCount,
             limit: limit,
             tier: tier,
-            remaining: Math.max(0, limit - usageCount)
+            remaining: limit === null ? null : Math.max(0, limit - usageCount)
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Internal Server Error'
         console.error('[Usage API] Error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: message }, { status: 500 })
     }
 }

@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server'
 import { cancelScanSchema } from '@/lib/validations';
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
     try {
+        const supabase = createClient()
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { data: { session } } = await supabase.auth.getSession()
+        const token = session?.access_token
+        if (!token) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
         const body = await request.json()
 
         // Validation
@@ -19,7 +32,10 @@ export async function POST(request: Request) {
 
         const apiResponse = await fetch(`${BACKEND_URL}/cancel-scan`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify({ site_id }),
             signal: AbortSignal.timeout(60000) // 60s timeout
         });
@@ -27,10 +43,11 @@ export async function POST(request: Request) {
         const data = await apiResponse.json();
         return NextResponse.json(data, { status: apiResponse.status });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Internal Server Error'
         console.error('[Cancel Scan API] Error:', error)
         return NextResponse.json(
-            { error: error.message || 'Internal Server Error' },
+            { error: message },
             { status: 500 }
         )
     }

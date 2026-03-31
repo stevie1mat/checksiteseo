@@ -41,9 +41,9 @@ export default function AeoMonitoringPage() {
 
       <section className="bg-[#224034] text-white pt-32 pb-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="font-serif text-5xl md:text-6xl mb-6">AEO Monitoring</h1>
+          <h1 className="font-serif text-5xl md:text-6xl mb-6">AEO Monitoring & AI Search Tracking</h1>
           <p className="text-xl text-white/80 leading-relaxed">
-            Monitor your AEO performance and catch regressions before they reduce AI search visibility.
+            Monitor your AEO performance, track AI citation patterns, and catch regressions before they reduce your visibility in answer engine results.
           </p>
         </div>
       </section>
@@ -51,24 +51,24 @@ export default function AeoMonitoringPage() {
       <section className="py-16 px-6">
         <div className="max-w-5xl mx-auto space-y-8 text-slate-700">
           <p className="text-lg leading-relaxed">
-            AEO monitoring helps you track score movement, identify what changed, and prevent technical or content regressions from reducing AI search visibility.
+            Effective AEO monitoring helps you track score movement, identify what changed, and prevent technical or content regressions from reducing AI search visibility. Unlike traditional rank tracking, answer engine network monitoring focuses on the specific signals that LLMs use to verify and select sources.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <article className="rounded-xl border border-slate-200 bg-white p-6">
-              <h2 className="font-serif text-2xl text-[#224034] mb-3">What AEO monitoring tracks</h2>
-              <ul className="space-y-2 list-disc pl-5 text-sm leading-relaxed">
-                <li>Technical drift in crawlability, schema, and indexing signals</li>
-                <li>Content quality movement across your top answer pages</li>
-                <li>Authority and trust changes that affect citation likelihood</li>
+            <article className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm hover:shadow-md transition-shadow">
+              <h2 className="font-serif text-2xl text-[#224034] mb-4">What AEO monitoring tracks</h2>
+              <ul className="space-y-3 list-disc pl-5 text-sm text-slate-600 leading-relaxed">
+                <li><strong>Technical Drift:</strong> Continuous checks for crawlability issues, schema errors, and indexing signals that affect AI bots.</li>
+                <li><strong>Content Quality:</strong> Monitoring the semantic clarity and "answerability" of your top pages.</li>
+                <li><strong>Authority Fluctuations:</strong> Tracking changes in trust signals and brand mentions that influence citation likelihood.</li>
               </ul>
             </article>
-            <article className="rounded-xl border border-slate-200 bg-white p-6">
-              <h2 className="font-serif text-2xl text-[#224034] mb-3">Why consistent monitoring matters</h2>
-              <p className="text-sm leading-relaxed mb-3">
-                Answer engine optimization is not one-and-done. New content, template edits, and technical changes can silently impact visibility in AI-generated answers.
+            <article className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm hover:shadow-md transition-shadow">
+              <h2 className="font-serif text-2xl text-[#224034] mb-4">Why consistent monitoring matters</h2>
+              <p className="text-slate-600 leading-relaxed mb-4">
+                Answer engine optimization is not one-and-done. New content releases, template updates, and even minor technical changes can silently impact your visibility in AI-generated answers.
               </p>
-              <p className="text-sm leading-relaxed">
-                Continuous AEO monitoring gives your team early warning signals and a reliable feedback loop for improvement.
+              <p className="text-slate-600 leading-relaxed">
+                Continuous AEO monitoring gives your team early warning signals. This proactive approach allows you to fix ChatGPT citation optimization issues and technical blockers before they cause a significant drop in traffic from AI search engines.
               </p>
             </article>
           </div>
@@ -79,22 +79,22 @@ export default function AeoMonitoringPage() {
         <div className="max-w-5xl mx-auto">
           <h2 className="font-serif text-3xl text-[#224034] mb-8 text-center">Recommended AEO monitoring workflow</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <article className="rounded-xl border border-slate-200 bg-white p-6">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-2">1. Baseline</p>
-              <p className="text-sm leading-relaxed">
-                Run an initial AEO checker tool scan on key pages and document current performance by category.
+            <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-3">1. Establish Baseline</p>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Run an initial, comprehensive scan using our AEO checker tool on your key pages. Document your current performance across all three major categories: Technical, Content, and Authority. Use this as your benchmark.
               </p>
             </article>
-            <article className="rounded-xl border border-slate-200 bg-white p-6">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-2">2. Track</p>
-              <p className="text-sm leading-relaxed">
-                Monitor weekly changes in technical, content, and authority signals to catch regressions early.
+            <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-3">2. Track & Monitor</p>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Monitor weekly changes in your metrics. Look for "technical drift" where site updates inadvertently break schema or slow down rendering. Watch for "content decay" where information becomes outdated and less cited.
               </p>
             </article>
-            <article className="rounded-xl border border-slate-200 bg-white p-6">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-2">3. Improve</p>
-              <p className="text-sm leading-relaxed">
-                Prioritize high-impact fixes and re-scan to confirm improvements in answer engine monitoring metrics.
+            <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-3">3. Optimise & Improve</p>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Prioritize high-impact fixes based on your monitoring data. Re-scan immediately after deploying changes to confirm improvements in your answer engine monitoring metrics and safeguard your AI visibility.
               </p>
             </article>
           </div>

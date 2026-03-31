@@ -1,9 +1,10 @@
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Progress } from "@/components/ui/progress"
-import { BarChart3, Info, FileText, AlertCircle, Share2, Sparkles, Code, Search, Check, Clock, Cpu } from "lucide-react"
+import { BarChart3, Info, FileText, AlertCircle, Sparkles, Code, Search, Check, Clock, Cpu } from "lucide-react"
 import { AEOReport } from "@/types/aeo"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -19,7 +20,12 @@ interface OverviewTabProps {
 
 export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free', domain }: OverviewTabProps) {
     const { toast } = useToast()
-    const isFree = tier === 'free'
+    const isPlusOrPro = tier === 'plus' || tier === 'pro'
+    const isPro = tier === 'pro'
+    const [hasPendingScan, setHasPendingScan] = useState(false)
+    const [isScheduling, setIsScheduling] = useState(false)
+    const [isCancelling, setIsCancelling] = useState(false)
+    const [nextScheduledFor, setNextScheduledFor] = useState<string | null>(null)
 
     // Helper variables
     const failedQueries = activeReport.content?.missingAnswers || []
@@ -34,20 +40,24 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
     // Knowledge graph data
     const knowledgeGraph = activeReport.authority?.knowledge_graph || {} as any
 
-    const handleScheduleScan = async () => {
-        if (isFree) {
-            toast({
-                title: "Upgrade required",
-                description: "Weekly monitoring is available on the Plus plan.",
-                variant: "destructive" // Or a custom premium variant
-            })
-            return
+    useEffect(() => {
+        const loadScheduledStatus = async () => {
+            if (!siteId || !isPlusOrPro) return
+            try {
+                const response = await fetch(`/api/scheduled-scan-status?site_id=${siteId}`)
+                if (!response.ok) return
+                const data = await response.json()
+                setHasPendingScan(!!data.hasPendingScan)
+                setNextScheduledFor(data.scan?.scheduled_for || null)
+            } catch {
+                // Best effort only
+            }
         }
-        // TODO: Implement schedule scan logic
-    };
+        loadScheduledStatus()
+    }, [siteId, isPlusOrPro])
 
-    const handleCancelScan = async () => {
-        if (isFree) {
+    const handleScheduleScan = async () => {
+        if (!isPlusOrPro) {
             toast({
                 title: "Upgrade required",
                 description: "Weekly monitoring is available on the Plus plan.",
@@ -55,12 +65,70 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
             })
             return
         }
-        // TODO: Implement cancel scan logic
+        if (!siteId || !domain) {
+            toast({ title: "Unable to schedule", description: "Missing site context.", variant: "destructive" })
+            return
+        }
+
+        setIsScheduling(true)
+        try {
+            const response = await fetch('/api/schedule-scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: siteId,
+                    url: domain,
+                    delay_hours: 168,
+                    scan_type: "full",
+                })
+            })
+
+            const data = await response.json().catch(() => ({}))
+            if (!response.ok) {
+                throw new Error(data.detail || data.error || "Failed to schedule weekly monitoring")
+            }
+
+            setHasPendingScan(true)
+            setNextScheduledFor(data.next_run_time || null)
+            toast({ title: "Weekly monitoring enabled", description: "Your scan is scheduled every 7 days." })
+        } catch (error: any) {
+            toast({ title: "Could not schedule", description: error.message, variant: "destructive" })
+        } finally {
+            setIsScheduling(false)
+        }
     };
 
-    const hasPendingScan = false; // TODO: Get from state/API
-    const isScheduling = false; // TODO: Get from state
-    const isCancelling = false; // TODO: Get from state
+    const handleCancelScan = async () => {
+        if (!isPlusOrPro) {
+            toast({
+                title: "Upgrade required",
+                description: "Weekly monitoring is available on the Plus plan.",
+                variant: "destructive"
+            })
+            return
+        }
+        if (!siteId) return
+
+        setIsCancelling(true)
+        try {
+            const response = await fetch('/api/cancel-scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: siteId })
+            })
+            const data = await response.json().catch(() => ({}))
+            if (!response.ok) {
+                throw new Error(data.detail || data.error || "Failed to cancel monitoring")
+            }
+            setHasPendingScan(false)
+            setNextScheduledFor(null)
+            toast({ title: "Weekly monitoring disabled", description: "Recurring scans are now turned off." })
+        } catch (error: any) {
+            toast({ title: "Could not cancel", description: error.message, variant: "destructive" })
+        } finally {
+            setIsCancelling(false)
+        }
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -83,7 +151,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
-                            {isFree && <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-500">PLUS</Badge>}
+                            {!isPlusOrPro && <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-500">PLUS</Badge>}
                         </div>
 
                         <div className="space-y-4">
@@ -95,12 +163,17 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                                     onClick={() => hasPendingScan ? handleCancelScan() : handleScheduleScan()}
                                     disabled={isScheduling || isCancelling}
                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 
-                                ${hasPendingScan ? 'bg-emerald-500' : (isFree ? 'bg-slate-100 cursor-not-allowed' : 'bg-slate-200')} 
+                                ${hasPendingScan ? 'bg-emerald-500' : (!isPlusOrPro ? 'bg-slate-100 cursor-not-allowed' : 'bg-slate-200')} 
                                 ${(isScheduling || isCancelling) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
                                     <span className={`${hasPendingScan ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm`} />
                                 </button>
                             </div>
+                            {hasPendingScan && nextScheduledFor && (
+                                <p className="text-[10px] text-slate-500">
+                                    Next run: {new Date(nextScheduledFor).toLocaleString()}
+                                </p>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -108,19 +181,19 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                 {/* KPI 1: Share of Voice (Competitor Widget) */}
                 <div
                     onClick={(e) => {
-                        if (isFree && siteId) {
+                        if (!isPro && siteId) {
                             e.preventDefault();
                             toast({
                                 title: "Upgrade required",
-                                description: "Competitor analysis is available on the Plus plan.",
+                                description: "Competitor analysis is available on the Pro plan.",
                             })
                         }
                     }}
                     className="h-full md:col-span-1"
                 >
-                    <Link href={!isFree && siteId ? `/dashboard/sites/${siteId}/share-of-voice` : '#'} className={`block h-full ${isFree ? 'cursor-default' : ''}`}>
+                    <Link href={isPro && siteId ? `/dashboard/sites/${siteId}/share-of-voice` : '#'} className={`block h-full ${!isPro ? 'cursor-default' : ''}`}>
                         <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
-                            {isFree && (
+                            {!isPro && (
                                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Badge className="bg-[#1A4036] hover:bg-[#224034]">Upgrade to Unlock</Badge>
                                 </div>
@@ -130,6 +203,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                                     <BarChart3 className="w-4 h-4" />
                                 </div>
                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Share of Voice</span>
+                                {!isPro && <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-500">PRO</Badge>}
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger>
@@ -169,9 +243,25 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                 </div>
 
                 {/* KPI 2: Content Gap */}
-                <div className="md:col-span-1">
-                    <Link href={siteId ? `/dashboard/sites/${siteId}/answer-rate` : '#'} className="block h-full">
+                <div
+                    onClick={(e) => {
+                        if (!isPlusOrPro && siteId) {
+                            e.preventDefault();
+                            toast({
+                                title: "Upgrade required",
+                                description: "AI content gap detection is available on Plus and Pro plans.",
+                            })
+                        }
+                    }}
+                    className="md:col-span-1"
+                >
+                    <Link href={isPlusOrPro && siteId ? `/dashboard/sites/${siteId}/answer-rate` : '#'} className={`block h-full ${!isPlusOrPro ? 'cursor-default' : ''}`}>
                         <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
+                            {!isPlusOrPro && (
+                                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Badge className="bg-[#1A4036] hover:bg-[#224034]">Upgrade to Unlock</Badge>
+                                </div>
+                            )}
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                 <FileText className="w-16 h-16 text-[#224034]" />
                             </div>
@@ -180,6 +270,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                                     <FileText className="w-4 h-4" />
                                 </div>
                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Answer Rate</span>
+                                {!isPlusOrPro && <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-500">PLUS</Badge>}
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger>
@@ -214,9 +305,25 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                 </div>
 
                 {/* KPI 3: Hallucination Risk */}
-                <div className="md:col-span-1">
-                    <Link href={siteId ? `/dashboard/sites/${siteId}/hallucination-risk` : '#'} className="block h-full">
+                <div
+                    onClick={(e) => {
+                        if (!isPro && siteId) {
+                            e.preventDefault();
+                            toast({
+                                title: "Upgrade required",
+                                description: "E-E-A-T authority scoring is available on the Pro plan.",
+                            })
+                        }
+                    }}
+                    className="md:col-span-1"
+                >
+                    <Link href={isPro && siteId ? `/dashboard/sites/${siteId}/hallucination-risk` : '#'} className={`block h-full ${!isPro ? 'cursor-default' : ''}`}>
                         <div className="bg-white p-5 h-full rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-[#224034]/30 hover:shadow-md transition-all">
+                            {!isPro && (
+                                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Badge className="bg-[#1A4036] hover:bg-[#224034]">Upgrade to Unlock</Badge>
+                                </div>
+                            )}
                             <div className="absolute top-4 right-4 w-16 h-16 opacity-20">
                                 <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                                     {/* Background Circle */}
@@ -230,6 +337,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                                     <AlertCircle className="w-4 h-4" />
                                 </div>
                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Safety Score</span>
+                                {!isPro && <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-500">PRO</Badge>}
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger>
@@ -328,7 +436,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                             )}
 
                             {/* Action 3: Hallucination */}
-                            {hallucinationLevel === 'High' && (
+                            {isPro && hallucinationLevel === 'High' && (
                                 <div className="p-5 flex gap-4 hover:bg-slate-50 transition-colors">
                                     <div className="mt-1">
                                         <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
@@ -341,6 +449,23 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                                             Your content structure may cause AI models to hallucinate. Add more explicit entities and citations.
                                         </p>
                                         <button onClick={() => setActiveTab('authority')} className="text-xs text-blue-600 font-medium mt-2 hover:underline">View Trust Analysis →</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {!isPro && (
+                                <div className="p-5 flex gap-4 hover:bg-slate-50 transition-colors">
+                                    <div className="mt-1">
+                                        <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center">
+                                            <AlertCircle className="w-4 h-4 text-indigo-600" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-slate-700">Unlock Pro Authority Signals</h4>
+                                        <p className="text-sm text-slate-500 mt-1 max-w-xl">
+                                            Upgrade to Pro to access E-E-A-T authority scoring, competitor analysis, and hallucination-risk diagnostics.
+                                        </p>
+                                        <Link href="/dashboard/billing" className="text-xs text-blue-600 font-medium mt-2 inline-block hover:underline">Upgrade to Pro →</Link>
                                     </div>
                                 </div>
                             )}

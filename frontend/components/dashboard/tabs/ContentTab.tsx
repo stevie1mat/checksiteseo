@@ -23,6 +23,7 @@ interface ContentTabProps {
 export function ContentTab({ activeReport, activeReport: { content }, siteId, domain, tier }: ContentTabProps & { activeReport: { content: any } }) {
     // Helper Accessors (Safeguarded)
     const failedQueries = activeReport.content?.missingAnswers || []
+    const isPlusOrPro = tier === 'plus' || tier === 'pro'
 
     // Ambiguity Analysis State
     const [ambiguityLoading, setAmbiguityLoading] = useState(false)
@@ -115,7 +116,7 @@ export function ContentTab({ activeReport, activeReport: { content }, siteId, do
                 </div>
 
                 {/* The Missing Answer (Green Card) */}
-                {failedQueries.length > 0 && (
+                {isPlusOrPro && failedQueries.length > 0 && (
                     <div className="bg-[#224034] rounded-xl overflow-hidden shadow-lg relative group">
                         {/* Background Effects */}
                         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-emerald-500/20 transition-all duration-700 pointer-events-none" />
@@ -204,6 +205,18 @@ export function ContentTab({ activeReport, activeReport: { content }, siteId, do
                     </div>
                 )}
 
+                {!isPlusOrPro && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
+                        <h3 className="text-lg font-serif text-[#224034] mb-2">AI Content Gap Detection</h3>
+                        <p className="text-sm text-slate-600 mb-4">
+                            Upgrade to Plus to unlock missing-answer detection and draft answer suggestions.
+                        </p>
+                        <Link href="/dashboard/billing" className="inline-flex items-center gap-2 text-sm font-semibold text-[#224034] hover:text-emerald-700">
+                            Upgrade to Plus <ArrowRight className="w-4 h-4" />
+                        </Link>
+                    </div>
+                )}
+
                 {/* NEW: Ambiguity Inspector */}
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 overflow-hidden relative">
                     <div className="flex justify-between items-start mb-6">
@@ -220,7 +233,7 @@ export function ContentTab({ activeReport, activeReport: { content }, siteId, do
                             </p>
                         </div>
                         {!ambiguityData && (
-                            (tier === 'free' || !tier) ? (
+                            (!isPlusOrPro || !tier) ? (
                                 <Button
                                     disabled
                                     className="bg-slate-100 text-slate-400 border border-slate-200"

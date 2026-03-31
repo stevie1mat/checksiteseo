@@ -147,7 +147,13 @@ export function SiteReportView({ domain, initialReport, siteId, tier = 'free' }:
 
                 {/* 4. Authority (Tab Trigger) */}
                 <div
-                    onClick={() => setActiveTab('authority')}
+                    onClick={() => {
+                        if (tier !== 'pro') {
+                            window.location.href = '/dashboard/billing?upgrade=pro'
+                            return
+                        }
+                        setActiveTab('authority')
+                    }}
                     className={`relative p-6 rounded-xl border-2 transition-all duration-200 cursor-pointer group
                         ${activeTab === 'authority'
                             ? 'bg-white border-[#1A4036] ring-1 ring-[#1A4036] shadow-md'
@@ -158,9 +164,11 @@ export function SiteReportView({ domain, initialReport, siteId, tier = 'free' }:
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Authority</span>
                         <Sparkles className={`w-5 h-5 ${activeTab === 'authority' ? 'text-[#1A4036]' : 'text-slate-300'}`} />
                     </div>
-                    <div className="text-3xl font-serif font-medium text-[#224034]">{authorityScore > 0 ? authorityScore : '-'}</div>
+                    <div className="text-3xl font-serif font-medium text-[#224034]">
+                        {tier === 'pro' ? (authorityScore > 0 ? authorityScore : '-') : 'Pro'}
+                    </div>
                     <div className="mt-2 text-sm text-slate-500 truncate">
-                        Knowledge Graph, E-E-A-T
+                        {tier === 'pro' ? 'Knowledge Graph, E-E-A-T' : 'Upgrade for Authority Insights'}
                     </div>
                 </div>
             </div>
@@ -184,7 +192,7 @@ export function SiteReportView({ domain, initialReport, siteId, tier = 'free' }:
 
                 {/* 3. AUTHORITY VIEW */}
                 {(activeTab === 'authority') && (
-                    <AuthorityTab activeReport={activeReport} siteId={siteId} />
+                    <AuthorityTab activeReport={activeReport} siteId={siteId} tier={tier} />
                 )}
             </div>
         </div>

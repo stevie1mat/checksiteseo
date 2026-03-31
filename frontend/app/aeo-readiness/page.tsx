@@ -41,9 +41,9 @@ export default function AeoReadinessPage() {
 
       <section className="bg-[#224034] text-white pt-32 pb-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="font-serif text-5xl md:text-6xl mb-6">AEO Readiness</h1>
+          <h1 className="font-serif text-5xl md:text-6xl mb-6">AEO Readiness & Answer Engine Optimization</h1>
           <p className="text-xl text-white/80 leading-relaxed">
-            AEO readiness is how prepared your site is to be selected and cited by answer engines.
+            AEO readiness is the measure of how prepared your site is to be selected, understood, and cited by AI answer engines like ChatGPT, Claude, and Perplexity.
           </p>
         </div>
       </section>
@@ -51,19 +51,25 @@ export default function AeoReadinessPage() {
       <section className="py-16 px-6">
         <div className="max-w-5xl mx-auto space-y-8 text-slate-700">
           <p className="text-lg leading-relaxed">
-            A strong AEO readiness score means your pages are technically accessible, semantically clear, and trustworthy enough for AI systems to reference in answers.
+            Achieving a high AEO readiness score requires more than just traditional SEO. Your pages must be technically accessible to AI bots, semantically clear for Large Language Models (LLMs), and authoritative enough for answer engine algorithms to trust as a primary source.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <article className="rounded-xl border border-slate-200 bg-white p-6">
-              <h2 className="font-serif text-2xl text-[#224034] mb-3">What is an AEO readiness check?</h2>
-              <p className="text-sm leading-relaxed">
-                An AEO readiness check evaluates how well your site supports answer engine optimization through crawlability, schema, direct-answer formatting, and trust cues.
+            <article className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm hover:shadow-md transition-shadow">
+              <h2 className="font-serif text-2xl text-[#224034] mb-4">What is an AEO readiness check?</h2>
+              <p className="text-slate-600 leading-relaxed mb-4">
+                An AEO readiness check is a comprehensive audit that evaluates your website's capability to support answer engine optimization. Unlike standard SEO audits that focus on rankings, an AEO check analyzes crawlability for AI bots, schema validation for entity recognition, direct-answer formatting, and the trust cues that signal "AI citation readiness."
+              </p>
+              <p className="text-slate-600 leading-relaxed">
+                It identifies gaps in your content structure that might prevent LLMs from parsing your answers correctly.
               </p>
             </article>
-            <article className="rounded-xl border border-slate-200 bg-white p-6">
-              <h2 className="font-serif text-2xl text-[#224034] mb-3">Why AEO readiness matters</h2>
-              <p className="text-sm leading-relaxed">
-                AI search platforms do not rank pages exactly like traditional search engines. AEO readiness helps ensure your content can be selected, summarized, and cited accurately.
+            <article className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm hover:shadow-md transition-shadow">
+              <h2 className="font-serif text-2xl text-[#224034] mb-4">Why AEO readiness matters</h2>
+              <p className="text-slate-600 leading-relaxed mb-4">
+                AI search platforms do not rank pages; they synthesize answers. AEO readiness ensures your content is selected as the source of truth. Without answer engine optimization readiness, your brand may be invisible in the generated responses of tools like Google AI Overviews and ChatGPT.
+              </p>
+              <p className="text-slate-600 leading-relaxed">
+                By improving your readiness, you increase the likelihood of being cited, driving high-intent traffic from users seeking specific answers.
               </p>
             </article>
           </div>
@@ -72,30 +78,30 @@ export default function AeoReadinessPage() {
 
       <section className="pb-16 px-6">
         <div className="max-w-5xl mx-auto">
-          <h2 className="font-serif text-3xl text-[#224034] mb-8 text-center">AEO readiness checklist</h2>
+          <h2 className="font-serif text-3xl text-[#224034] mb-8 text-center">The comprehensive AEO readiness checklist</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <article className="rounded-xl border border-slate-200 bg-white p-6">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-2">Technical</p>
-              <ul className="space-y-2 list-disc pl-5 text-sm leading-relaxed">
-                <li>Clean robots and sitemap configuration</li>
-                <li>Reliable page rendering and fast response time</li>
-                <li>Valid structured data for key page types</li>
+            <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-3">Technical Foundation</p>
+              <ul className="space-y-3 list-disc pl-5 text-sm text-slate-600 leading-relaxed">
+                <li><strong>Clean Configuration:</strong> Ensure your robots.txt and sitemap.xml are perfectly configured for AI crawlers.</li>
+                <li><strong>Performance:</strong> Guarantee fast response times and reliable rendering for non-browser user agents.</li>
+                <li><strong>Structured Data:</strong> Implement valid, deep schema markup to help machines understand your entities.</li>
               </ul>
             </article>
-            <article className="rounded-xl border border-slate-200 bg-white p-6">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-2">Content</p>
-              <ul className="space-y-2 list-disc pl-5 text-sm leading-relaxed">
-                <li>Clear question and answer structure</li>
-                <li>Intent-focused headings and concise summaries</li>
-                <li>Up-to-date facts with strong internal linking</li>
+            <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-3">Content Structure</p>
+              <ul className="space-y-3 list-disc pl-5 text-sm text-slate-600 leading-relaxed">
+                <li><strong>Q&A Formatting:</strong> Structure content with clear questions and direct, concise answers.</li>
+                <li><strong>Intent Matching:</strong> Use headings that map directly to user intent and search queries.</li>
+                <li><strong>Factuality:</strong> Maintain up-to-date facts supported by strong internal linking context.</li>
               </ul>
             </article>
-            <article className="rounded-xl border border-slate-200 bg-white p-6">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-2">Authority</p>
-              <ul className="space-y-2 list-disc pl-5 text-sm leading-relaxed">
-                <li>Visible expertise and source credibility</li>
-                <li>Trust pages and editorial transparency</li>
-                <li>Consistent brand and entity signals</li>
+            <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-3">Authority & Trust</p>
+              <ul className="space-y-3 list-disc pl-5 text-sm text-slate-600 leading-relaxed">
+                <li><strong>Credibility:</strong> Demonstrate explicit expertise and cite authoritative sources.</li>
+                <li><strong>Transparency:</strong> Maintain clear editorial policies and "About Us" information.</li>
+                <li><strong>Entity Signals:</strong> Strengthen your brand's entity graph to become a recognized knowledge source.</li>
               </ul>
             </article>
           </div>

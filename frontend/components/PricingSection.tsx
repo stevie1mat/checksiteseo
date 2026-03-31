@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { analytics } from "@/lib/analytics";
+import { createClient } from "@/lib/supabase/client";
 
 export function PricingSection({
     currentPlan = "free",
@@ -96,8 +97,38 @@ export function PricingSection({
         // Track upgrade started
         analytics.trackUpgradePlanStarted(planId);
 
+        setLoading(planId);
+        const supabase = createClient();
+
         try {
-            setLoading(planId);
+            // Check if user is on a paid plan and switching (upgrade/downgrade)
+            // If so, send them to portal
+            if (currentPlan !== "free" && currentPlan !== planId) {
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
+
+                if (!token) {
+                    // Fallback to checkout if no token (shouldn't happen if on paid plan)
+                } else {
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/create-portal-session`, {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json",
+                        },
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.url) {
+                            window.location.href = data.url;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Default: Create Checkout Session (New sub or failed portal)
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/create-checkout-session`, {
                 method: "POST",
                 headers: {
@@ -129,6 +160,7 @@ export function PricingSection({
     // Helper to determine button state
     const getButtonText = (planId: string, defaultCta: string) => {
         if (planId === currentPlan) return "Current Plan";
+        if (currentPlan !== "free" && planId !== "free") return "Switch Plan";
         return defaultCta;
     }
 
@@ -170,6 +202,13 @@ export function PricingSection({
                                         </div>
                                     </div>
                                 )}
+                                {isCurrent && (
+                                    <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                                        <div className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold px-4 py-1 rounded-full shadow-md flex items-center gap-1">
+                                            <Check className="w-3 h-3" /> Current Plan
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="text-center mb-8">
                                     <h3 className="font-serif text-2xl text-[#224034] mb-2">{plan.name}</h3>
@@ -192,8 +231,8 @@ export function PricingSection({
                                 <Button
                                     onClick={() => handleSubscribe(plan.id)}
                                     disabled={!!loading || isCurrent}
-                                    className={`w-full h-12 text-base font-semibold ${isCurrent
-                                        ? 'bg-slate-100 text-slate-500 cursor-default border-2 border-slate-200 hover:bg-slate-100 hover:text-slate-500' // Current Plan Style
+                                    className={`w-full h-12 text-base font-semibold transition-all duration-200 ${isCurrent
+                                        ? 'bg-emerald-50 text-emerald-700 cursor-default border-2 border-emerald-200 hover:bg-emerald-50' // Current Plan Style - Active/Green
                                         : plan.popular
                                             ? 'bg-[#224034] hover:bg-[#1a3329] text-white shadow-lg'
                                             : 'bg-white hover:bg-[#224034] text-[#224034] hover:text-white border-2 border-[#224034]'

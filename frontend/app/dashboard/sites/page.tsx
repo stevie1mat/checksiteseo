@@ -43,7 +43,7 @@ export default async function SitesPage() {
 
     let MAX_SITES = 3
     if (tier === 'plus') MAX_SITES = 50
-    if (tier === 'pro') MAX_SITES = 10000 // Unlimited
+    if (tier === 'pro') MAX_SITES = 100000 // Unlimited
 
     return (
         <div className="space-y-8 w-full p-6">

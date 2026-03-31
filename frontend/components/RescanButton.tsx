@@ -16,7 +16,7 @@ export function RescanButton({ siteId, url }: RescanButtonProps) {
     const [loading, setLoading] = useState(false)
     const [scanDialogOpen, setScanDialogOpen] = useState(false)
     const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle')
-    const [usage, setUsage] = useState<{ count: number, limit: number } | null>(null)
+    const [usage, setUsage] = useState<{ count: number, limit: number | null } | null>(null)
     const router = useRouter()
     const supabase = createClient()
 
@@ -103,7 +103,7 @@ export function RescanButton({ siteId, url }: RescanButtonProps) {
             <div className="flex flex-col items-end gap-1">
                 <Button
                     onClick={handleRescan}
-                    disabled={loading || (usage ? usage.count >= usage.limit : false)}
+                    disabled={loading || (usage ? (usage.limit !== null && usage.count >= usage.limit) : false)}
                     className="bg-[#224034] hover:bg-[#1a3027] text-white pr-6 transition-colors shadow-sm"
                 >
                     {loading ? (
@@ -120,7 +120,9 @@ export function RescanButton({ siteId, url }: RescanButtonProps) {
                 </Button>
                 {usage && (
                     <span className="text-[10px] text-slate-400 font-medium px-1">
-                        {usage.count} / {usage.limit} scans used this month
+                        {usage.limit === null
+                            ? `${usage.count} scans used this month (Unlimited)`
+                            : `${usage.count} / ${usage.limit} scans used this month`}
                     </span>
                 )}
             </div>

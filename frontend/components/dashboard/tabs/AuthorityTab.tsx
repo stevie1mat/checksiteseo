@@ -6,9 +6,31 @@ import { AEOReport } from "@/types/aeo"
 interface AuthorityTabProps {
     activeReport: AEOReport
     siteId?: string
+    tier?: string
 }
 
-export function AuthorityTab({ activeReport, siteId }: AuthorityTabProps) {
+export function AuthorityTab({ activeReport, siteId, tier = 'free' }: AuthorityTabProps) {
+    if (tier !== 'pro') {
+        return (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+                <h2 className="text-2xl font-serif text-[#224034] mb-4">Authority Signals</h2>
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
+                    <h3 className="font-serif text-2xl text-[#224034] mb-3">Pro Feature</h3>
+                    <p className="text-slate-600 max-w-xl mx-auto mb-6">
+                        E-E-A-T authority scoring and knowledge graph diagnostics are available on the Pro plan.
+                    </p>
+                    <Link
+                        href="/dashboard/billing?upgrade=pro"
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-[#224034] hover:text-emerald-700 transition-colors"
+                    >
+                        Upgrade to Pro
+                        <ArrowRight className="w-4 h-4" />
+                    </Link>
+                </div>
+            </div>
+        )
+    }
+
     const knowledgeGraph = activeReport.knowledgeGraph || {}
 
     return (

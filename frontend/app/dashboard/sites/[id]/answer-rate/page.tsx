@@ -10,8 +10,23 @@ export default async function AnswerRatePage({ params }: { params: { id: string 
         redirect('/signin')
     }
 
-    const { data: site } = await supabase.from('sites').select('*').eq('id', params.id).single()
+    const { data: site } = await supabase
+        .from('sites')
+        .select('*')
+        .eq('id', params.id)
+        .eq('user_id', user.id)
+        .single()
     if (!site) redirect('/dashboard')
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_tier')
+        .eq('id', user.id)
+        .single()
+    const tier = profile?.subscription_tier || 'free'
+    if (tier === 'free') {
+        redirect('/dashboard/billing?upgrade=plus')
+    }
 
     const { data: pages } = await supabase.from('pages').select('*').eq('site_id', site.id).order('last_scanned_at', { ascending: false }).limit(1)
     const latestScan = pages && pages[0];

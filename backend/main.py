@@ -158,6 +158,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def _get_user_id(user: dict | object | None) -> str | None:
+    if not user:
+        return None
+    if isinstance(user, dict):
+        return user.get("id")
+    return getattr(user, "id", None)
+
+def _get_subscription_tier(user_id: str | None) -> str:
+    if not user_id or not supabase:
+        return "free"
+    try:
+        profile_response = supabase.table("profiles").select("subscription_tier").eq("id", user_id).execute()
+        if profile_response.data and len(profile_response.data) > 0:
+            return profile_response.data[0].get("subscription_tier", "free")
+    except Exception as e:
+        logger.error(f"Failed to load subscription tier for user {user_id}: {e}")
+    return "free"
+
+def _require_tier(user_id: str | None, allowed_tiers: set[str], feature_name: str):
+    tier = _get_subscription_tier(user_id)
+    if tier not in allowed_tiers:
+        raise HTTPException(
+            status_code=403,
+            detail=f"{feature_name} is available on {', '.join(sorted(allowed_tiers)).upper()} plans. Please upgrade."
+        )
+    return tier
+
 # Startup event to ensure functions are defined before scheduler starts
 @app.on_event("startup")
 async def startup_event():
@@ -239,10 +266,7 @@ async def analyze_url(
     try:
         if user:
             # Get User Tier
-            profile_response = supabase.table("profiles").select("subscription_tier").eq("id", user.id).execute()
-            tier = "free"
-            if profile_response.data:
-                tier = profile_response.data[0].get("subscription_tier", "free")
+            tier = _get_subscription_tier(_get_user_id(user))
                 
             # Get Current Month's Scans
             now = datetime.now(timezone.utc)
@@ -263,13 +287,13 @@ async def analyze_url(
                 LIMITS = {
                     "free": 5,
                     "plus": 50,
-                    "pro": 1000
+                    "pro": None  # Unlimited
                 }
-                
+
                 limit = LIMITS.get(tier, 5)
-                
-                if scan_count >= limit:
-                     raise HTTPException(status_code=429, detail=f"Monthly scan limit reached ({scan_count}/{limit}). Please upgrade your plan.")
+
+                if limit is not None and scan_count >= limit:
+                    raise HTTPException(status_code=429, detail=f"Monthly scan limit reached ({scan_count}/{limit}). Please upgrade your plan.")
         else:
             # Guest Limit?
             # For now, we allow guests to scan freely as it's a landing page hook.
@@ -656,7 +680,16 @@ async def cancel_scan(
     if not supabase:
         raise HTTPException(status_code=500, detail="Supabase not initialized")
     
+    user_id = _get_user_id(user)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     try:
+        # Ensure user owns the site
+        site_res = supabase.table("sites").select("id").eq("id", request.site_id).eq("user_id", user_id).execute()
+        if not site_res.data:
+            raise HTTPException(status_code=403, detail="You do not have permission to manage this site.")
+
         # 1. Look for pending/processing job in DB
         existing = supabase.table("scheduled_scans").select("*") \
             .eq("site_id", request.site_id) \
@@ -688,6 +721,19 @@ async def schedule_scan(
     request: ScheduleRequest, 
     user: dict = Depends(get_current_user)
 ):
+    user_id = _get_user_id(user)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Plus/Pro feature gate
+    _require_tier(user_id, {"plus", "pro"}, "Weekly monitoring")
+
+    # Ensure user owns the site
+    if supabase and request.site_id:
+        owned_site = supabase.table("sites").select("id").eq("id", request.site_id).eq("user_id", user_id).execute()
+        if not owned_site.data:
+            raise HTTPException(status_code=403, detail="You do not have permission to schedule scans for this site.")
+
     # Check for existing pending scan
     if supabase and request.site_id:
         try:
@@ -787,7 +833,8 @@ async def schedule_scan(
     
     return {
         "message": f"Recurring scan enabled. First scan: {formatted_date}, then every {interval_minutes or (interval_hours * 60)} minutes", 
-        "scan_id": scan_id
+        "scan_id": scan_id,
+        "next_run_time": run_date.isoformat()
     }
 
 class PlanRequest(BaseModel):
@@ -795,7 +842,9 @@ class PlanRequest(BaseModel):
     competitor_domain: str
 
 @app.post("/generate-plan")
-async def generate_plan(request: PlanRequest):
+async def generate_plan(request: PlanRequest, user: dict = Depends(get_current_user)):
+    user_id = _get_user_id(user)
+    _require_tier(user_id, {"pro"}, "Competitor analysis")
     plan = await generate_content_strategy(request.user_domain, request.competitor_domain)
     return plan
 
@@ -803,11 +852,15 @@ class AnswerPlanRequest(BaseModel):
     user_domain: str
 
 @app.post("/generate-answer-plan")
-async def generate_answer_plan(request: AnswerPlanRequest):
+async def generate_answer_plan(request: AnswerPlanRequest, user: dict = Depends(get_current_user)):
+    user_id = _get_user_id(user)
+    _require_tier(user_id, {"plus", "pro"}, "Content optimization tools")
     plan = await generate_answer_strategy(request.user_domain)
     return plan
 @app.post("/analyze-ambiguity")
-async def analyze_ambiguity(request: AnswerPlanRequest): # Reusing AnswerPlanRequest which has user_domain
+async def analyze_ambiguity(request: AnswerPlanRequest, user: dict = Depends(get_current_user)): # Reusing AnswerPlanRequest which has user_domain
+    user_id = _get_user_id(user)
+    _require_tier(user_id, {"plus", "pro"}, "Ambiguity Inspector")
     # Fetch content
     url = request.user_domain
     if not url.startswith("http"): url = "https://" + url
@@ -979,6 +1032,22 @@ async def create_checkout_session(payload: CheckoutRequest, http_request: Reques
 
     try:
         frontend_base_url = _resolve_frontend_base_url(http_request)
+        
+        # Check for existing customer ID
+        customer_kwargs = {}
+        if payload.user_id:
+             try:
+                profile = supabase.table("profiles").select("stripe_customer_id").eq("id", payload.user_id).single().execute()
+                if profile.data and profile.data.get("stripe_customer_id"):
+                    customer_kwargs["customer"] = profile.data.get("stripe_customer_id")
+                    # When providing customer, we cannot provide customer_email
+                    # But we can update the email if needed? Stripe handles this.
+             except Exception:
+                 pass # User might not exist or no customer ID yet
+        
+        if "customer" not in customer_kwargs and payload.email:
+            customer_kwargs["customer_email"] = payload.email
+
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[
@@ -990,18 +1059,55 @@ async def create_checkout_session(payload: CheckoutRequest, http_request: Reques
             mode='subscription',
             success_url=frontend_base_url + "/dashboard?payment=success",
             cancel_url=frontend_base_url + "/pricing?payment=cancelled",
-            customer_email=payload.email,
             metadata={
                 "site_id": payload.site_id,
                 "plan": payload.plan,
                 "user_id": payload.user_id
             },
             allow_promotion_codes=True,
+            **customer_kwargs
         )
         return {"url": checkout_session.url}
     except Exception as e:
         logger.error(f"Stripe checkout creation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/create-portal-session")
+async def create_portal_session(http_request: Request, user: dict = Depends(get_current_user)):
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="Stripe is not configured")
+
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    try:
+        # Get user's stripe_customer_id
+        # Expecting user to be an object (Supabase User), not a dict
+        user_id = user.id if hasattr(user, "id") else user.get("id")
+        
+        profile_response = supabase.table("profiles").select("stripe_customer_id").eq("id", user_id).single().execute()
+        
+        stripe_customer_id = None
+        if profile_response.data:
+            stripe_customer_id = profile_response.data.get("stripe_customer_id")
+        
+        if not stripe_customer_id:
+             raise HTTPException(status_code=400, detail="No billing account found for this user.")
+
+        frontend_base_url = _resolve_frontend_base_url(http_request)
+        return_url = f"{frontend_base_url}/dashboard/billing"
+
+        portal_session = stripe.billing_portal.Session.create(
+            customer=stripe_customer_id,
+            return_url=return_url,
+        )
+        return {"url": portal_session.url}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Stripe portal session creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/webhook")
 async def stripe_webhook(request: Request):
