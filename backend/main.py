@@ -1361,3 +1361,44 @@ async def verify_ownership(
     except Exception as e:
         logger.error(f"Verification failed: {e}")
         raise HTTPException(status_code=500, detail="Verification process failed.")
+
+# --- Admin Stats Endpoint ---
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "checksite-admin-123")
+from fastapi import Header
+
+@app.get("/admin/stats")
+async def get_admin_stats(x_admin_secret: str = Header(None, alias="x-admin-secret")):
+    if x_admin_secret != ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    try:
+        # Total Users
+        users_count_res = supabase.table("profiles").select("id", count="exact").limit(1).execute()
+        total_users = getattr(users_count_res, 'count', len(users_count_res.data))
+
+        # Total Sites (Projects)
+        sites_res = supabase.table("sites").select("id", count="exact").limit(1).execute()
+        total_sites = getattr(sites_res, 'count', len(sites_res.data))
+        
+        # Total Pages/Scans run
+        scans_res = supabase.table("pages").select("id", count="exact").limit(1).execute()
+        total_scans = getattr(scans_res, 'count', len(scans_res.data))
+
+        # Recent Users
+        recent_users_res = supabase.table("profiles").select("id, created_at, subscription_tier").order("created_at", desc=True).limit(5).execute()
+        recent_users = recent_users_res.data
+        
+        # Recent Sites
+        recent_sites_res = supabase.table("sites").select("id, url, status, created_at, aeo_score").order("created_at", desc=True).limit(10).execute()
+        recent_sites = recent_sites_res.data
+
+        return {
+            "total_users": total_users,
+            "total_sites": total_sites,
+            "total_scans": total_scans,
+            "recent_users": recent_users,
+            "recent_sites": recent_sites
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch admin stats: {e}")
+        raise HTTPException(status_code=500, detail="Database Error")
