@@ -1,11 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, Sparkles, AlertCircle, XCircle, Code, AlignLeft, Lock, Copy, Bot } from "lucide-react"
+import { Check, Sparkles, AlertCircle, XCircle, Code, AlignLeft, Lock, Copy, Bot, ChevronLeft, ChevronRight, Cpu, Share2, LayoutTemplate, Globe } from "lucide-react"
 import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
 import { analytics } from "@/lib/analytics"
 
@@ -17,6 +17,11 @@ type AnalysisResult = {
         claude: number
         gemini: number
         perplexity: number
+        searchgpt: number
+        meta: number
+        mistral: number
+        grok: number
+        you: number
     }
     breakdown: {
         technical: {
@@ -68,12 +73,21 @@ export function HeroSection() {
     const [url, setUrl] = useState("")
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<AnalysisResult | null>(null)
-    const [error, setError] = useState("")
+    const [error, setError] = useState<string | null>(null)
     const [isRegisterOpen, setIsRegisterOpen] = useState(false)
-
     const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle')
 
-    const handleAnalyze = async () => {
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    const scroll = (direction: 'left' | 'right') => {
+        if (scrollRef.current) {
+            const { scrollLeft, clientWidth } = scrollRef.current;
+            const scrollTo = direction === 'left' ? scrollLeft - clientWidth : scrollLeft + clientWidth;
+            scrollRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
+        }
+    };
+
+    const handleAnalyze = async (e?: React.FormEvent) => {
         const rawUrl = url.trim()
         if (!rawUrl) {
             setError("Please enter a website URL.")
@@ -290,17 +304,43 @@ export function HeroSection() {
                     </div>
 
                     {/* Engine Specific Estimates */}
-                    <div className="mb-12">
-                        <div className="flex items-center gap-2 mb-6">
-                            <Bot className="w-6 h-6 text-emerald-600" />
-                            <h3 className="font-serif text-2xl text-[#224034]">AI Engine Visibility Estimate</h3>
+                    <div className="mb-12 relative group/carousel">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-2">
+                                <Bot className="w-6 h-6 text-emerald-600" />
+                                <h3 className="font-serif text-2xl text-[#224034]">AI Engine Visibility Estimate</h3>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="icon" 
+                                    onClick={() => scroll('left')}
+                                    className="rounded-full border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all opacity-0 group-hover/carousel:opacity-100"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </Button>
+                                <Button 
+                                    variant="outline" 
+                                    size="icon" 
+                                    onClick={() => scroll('right')}
+                                    className="rounded-full border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all opacity-0 group-hover/carousel:opacity-100"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </Button>
+                            </div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                        <div 
+                            ref={scrollRef}
+                            className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide snap-x snap-mandatory"
+                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                        >
                             {[
                                 { 
                                     name: 'ChatGPT', 
                                     score: result.engine_scores?.chatgpt ?? Math.min(100, (result.total_score || 0) + 2), 
                                     desc: 'GPT-4o Search',
+                                    icon: <Sparkles className="w-4 h-4" />,
                                     fix: (result.breakdown?.content?.visual?.score || 100) < 100 ? "Add rich alt-text to images for vision processing." : 
                                          (result.breakdown?.content?.readability?.score || 100) < 80 ? "Simplify overall text readability." : 
                                          "Optimize content for natural language parsing."
@@ -309,6 +349,7 @@ export function HeroSection() {
                                     name: 'Gemini', 
                                     score: result.engine_scores?.gemini ?? Math.min(100, Math.max(0, (result.total_score || 0) + 1)), 
                                     desc: 'Google Gemini',
+                                    icon: <Globe className="w-4 h-4" />,
                                     fix: (result.breakdown?.technical?.robots?.status !== "valid") ? "Unblock Googlebot in robots.txt." : 
                                          (result.breakdown?.content?.word_count?.score || 100) < 100 ? "Develop more comprehensive long-form content." : 
                                          "Improve traditional on-page structural signals."
@@ -317,6 +358,7 @@ export function HeroSection() {
                                     name: 'Perplexity', 
                                     score: result.engine_scores?.perplexity ?? Math.min(100, Math.max(0, (result.total_score || 0) - 3)), 
                                     desc: 'Pro Search',
+                                    icon: <Bot className="w-4 h-4" />,
                                     fix: (result.breakdown?.content?.freshness?.score || 100) === 0 ? "Add Article:published_time schema for recency." : 
                                          (result.breakdown?.technical?.schema?.score || 100) <= 50 ? "Implement rich JSON-LD schema data." : 
                                          "Build out deep authoritative citations/outlinks."
@@ -325,13 +367,54 @@ export function HeroSection() {
                                     name: 'Claude', 
                                     score: result.engine_scores?.claude ?? Math.min(100, Math.max(0, (result.total_score || 0) - 1)), 
                                     desc: 'Claude 3.5 Sonnet',
+                                    icon: <Bot className="w-4 h-4" />,
                                     fix: (result.breakdown?.content?.questions?.score || 0) < 50 ? "Add clear FAQ headers (H2/H3) for better logic parsing." : 
                                          (result.breakdown?.content?.word_count?.score || 100) < 100 ? "Expand technical depth and detail for better reasoning." : 
                                          "Maintain crisp and structured semantic flow."
                                 },
+                                { 
+                                    name: 'SearchGPT', 
+                                    score: result.engine_scores?.searchgpt ?? Math.min(100, (result.total_score || 0) + 1), 
+                                    desc: 'OpenAI Prototype',
+                                    icon: <Sparkles className="w-4 h-4" />,
+                                    fix: "Prioritize JSON-LD schema for real-time citations."
+                                },
+                                { 
+                                    name: 'Meta AI', 
+                                    score: result.engine_scores?.meta ?? Math.min(100, (result.total_score || 0) - 2), 
+                                    desc: 'Llama 3 Web Search',
+                                    icon: <Share2 className="w-4 h-4" />,
+                                    fix: "Improve overall readability for efficient LLM context-window parsing."
+                                },
+                                { 
+                                    name: 'Grok', 
+                                    score: result.engine_scores?.grok ?? Math.min(100, (result.total_score || 0) - 4), 
+                                    desc: 'xAI Search',
+                                    icon: <Cpu className="w-4 h-4" />,
+                                    fix: "Optimize for real-time indexing by unblocking all crawler access."
+                                },
+                                { 
+                                    name: 'Mistral', 
+                                    score: result.engine_scores?.mistral ?? Math.min(100, (result.total_score || 0) - 1), 
+                                    desc: 'Le Chat Search',
+                                    icon: <Code className="w-4 h-4" />,
+                                    fix: "Structure content with clear semantic hierarchies."
+                                },
+                                { 
+                                    name: 'You.com', 
+                                    score: result.engine_scores?.you ?? Math.min(100, (result.total_score || 0) + 1), 
+                                    desc: 'YouChat Search',
+                                    icon: <LayoutTemplate className="w-4 h-4" />,
+                                    fix: "Enhance visual metadata and citations for multi-modal verification."
+                                },
                             ].map((engine) => (
-                                <div key={engine.name} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col items-center justify-start relative overflow-hidden group hover:border-emerald-200 transition-all h-full">
-                                    <div className="text-slate-800 font-bold text-lg">{engine.name}</div>
+                                <div key={engine.name} className="flex-none w-[280px] md:w-[320px] bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col items-center justify-start relative overflow-hidden group hover:border-emerald-200 transition-all h-full snap-start">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                            {engine.icon}
+                                        </div>
+                                        <div className="text-slate-800 font-bold text-lg">{engine.name}</div>
+                                    </div>
                                     <div className="text-slate-400 text-xs mb-3">{engine.desc}</div>
                                     
                                     <div className="flex items-baseline gap-1 mt-auto">
@@ -345,7 +428,7 @@ export function HeroSection() {
                                         ></div>
                                     </div>
                                     
-                                    {engine.fix && engine.score < 90 && (
+                                    {engine.fix && engine.score < 95 && (
                                         <div className="mt-4 pt-3 border-t border-gray-100 w-full text-center shrink-0">
                                             <div className="text-[10px] text-red-500 font-bold uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
                                                 <AlertCircle className="w-3 h-3" /> Core Issue

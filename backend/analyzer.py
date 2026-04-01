@@ -885,11 +885,31 @@ async def analyze_readiness(url: str, scan_mode: str = "full"):
     if not is_long_form: claude_score -= 15
     if not has_questions: claude_score -= 10
     
+    # SearchGPT (OpenAI): Heavily focused on citations and direct answers.
+    searchgpt_score = int((aeo_score * 0.5) + (int(has_freshness) * 20) + (int(schema_ok) * 30))
+    
+    # Meta AI (Llama 3): General-purpose, values readability and common SEO signals.
+    meta_score = int((aeo_score * 0.6) + (readability_score * 0.4))
+    
+    # Mistral (Le Chat): Highly technical, respects schema and structured data.
+    mistral_score = int((aeo_score * 0.5) + (tech_score * 0.5))
+    
+    # Grok (xAI): Values real-time data and freshness/citations.
+    grok_score = int((aeo_score * 0.6) + (int(has_freshness) * 40))
+    
+    # You.com: Visual-heavy and citation-oriented.
+    you_score = int((aeo_score * 0.4) + (visual_score * 0.3) + (int(schema_ok) * 30))
+    
     engine_scores = {
         "chatgpt": min(100, max(0, chatgpt_score)),
         "claude": min(100, max(0, claude_score)),
         "gemini": min(100, max(0, gemini_score)),
-        "perplexity": min(100, max(0, perplexity_score))
+        "perplexity": min(100, max(0, perplexity_score)),
+        "searchgpt": min(100, max(0, searchgpt_score)),
+        "meta": min(100, max(0, meta_score)),
+        "mistral": min(100, max(0, mistral_score)),
+        "grok": min(100, max(0, grok_score)),
+        "you": min(100, max(0, you_score))
     }
     
     return {
