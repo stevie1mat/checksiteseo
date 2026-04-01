@@ -42,7 +42,23 @@ const nextConfig = {
                 ]
             }
         ]
-    }
+    },
+
+    async redirects() {
+        return [
+            {
+                source: '/:path*',
+                has: [
+                    {
+                        type: 'host',
+                        value: 'www.checksiteaeo.com',
+                    },
+                ],
+                destination: 'https://checksiteaeo.com/:path*',
+                permanent: true,
+            },
+        ]
+    },
 };
 
 export default nextConfig;

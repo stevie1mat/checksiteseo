@@ -1,7 +1,21 @@
 import type { Metadata } from "next";
 
 export const SITE_NAME = "CheckSiteAEO";
-export const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.checksiteaeo.com";
+
+function normalizeSiteUrl(input: string): string {
+  try {
+    const url = new URL(input);
+    // Canonical host preference: non-www
+    url.hostname = url.hostname.replace(/^www\./, "");
+    return url.origin;
+  } catch {
+    return "https://checksiteaeo.com";
+  }
+}
+
+export const SITE_URL = normalizeSiteUrl(
+  process.env.NEXT_PUBLIC_APP_URL || "https://checksiteaeo.com"
+);
 export const OG_IMAGE = "/og-image.png";
 export const TWITTER_HANDLE = "@checksiteaeo";
 

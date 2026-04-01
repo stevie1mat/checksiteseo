@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next'
+import { SITE_URL } from '@/lib/seo'
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://checksiteaeo.com'
+const baseUrl = SITE_URL
 
 export default function robots(): MetadataRoute.Robots {
   return {
