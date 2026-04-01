@@ -233,12 +233,14 @@ def get_status(score: int) -> str:
 async def log_scan_to_db(url: str, result: dict, site_id: str | None = None):
     if not supabase: return
     try:
-        # Find site_id if None
+        # Find site_id if None (Anonymous Scan)
         if not site_id:
-            existing = supabase.table("sites").select("id").eq("url", url).limit(1).execute()
+            # We specifically look for a site NAMED "Anonymous Scan" to avoid logged-in site overlaps
+            existing = supabase.table("sites").select("id").eq("url", url).eq("name", "Anonymous Scan").limit(1).execute()
             if existing.data:
                 site_id = existing.data[0]["id"]
             else:
+                # Create a master anonymous site entry if this is the first time this URL was scanned anonymously
                 first_admin = supabase.table("profiles").select("id").limit(1).execute()
                 if first_admin.data:
                     admin_id = first_admin.data[0]["id"]
@@ -1448,40 +1450,49 @@ async def get_admin_stats(x_admin_secret: str = Header(None, alias="x-admin-secr
         total_scans = getattr(scans_res, 'count', len(scans_res.data))
 
         # Total Landing Page Scans (sites named "Anonymous Scan")
-        anon_sites_res = supabase.table("sites").select("id", count="exact").eq("name", "Anonymous Scan").limit(1).execute()
+        anon_sites_res = supabase.table("sites").select("id", count="exact").eq("name", "Anonymous Scan").execute()
         landing_page_scans = getattr(anon_sites_res, 'count', len(anon_sites_res.data))
 
         # Recent Users (with email from profiles)
         recent_users_res = supabase.table("profiles").select("id, email, created_at, subscription_tier").order("created_at", desc=True).limit(5).execute()
         recent_users = recent_users_res.data
         
-        # Recent Scans (General)
-        recent_sites_res = supabase.table("pages").select("id, url, status, last_scanned_at, aeo_score, site_id").order("last_scanned_at", desc=True).limit(10).execute()
+        # Identify All Anonymous Site IDs
+        anon_sites_query = supabase.table("sites").select("id").eq("name", "Anonymous Scan").execute()
+        anon_site_ids = [s["id"] for s in anon_sites_query.data]
+        
+        # Recent Scans (Logged-In Users) - Pull from pages table and join with sites/profiles
+        # Since Supabase join syntax for 3 levels is complex, we fetch pages and map
+        recent_pages_res = supabase.table("pages").select("id, url, status, last_scanned_at, aeo_score, site_id").order("last_scanned_at", desc=True).limit(50).execute()
+        
         recent_sites = []
-        for p in recent_sites_res.data:
-            recent_sites.append({
+        landing_page_scans_data = []
+        
+        for p in recent_pages_res.data:
+            sid = p["site_id"]
+            is_anon = sid in anon_site_ids
+            
+            item = {
                 "id": p["id"],
                 "url": p["url"],
                 "status": p.get("status", "completed"),
                 "created_at": p["last_scanned_at"],
                 "aeo_score": p["aeo_score"]
-            })
-
-        # Recent Landing Page Scans
-        # We find the admin_id sites named "Anonymous Scan" to isolate them
-        landing_page_scans_data = []
-        anon_sites = supabase.table("sites").select("id").eq("name", "Anonymous Scan").limit(1).execute()
-        if anon_sites.data:
-            anon_site_id = anon_sites.data[0]["id"]
-            anon_pages_res = supabase.table("pages").select("id, url, status, last_scanned_at, aeo_score").eq("site_id", anon_site_id).order("last_scanned_at", desc=True).limit(10).execute()
-            for p in anon_pages_res.data:
-                landing_page_scans_data.append({
-                    "id": p["id"],
-                    "url": p["url"],
-                    "status": p.get("status", "completed"),
-                    "created_at": p["last_scanned_at"],
-                    "aeo_score": p["aeo_score"]
-                })
+            }
+            
+            if is_anon:
+                if len(landing_page_scans_data) < 20:
+                    landing_page_scans_data.append(item)
+            else:
+                if len(recent_sites) < 20:
+                    # Enrich with User Email
+                    site_data = supabase.table("sites").select("user_id").eq("id", sid).single().execute()
+                    if site_data.data:
+                        user_id = site_data.data["user_id"]
+                        profile_data = supabase.table("profiles").select("email").eq("id", user_id).single().execute()
+                        if profile_data.data:
+                            item["user_email"] = profile_data.data["email"]
+                    recent_sites.append(item)
 
         return {
             "total_users": total_users,

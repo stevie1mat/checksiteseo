@@ -183,6 +183,7 @@ export default function AdminDashboard() {
                 <thead className="bg-slate-900/50 text-slate-400">
                   <tr>
                     <th className="px-6 py-4 font-medium">URL</th>
+                    <th className="px-6 py-4 font-medium">User</th>
                     <th className="px-6 py-4 font-medium">Status</th>
                     <th className="px-6 py-4 font-medium">Score</th>
                     <th className="px-6 py-4 font-medium">Date</th>
@@ -191,7 +192,10 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-slate-700">
                   {stats?.recent_sites?.map((site, i) => (
                     <tr key={i} className="hover:bg-slate-700/50 transition-colors">
-                      <td className="px-6 py-4 font-medium text-emerald-400 truncate max-w-[200px]">{site.url}</td>
+                      <td className="px-6 py-4 font-medium text-emerald-400 truncate max-w-[150px]">{site.url}</td>
+                      <td className="px-6 py-4 text-[10px] font-mono text-slate-500 max-w-[120px] truncate">
+                        {site.user_email || "—"}
+                      </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded text-xs font-medium bg-slate-900 border ${
                           site.status === "completed" ? "text-emerald-400 border-emerald-500/30" : 
@@ -202,7 +206,7 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-white font-mono">{site.aeo_score || "N/A"}</td>
-                      <td className="px-6 py-4 text-slate-300 text-sm">
+                      <td className="px-6 py-4 text-slate-300 text-[11px]">
                         {site.created_at ? new Date(site.created_at).toLocaleString() : "N/A"}
                       </td>
                     </tr>
