@@ -295,7 +295,7 @@ export function HeroSection() {
                             <Bot className="w-6 h-6 text-emerald-600" />
                             <h3 className="font-serif text-2xl text-[#224034]">AI Engine Visibility Estimate</h3>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             {[
                                 { 
                                     name: 'ChatGPT', 
@@ -320,6 +320,14 @@ export function HeroSection() {
                                     fix: (result.breakdown?.content?.freshness?.score || 100) === 0 ? "Add Article:published_time schema for recency." : 
                                          (result.breakdown?.technical?.schema?.score || 100) <= 50 ? "Implement rich JSON-LD schema data." : 
                                          "Build out deep authoritative citations/outlinks."
+                                },
+                                { 
+                                    name: 'Claude', 
+                                    score: result.engine_scores?.claude ?? Math.min(100, Math.max(0, (result.total_score || 0) - 1)), 
+                                    desc: 'Claude 3.5 Sonnet',
+                                    fix: (result.breakdown?.content?.questions?.score || 0) < 50 ? "Add clear FAQ headers (H2/H3) for better logic parsing." : 
+                                         (result.breakdown?.content?.word_count?.score || 100) < 100 ? "Expand technical depth and detail for better reasoning." : 
+                                         "Maintain crisp and structured semantic flow."
                                 },
                             ].map((engine) => (
                                 <div key={engine.name} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col items-center justify-start relative overflow-hidden group hover:border-emerald-200 transition-all h-full">

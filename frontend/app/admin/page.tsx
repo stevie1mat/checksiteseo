@@ -9,8 +9,10 @@ type AdminStats = {
   total_users: number;
   total_sites: number;
   total_scans: number;
+  landing_page_urls_scanned: number;
   recent_users: any[];
   recent_sites: any[];
+  recent_landing_page_scans: any[];
 };
 
 export default function AdminDashboard() {
@@ -126,7 +128,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Global KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg flex items-center gap-4">
             <div className="w-14 h-14 bg-blue-500/10 rounded-full flex items-center justify-center text-blue-400 border border-blue-500/20">
               <Users className="w-7 h-7" />
@@ -156,15 +158,25 @@ export default function AdminDashboard() {
               <p className="text-3xl font-bold text-white">{stats?.total_scans || 0}</p>
             </div>
           </div>
+
+          <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg flex items-center gap-4">
+            <div className="w-14 h-14 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-400 border border-amber-500/20">
+              <Activity className="w-7 h-7" />
+            </div>
+            <div>
+              <p className="text-slate-400 text-sm font-medium">Landing Page Scans</p>
+              <p className="text-3xl font-bold text-white">{stats?.landing_page_urls_scanned || 0}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Data Tables */}
+        {/* Data Tables Top Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* Recent Sites */}
           <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-lg overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-700 bg-slate-800">
-              <h2 className="text-lg font-bold text-white">Recent Sites Analysed</h2>
+              <h2 className="text-lg font-bold text-white">Recent Logged-In Scans</h2>
             </div>
             <div className="overflow-x-auto p-0 flex-1">
               <table className="w-full text-left text-sm whitespace-nowrap">
@@ -173,6 +185,7 @@ export default function AdminDashboard() {
                     <th className="px-6 py-4 font-medium">URL</th>
                     <th className="px-6 py-4 font-medium">Status</th>
                     <th className="px-6 py-4 font-medium">Score</th>
+                    <th className="px-6 py-4 font-medium">Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700">
@@ -189,10 +202,13 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-white font-mono">{site.aeo_score || "N/A"}</td>
+                      <td className="px-6 py-4 text-slate-300 text-sm">
+                        {site.created_at ? new Date(site.created_at).toLocaleString() : "N/A"}
+                      </td>
                     </tr>
                   ))}
                   {(!stats?.recent_sites || stats.recent_sites.length === 0) && (
-                    <tr><td colSpan={3} className="px-6 py-8 text-center text-slate-500">No sites recorded yet.</td></tr>
+                    <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">No sites recorded yet.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -208,7 +224,7 @@ export default function AdminDashboard() {
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="bg-slate-900/50 text-slate-400">
                   <tr>
-                    <th className="px-6 py-4 font-medium">ID</th>
+                    <th className="px-6 py-4 font-medium">User</th>
                     <th className="px-6 py-4 font-medium">Plan</th>
                     <th className="px-6 py-4 font-medium">Joined</th>
                   </tr>
@@ -216,7 +232,9 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-slate-700">
                   {stats?.recent_users?.map((user, i) => (
                     <tr key={i} className="hover:bg-slate-700/50 transition-colors">
-                      <td className="px-6 py-4 font-mono text-slate-400 text-xs">{user.id.substring(0, 12)}...</td>
+                      <td className="px-6 py-4 font-mono text-slate-400 text-xs">
+                        {user.email || `${user.id.substring(0, 12)}...`}
+                      </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${
                           user.subscription_tier !== "free" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-slate-700 text-slate-300"
@@ -231,6 +249,54 @@ export default function AdminDashboard() {
                   ))}
                   {(!stats?.recent_users || stats.recent_users.length === 0) && (
                     <tr><td colSpan={3} className="px-6 py-8 text-center text-slate-500">No users recorded yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Data Tables Bottom Row */}
+        <div className="grid grid-cols-1 gap-8">
+          
+          {/* Landing Page Scans */}
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-lg overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-slate-700 bg-slate-800">
+              <h2 className="text-lg font-bold text-white">Recent Landing Page Scans (Anonymous)</h2>
+              <p className="text-sm text-slate-400">These are scans initiated directly from the homepage by unauthenticated visitors.</p>
+            </div>
+            <div className="overflow-x-auto p-0 flex-1">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-slate-900/50 text-slate-400">
+                  <tr>
+                    <th className="px-6 py-4 font-medium">URL</th>
+                    <th className="px-6 py-4 font-medium">Status</th>
+                    <th className="px-6 py-4 font-medium">Score</th>
+                    <th className="px-6 py-4 font-medium">Date Run</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700">
+                  {stats?.recent_landing_page_scans?.map((scan, i) => (
+                    <tr key={i} className="hover:bg-slate-700/50 transition-colors">
+                      <td className="px-6 py-4 font-medium text-amber-400 truncate max-w-[300px]">{scan.url}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded text-xs font-medium bg-slate-900 border ${
+                          scan.status === "completed" ? "text-emerald-400 border-emerald-500/30" : 
+                          scan.status === "error" ? "text-red-400 border-red-500/30" : 
+                          "text-yellow-400 border-yellow-500/30"
+                        }`}>
+                          {scan.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-white font-mono">{scan.aeo_score || "N/A"}</td>
+                      <td className="px-6 py-4 text-slate-300 text-sm">
+                        {scan.created_at ? new Date(scan.created_at).toLocaleString() : "N/A"}
+                      </td>
+                    </tr>
+                  ))}
+                  {(!stats?.recent_landing_page_scans || stats.recent_landing_page_scans.length === 0) && (
+                    <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">No landing page scans recorded yet.</td></tr>
                   )}
                 </tbody>
               </table>

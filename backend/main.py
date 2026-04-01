@@ -230,6 +230,67 @@ def get_status(score: int) -> str:
     if score >= 70: return "warning"
     return "critical"
 
+async def log_scan_to_db(url: str, result: dict, site_id: str | None = None):
+    if not supabase: return
+    try:
+        # Find site_id if None
+        if not site_id:
+            existing = supabase.table("sites").select("id").eq("url", url).limit(1).execute()
+            if existing.data:
+                site_id = existing.data[0]["id"]
+            else:
+                first_admin = supabase.table("profiles").select("id").limit(1).execute()
+                if first_admin.data:
+                    admin_id = first_admin.data[0]["id"]
+                    import uuid
+                    new_site = supabase.table("sites").insert({
+                        "user_id": admin_id,
+                        "url": url,
+                        "name": "Anonymous Scan",
+                        "status": "completed",
+                        "verification_token": str(uuid.uuid4())
+                    }).execute()
+                    if new_site.data:
+                        site_id = new_site.data[0]["id"]
+
+        if site_id:
+            aeo_score = result.get("total_score", 0)
+            breakdown = result.get("breakdown", {})
+            status = "completed"
+            
+            supabase.table("sites").update({
+                "aeo_score": aeo_score,
+                "status": status,
+                "last_scanned_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", site_id).execute()
+
+            supabase.table("site_history").insert({
+               "site_id": site_id,
+               "aeo_score": aeo_score
+            }).execute()
+
+            try:
+                db_url = os.getenv("DATABASE_URL")
+                engine = create_engine(db_url)
+                with engine.connect() as conn:
+                    query = text("""
+                        INSERT INTO pages (site_id, url, checklist, aeo_score, status, last_scanned_at)
+                        VALUES (:site_id, :url, :checklist, :aeo_score, :status, :last_scanned_at)
+                    """)
+                    conn.execute(query, {
+                        "site_id": site_id,
+                        "url": url,
+                        "checklist": json.dumps(breakdown),
+                        "aeo_score": aeo_score,
+                        "status": status,
+                        "last_scanned_at": datetime.now(timezone.utc).isoformat()
+                    })
+                    conn.commit()
+            except Exception as e:
+                logger.error(f"SQL direct insert failed in sync log: {e}")
+    except Exception as e:
+        logger.error(f"Failed to log anonymous scan: {e}")
+
 @app.post("/analyze")
 async def analyze_url(
     request: AnalyzeRequest, 
@@ -309,7 +370,7 @@ async def analyze_url(
     # 1. Rate Limiting Check (24h per site)
     ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true"
     
-    if ENABLE_RATE_LIMIT and request.site_id and site_response.data:
+    if ENABLE_RATE_LIMIT and request.site_id and 'site_response' in locals() and site_response.data:
         site = site_response.data[0]
         last_scanned = site.get("last_scanned_at")
         if last_scanned:
@@ -332,6 +393,8 @@ async def analyze_url(
             
             # Alias total_score to score for API consistency
             result['score'] = result.get('total_score', 0)
+            
+            background_tasks.add_task(log_scan_to_db, str(request.url), result, request.site_id)
             
             return result
         except Exception as e:
@@ -1384,20 +1447,50 @@ async def get_admin_stats(x_admin_secret: str = Header(None, alias="x-admin-secr
         scans_res = supabase.table("pages").select("id", count="exact").limit(1).execute()
         total_scans = getattr(scans_res, 'count', len(scans_res.data))
 
-        # Recent Users
-        recent_users_res = supabase.table("profiles").select("id, created_at, subscription_tier").order("created_at", desc=True).limit(5).execute()
+        # Total Landing Page Scans (sites named "Anonymous Scan")
+        anon_sites_res = supabase.table("sites").select("id", count="exact").eq("name", "Anonymous Scan").limit(1).execute()
+        landing_page_scans = getattr(anon_sites_res, 'count', len(anon_sites_res.data))
+
+        # Recent Users (with email from profiles)
+        recent_users_res = supabase.table("profiles").select("id, email, created_at, subscription_tier").order("created_at", desc=True).limit(5).execute()
         recent_users = recent_users_res.data
         
-        # Recent Sites
-        recent_sites_res = supabase.table("sites").select("id, url, status, created_at, aeo_score").order("created_at", desc=True).limit(10).execute()
-        recent_sites = recent_sites_res.data
+        # Recent Scans (General)
+        recent_sites_res = supabase.table("pages").select("id, url, status, last_scanned_at, aeo_score, site_id").order("last_scanned_at", desc=True).limit(10).execute()
+        recent_sites = []
+        for p in recent_sites_res.data:
+            recent_sites.append({
+                "id": p["id"],
+                "url": p["url"],
+                "status": p.get("status", "completed"),
+                "created_at": p["last_scanned_at"],
+                "aeo_score": p["aeo_score"]
+            })
+
+        # Recent Landing Page Scans
+        # We find the admin_id sites named "Anonymous Scan" to isolate them
+        landing_page_scans_data = []
+        anon_sites = supabase.table("sites").select("id").eq("name", "Anonymous Scan").limit(1).execute()
+        if anon_sites.data:
+            anon_site_id = anon_sites.data[0]["id"]
+            anon_pages_res = supabase.table("pages").select("id, url, status, last_scanned_at, aeo_score").eq("site_id", anon_site_id).order("last_scanned_at", desc=True).limit(10).execute()
+            for p in anon_pages_res.data:
+                landing_page_scans_data.append({
+                    "id": p["id"],
+                    "url": p["url"],
+                    "status": p.get("status", "completed"),
+                    "created_at": p["last_scanned_at"],
+                    "aeo_score": p["aeo_score"]
+                })
 
         return {
             "total_users": total_users,
             "total_sites": total_sites,
             "total_scans": total_scans,
+            "landing_page_urls_scanned": landing_page_scans,
             "recent_users": recent_users,
-            "recent_sites": recent_sites
+            "recent_sites": recent_sites,
+            "recent_landing_page_scans": landing_page_scans_data
         }
     except Exception as e:
         logger.error(f"Failed to fetch admin stats: {e}")
