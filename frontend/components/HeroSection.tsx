@@ -1,11 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useRef } from "react"
+import Image from "next/image"
+import { useState, useRef, type ReactNode } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, Sparkles, AlertCircle, XCircle, Code, AlignLeft, Lock, Copy, Bot, ChevronLeft, ChevronRight, Cpu, Share2, LayoutTemplate, Globe } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Check, Sparkles, AlertCircle, XCircle, Code, AlignLeft, Lock, Copy, Bot, ChevronLeft, ChevronRight } from "lucide-react"
 import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
 import { analytics } from "@/lib/analytics"
 
@@ -46,6 +48,17 @@ type AnalysisResult = {
     }
 }
 
+type EngineCard = {
+    name: string
+    score: number
+    desc: string
+    icon: ReactNode
+    fix: string
+    aeoHow: string
+    geoHow: string
+    exampleFix: string
+}
+
 function AIFixBox({ text }: { text: string }) {
     if (!text) return null;
     return (
@@ -75,6 +88,8 @@ export function HeroSection() {
     const [result, setResult] = useState<AnalysisResult | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [isRegisterOpen, setIsRegisterOpen] = useState(false)
+    const [isEngineDialogOpen, setIsEngineDialogOpen] = useState(false)
+    const [selectedEngineName, setSelectedEngineName] = useState<string | null>(null)
     const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle')
 
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -87,7 +102,7 @@ export function HeroSection() {
         }
     };
 
-    const handleAnalyze = async (e?: React.FormEvent) => {
+    const handleAnalyze = async () => {
         const rawUrl = url.trim()
         if (!rawUrl) {
             setError("Please enter a website URL.")
@@ -153,6 +168,182 @@ export function HeroSection() {
             setTimeout(() => setLoading(false), 3000)
         }
     }
+
+    const engineCards: EngineCard[] = result ? [
+        {
+            name: 'ChatGPT',
+            score: result.engine_scores?.chatgpt ?? Math.min(100, (result.total_score || 0) + 2),
+            desc: 'GPT-4o Search',
+            icon: <Image src="/logos/chatgpt-logo.png" alt="ChatGPT logo" width={24} height={24} className="w-6 h-6 object-contain" />,
+            fix: (result.breakdown?.content?.visual?.score || 100) < 100
+                ? "Some images are missing alt text, so ChatGPT may miss what they show."
+                : (result.breakdown?.content?.readability?.score || 100) < 80
+                    ? "The writing is a bit hard to read. ChatGPT works better with simple wording."
+                    : "Some answers are not direct enough. ChatGPT prefers clear, quick answers.",
+            aeoHow: "AEO for ChatGPT means your page clearly answers a real question and looks trustworthy.",
+            geoHow: "GEO means your wording is easy for AI to quote. Short paragraphs and clear headings help.",
+            exampleFix: "On {site}, add a heading like 'What does this service do?' and answer it in 2-3 simple sentences."
+        },
+        {
+            name: 'Gemini',
+            score: result.engine_scores?.gemini ?? Math.min(100, Math.max(0, (result.total_score || 0) + 1)),
+            desc: 'Google Gemini',
+            icon: <Image src="/logos/gemini-logo.png" alt="Gemini logo" width={22} height={22} className="w-[22px] h-[22px] object-contain" />,
+            fix: (result.breakdown?.technical?.robots?.status !== "valid")
+                ? "Gemini may not be able to read your pages because robots.txt is blocking access."
+                : (result.breakdown?.content?.word_count?.score || 100) < 100
+                    ? "This page may be too short. Gemini usually needs more context."
+                    : "Your page structure is unclear. Gemini prefers clear headings and sections.",
+            aeoHow: "For Gemini, AEO means Google can crawl your page and understand what it is about.",
+            geoHow: "For GEO, format content cleanly so Gemini can pull useful lines into AI answers.",
+            exampleFix: "On {site}, add clear H2 headings and a short summary paragraph under each heading."
+        },
+        {
+            name: 'Perplexity',
+            score: result.engine_scores?.perplexity ?? Math.min(100, Math.max(0, (result.total_score || 0) - 3)),
+            desc: 'Pro Search',
+            icon: <Image src="/logos/perplexity-logo.png" alt="Perplexity logo" width={22} height={22} className="w-[22px] h-[22px] object-contain" />,
+            fix: (result.breakdown?.content?.freshness?.score || 100) === 0
+                ? "No publish date was found, so Perplexity may treat this as older content."
+                : (result.breakdown?.technical?.schema?.score || 100) <= 50
+                    ? "Perplexity may not fully understand your page because schema markup is missing."
+                    : "There are not enough source links for Perplexity to trust this page.",
+            aeoHow: "For Perplexity, AEO means your page is easy to verify with clear facts and sources.",
+            geoHow: "For GEO, keep facts and source links close together so AI can quote both.",
+            exampleFix: "On {site}, add a short 'Sources' section with 2-3 trusted links."
+        },
+        {
+            name: 'Claude',
+            score: result.engine_scores?.claude ?? Math.min(100, Math.max(0, (result.total_score || 0) - 1)),
+            desc: 'Claude 3.5 Sonnet',
+            icon: <Image src="/logos/claude-logo.png" alt="Claude logo" width={22} height={22} className="w-[22px] h-[22px] object-contain" />,
+            fix: (result.breakdown?.content?.questions?.score || 0) < 50
+                ? "Claude may struggle to find direct questions and answers on this page."
+                : (result.breakdown?.content?.word_count?.score || 100) < 100
+                    ? "The page may be too thin for Claude to explain with confidence."
+                    : "Some sections are too dense. Claude works better with simpler structure.",
+            aeoHow: "For Claude, AEO means a clear flow: question, answer, then proof.",
+            geoHow: "For GEO, split long text into short sections Claude can summarize safely.",
+            exampleFix: "On {site}, turn one long section into 3 short FAQ questions with direct answers."
+        },
+        {
+            name: 'SearchGPT',
+            score: result.engine_scores?.searchgpt ?? Math.min(100, (result.total_score || 0) + 1),
+            desc: 'OpenAI Prototype',
+            icon: <Image src="/logos/chatgpt-logo.png" alt="SearchGPT logo" width={24} height={24} className="w-6 h-6 object-contain" />,
+            fix: "SearchGPT needs clearer page structure data before it can trust and cite this page.",
+            aeoHow: "For SearchGPT, AEO means clear page purpose, trust signals, and direct answers.",
+            geoHow: "For GEO, use short, exact statements that can be quoted without heavy rewriting.",
+            exampleFix: "On {site}, add FAQ schema for one top customer question and answer."
+        },
+        {
+            name: 'Meta AI',
+            score: result.engine_scores?.meta ?? Math.min(100, (result.total_score || 0) - 2),
+            desc: 'Llama 3 Web Search',
+            icon: <Image src="/logos/meta-logo.webp" alt="Meta AI logo" width={22} height={22} className="w-[22px] h-[22px] object-contain" />,
+            fix: "Some wording is complex, which can reduce how well Meta AI understands this page.",
+            aeoHow: "For Meta AI, AEO means simple language and clear topic signals.",
+            geoHow: "For GEO, keep each paragraph focused on one idea so AI can reuse it correctly.",
+            exampleFix: "On {site}, rewrite one paragraph in plain language with one key point per sentence."
+        },
+        {
+            name: 'Grok',
+            score: result.engine_scores?.grok ?? Math.min(100, (result.total_score || 0) - 4),
+            desc: 'xAI Search',
+            icon: <Image src="/logos/grok-logo.svg" alt="Grok logo" width={22} height={22} className="w-[22px] h-[22px] object-contain" />,
+            fix: "If crawler access is limited, Grok may miss important updates from your site.",
+            aeoHow: "For Grok, AEO means your pages are easy to crawl and updated often.",
+            geoHow: "For GEO, add fast, factual summaries near the top of the page.",
+            exampleFix: "On {site}, add a 2-line 'Quick answer' summary at the top of your main page."
+        },
+        {
+            name: 'Mistral',
+            score: result.engine_scores?.mistral ?? Math.min(100, (result.total_score || 0) - 1),
+            desc: 'Le Chat Search',
+            icon: <Image src="/logos/mistral-logo.png" alt="Mistral logo" width={22} height={22} className="w-[22px] h-[22px] object-contain" />,
+            fix: "Mistral may struggle if your headings and sections are unclear.",
+            aeoHow: "For Mistral, AEO means clean structure with clear section names.",
+            geoHow: "For GEO, use short sections with direct wording so AI can quote correctly.",
+            exampleFix: "On {site}, rename vague headings like 'Overview' to specific ones like 'Pricing and Timeline'."
+        },
+        {
+            name: 'You.com',
+            score: result.engine_scores?.you ?? Math.min(100, (result.total_score || 0) + 1),
+            desc: 'YouChat Search',
+            icon: <Image src="/logos/you-logo.png" alt="You.com logo" width={22} height={22} className="w-[22px] h-[22px] object-contain" />,
+            fix: "Add clear image descriptions and source links so You.com can trust and quote your page.",
+            aeoHow: "For You.com, AEO means clear answers and clear proof of where the info came from.",
+            geoHow: "For GEO, use short paragraphs, simple wording, and source links so AI quotes you accurately.",
+            exampleFix: "On {site}, add alt text to one main image and cite a source under one key claim."
+        },
+    ] : []
+
+    const selectedEngine = engineCards.find((engine) => engine.name === selectedEngineName)
+    const siteLabel = (() => {
+        const fallback = "your site"
+        if (!result?.url) return fallback
+        try {
+            return new URL(result.url).hostname.replace(/^www\./, "")
+        } catch {
+            return result.url.replace(/^https?:\/\//, "")
+        }
+    })()
+    const isChapmansSite = siteLabel.toLowerCase().includes("chapmans.ca")
+    const selectedEngineExample = selectedEngine?.exampleFix?.replace("{site}", siteLabel)
+    const copyPasteExample = (() => {
+        if (!selectedEngine) {
+            return `<h2>What does ${siteLabel} offer?</h2>
+<p>${siteLabel} helps customers with [service] using [main benefit].</p>`
+        }
+
+        switch (selectedEngine.name) {
+            case "ChatGPT":
+                return `<h2>What does ${siteLabel} offer?</h2>
+<p>${siteLabel} provides [service] for [audience]. Most customers start in [timeframe].</p>`
+            case "Gemini":
+                return `<h2>Pricing and Timeline</h2>
+<p>Plans start at [price]. Setup usually takes [timeline].</p>`
+            case "Perplexity":
+                return `<p><strong>Claim:</strong> [Insert key claim]</p>
+<p>Source: <a href="[trusted-source-url]">Trusted source for this claim</a></p>`
+            case "Claude":
+                return `<h2>Frequently Asked Question</h2>
+<p><strong>Q:</strong> How long does it take?</p>
+<p><strong>A:</strong> Most customers are live within [timeframe].</p>`
+            case "SearchGPT":
+                return `<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What does ${siteLabel} do?","acceptedAnswer":{"@type":"Answer","text":"${siteLabel} provides [service] for [audience]."}}]}
+</script>`
+            case "Meta AI":
+                return `<p>Old: Our innovative integrated optimization architecture enables robust multi-channel outcomes.</p>
+<p>New: We help businesses get more leads from AI search.</p>`
+            case "Grok":
+                return `<p><strong>Quick answer:</strong> ${siteLabel} helps [audience] do [result] in [timeframe].</p>`
+            case "Mistral":
+                return `<h2>Pricing and Timeline</h2>
+<p>Plans start at [price]. Most projects begin within [timeline].</p>`
+            case "You.com": {
+                const altText = isChapmansSite
+                    ? "Chapman's ice cream cones, bars, and tubs on display"
+                    : `${siteLabel} product or service shown in the main hero section`
+                const claimText = isChapmansSite
+                    ? "Made with 100% Canadian milk and cream."
+                    : "Add your key trust claim here."
+                const sourceHref = isChapmansSite
+                    ? "https://www.chapmans.ca/faq/"
+                    : (result?.url || "https://example.com/source")
+                const sourceLabel = isChapmansSite
+                    ? "Chapman's FAQ - Which products are made with 100% Canadian milk?"
+                    : "Source page that proves this claim"
+                return `<img alt="${altText}" />
+<p><strong>Claim:</strong> ${claimText}</p>
+<p>Source: <a href="${sourceHref}">${sourceLabel}</a></p>`
+            }
+            default:
+                return `<h2>What does ${siteLabel} offer?</h2>
+<p>${siteLabel} helps customers with [service] using [main benefit].</p>`
+        }
+    })()
 
     return (
         <section className={`relative min-h-[90vh] flex flex-col items-center pt-64 pb-20 px-6 bg-[#224034] text-white transition-all duration-700 overflow-hidden ${result ? 'min-h-screen' : ''}`}>
@@ -335,82 +526,18 @@ export function HeroSection() {
                             className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide snap-x snap-mandatory"
                             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                         >
-                            {[
-                                { 
-                                    name: 'ChatGPT', 
-                                    score: result.engine_scores?.chatgpt ?? Math.min(100, (result.total_score || 0) + 2), 
-                                    desc: 'GPT-4o Search',
-                                    icon: <Sparkles className="w-4 h-4" />,
-                                    fix: (result.breakdown?.content?.visual?.score || 100) < 100 ? "Add rich alt-text to images for vision processing." : 
-                                         (result.breakdown?.content?.readability?.score || 100) < 80 ? "Simplify overall text readability." : 
-                                         "Optimize content for natural language parsing."
-                                },
-                                { 
-                                    name: 'Gemini', 
-                                    score: result.engine_scores?.gemini ?? Math.min(100, Math.max(0, (result.total_score || 0) + 1)), 
-                                    desc: 'Google Gemini',
-                                    icon: <Globe className="w-4 h-4" />,
-                                    fix: (result.breakdown?.technical?.robots?.status !== "valid") ? "Unblock Googlebot in robots.txt." : 
-                                         (result.breakdown?.content?.word_count?.score || 100) < 100 ? "Develop more comprehensive long-form content." : 
-                                         "Improve traditional on-page structural signals."
-                                },
-                                { 
-                                    name: 'Perplexity', 
-                                    score: result.engine_scores?.perplexity ?? Math.min(100, Math.max(0, (result.total_score || 0) - 3)), 
-                                    desc: 'Pro Search',
-                                    icon: <Bot className="w-4 h-4" />,
-                                    fix: (result.breakdown?.content?.freshness?.score || 100) === 0 ? "Add Article:published_time schema for recency." : 
-                                         (result.breakdown?.technical?.schema?.score || 100) <= 50 ? "Implement rich JSON-LD schema data." : 
-                                         "Build out deep authoritative citations/outlinks."
-                                },
-                                { 
-                                    name: 'Claude', 
-                                    score: result.engine_scores?.claude ?? Math.min(100, Math.max(0, (result.total_score || 0) - 1)), 
-                                    desc: 'Claude 3.5 Sonnet',
-                                    icon: <Bot className="w-4 h-4" />,
-                                    fix: (result.breakdown?.content?.questions?.score || 0) < 50 ? "Add clear FAQ headers (H2/H3) for better logic parsing." : 
-                                         (result.breakdown?.content?.word_count?.score || 100) < 100 ? "Expand technical depth and detail for better reasoning." : 
-                                         "Maintain crisp and structured semantic flow."
-                                },
-                                { 
-                                    name: 'SearchGPT', 
-                                    score: result.engine_scores?.searchgpt ?? Math.min(100, (result.total_score || 0) + 1), 
-                                    desc: 'OpenAI Prototype',
-                                    icon: <Sparkles className="w-4 h-4" />,
-                                    fix: "Prioritize JSON-LD schema for real-time citations."
-                                },
-                                { 
-                                    name: 'Meta AI', 
-                                    score: result.engine_scores?.meta ?? Math.min(100, (result.total_score || 0) - 2), 
-                                    desc: 'Llama 3 Web Search',
-                                    icon: <Share2 className="w-4 h-4" />,
-                                    fix: "Improve overall readability for efficient LLM context-window parsing."
-                                },
-                                { 
-                                    name: 'Grok', 
-                                    score: result.engine_scores?.grok ?? Math.min(100, (result.total_score || 0) - 4), 
-                                    desc: 'xAI Search',
-                                    icon: <Cpu className="w-4 h-4" />,
-                                    fix: "Optimize for real-time indexing by unblocking all crawler access."
-                                },
-                                { 
-                                    name: 'Mistral', 
-                                    score: result.engine_scores?.mistral ?? Math.min(100, (result.total_score || 0) - 1), 
-                                    desc: 'Le Chat Search',
-                                    icon: <Code className="w-4 h-4" />,
-                                    fix: "Structure content with clear semantic hierarchies."
-                                },
-                                { 
-                                    name: 'You.com', 
-                                    score: result.engine_scores?.you ?? Math.min(100, (result.total_score || 0) + 1), 
-                                    desc: 'YouChat Search',
-                                    icon: <LayoutTemplate className="w-4 h-4" />,
-                                    fix: "Enhance visual metadata and citations for multi-modal verification."
-                                },
-                            ].map((engine) => (
-                                <div key={engine.name} className="flex-none w-[280px] md:w-[320px] bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col items-center justify-start relative overflow-hidden group hover:border-emerald-200 transition-all h-full snap-start">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                            {engineCards.map((engine) => (
+                                <button
+                                    key={engine.name}
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedEngineName(engine.name)
+                                        setIsEngineDialogOpen(true)
+                                    }}
+                                    className="flex-none w-[280px] md:w-[320px] bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col items-center justify-start relative overflow-hidden group hover:border-emerald-200 transition-all h-full snap-start text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                                >
+                                    <div className="flex items-center gap-1 mb-1">
+                                        <div className={`rounded-lg flex items-center justify-center ${(["ChatGPT", "Gemini", "Perplexity", "Claude", "SearchGPT", "Meta AI", "Grok", "Mistral", "You.com"].includes(engine.name)) ? "w-9 h-9 bg-transparent" : "w-8 h-8 bg-emerald-50 text-emerald-600"}`}>
                                             {engine.icon}
                                         </div>
                                         <div className="text-slate-800 font-bold text-lg">{engine.name}</div>
@@ -436,7 +563,8 @@ export function HeroSection() {
                                             <p className="text-xs text-slate-600 leading-tight">{engine.fix}</p>
                                         </div>
                                     )}
-                                </div>
+                                    <p className="mt-3 text-[11px] uppercase tracking-wider text-emerald-600 font-semibold">Click for AEO/GEO details</p>
+                                </button>
                             ))}
                         </div>
                     </div>
@@ -800,6 +928,74 @@ export function HeroSection() {
                     </div>
                 </div>
             )}
+
+            <Dialog
+                open={isEngineDialogOpen}
+                onOpenChange={(open) => {
+                    setIsEngineDialogOpen(open)
+                    if (!open) {
+                        setSelectedEngineName(null)
+                    }
+                }}
+            >
+                <DialogContent className="z-[70] max-w-[95vw] sm:max-w-5xl border-emerald-200 bg-white text-slate-900 shadow-[0_30px_90px_rgba(2,20,14,0.45)] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-[#224034] text-2xl font-serif">
+                            {selectedEngine?.name || "AI Engine"} Visibility Breakdown
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-600 mt-1">
+                            {selectedEngine ? `${selectedEngine.desc} • Visibility estimate: ${selectedEngine.score}/100` : "Engine details"}
+                        </DialogDescription>
+                        <p className="text-xs text-slate-500">
+                            AEO means getting found by AI search. GEO means getting quoted correctly in AI answers.
+                        </p>
+                    </DialogHeader>
+
+                    <div className="space-y-4 text-sm">
+                        <div className="rounded-xl border border-red-200/70 p-4">
+                            <p className="text-[11px] uppercase tracking-widest font-bold text-red-500 mb-1">Current Issue</p>
+                            <p className="text-slate-600 leading-relaxed">{selectedEngine?.fix || "No major issue detected."}</p>
+                        </div>
+
+                        <div className="rounded-xl border border-emerald-200/70 p-4">
+                            <p className="text-[11px] uppercase tracking-widest font-bold text-emerald-600 mb-1">How This Engine Uses AEO</p>
+                            <p className="text-slate-600 leading-relaxed">{selectedEngine?.aeoHow || "AEO determines whether your page can be trusted and selected as a source."}</p>
+                        </div>
+
+                        <div className="rounded-xl border border-blue-200/70 p-4">
+                            <p className="text-[11px] uppercase tracking-widest font-bold text-blue-600 mb-1">How This Engine Uses GEO</p>
+                            <p className="text-slate-600 leading-relaxed">{selectedEngine?.geoHow || "GEO influences how easily your wording can be extracted into generated answers."}</p>
+                        </div>
+
+                        <div className="rounded-xl border border-violet-200/70 p-4">
+                            <p className="text-[11px] uppercase tracking-widest font-bold text-violet-600 mb-1">Example Fix For {siteLabel}</p>
+                            <p className="text-slate-600 leading-relaxed">
+                                {selectedEngineExample || "Add one short FAQ and one source link to make this page easier for AI to trust and quote."}
+                            </p>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200/80 p-4">
+                            <p className="text-[11px] uppercase tracking-widest font-bold text-slate-600 mb-2">Copy/Paste Example (Matches The Fix Above)</p>
+                            <pre className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed font-mono bg-slate-50 rounded-lg p-3 border border-slate-200/80">{copyPasteExample}</pre>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100">
+                            <Button
+                                asChild
+                                onClick={() => analytics.trackSignupStarted()}
+                                className="w-full bg-[#224034] hover:bg-[#1a3329] text-white h-11 text-sm font-semibold shadow-lg shadow-[#224034]/20"
+                            >
+                                <Link href="/signup">
+                                    Improve {selectedEngine?.name || "AI Engine"} Visibility
+                                </Link>
+                            </Button>
+                            <p className="text-xs text-slate-500 mt-2 text-center">
+                                Create your free account to get full fixes and ongoing monitoring.
+                            </p>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Registration Modal */}
             {isRegisterOpen && (
