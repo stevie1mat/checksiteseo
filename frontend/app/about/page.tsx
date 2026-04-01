@@ -2,7 +2,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Bot, Target, Users, Globe } from "lucide-react";
 import { Metadata } from "next";
-import { createPageMetadata } from "@/lib/seo";
+import { createPageMetadata, absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = createPageMetadata({
     title: "About CheckSiteAEO",
@@ -16,7 +16,7 @@ export default function AboutPage() {
         "@context": "https://schema.org",
         "@type": "Organization",
         "name": "CheckSiteAEO",
-        "url": "https://checksiteaeo.com",
+        "url": absoluteUrl("/"),
         "description": "AEO Readiness Auditor and Optimization Tool",
         "sameAs": [
             "https://twitter.com/checksiteaeo",

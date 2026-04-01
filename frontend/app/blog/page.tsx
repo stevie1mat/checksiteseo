@@ -3,7 +3,7 @@ import { Footer } from "@/components/Footer";
 import { ArrowRight, Clock } from "lucide-react";
 import Link from "next/link";
 import { Metadata } from "next";
-import { createPageMetadata } from "@/lib/seo";
+import { createPageMetadata, absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = createPageMetadata({
     title: "AEO Blog: Answer Engine Optimization Insights",
@@ -48,7 +48,7 @@ export default function BlogPage() {
         "@type": "Blog",
         "name": "CheckSiteAEO Blog",
         "description": "Insights on AEO and AI Search",
-        "url": "https://checksiteaeo.com/blog"
+        "url": absoluteUrl("/blog")
     };
 
     return (

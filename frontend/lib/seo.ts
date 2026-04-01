@@ -5,16 +5,19 @@ export const SITE_NAME = "CheckSiteAEO";
 function normalizeSiteUrl(input: string): string {
   try {
     const url = new URL(input);
-    // Canonical host preference: non-www
-    url.hostname = url.hostname.replace(/^www\./, "");
+    // Canonical host preference: www (matches current production host behavior)
+    const isLocalhost = /^(localhost|127\.0\.0\.1)$/i.test(url.hostname);
+    if (!isLocalhost && !url.hostname.startsWith("www.")) {
+      url.hostname = `www.${url.hostname}`;
+    }
     return url.origin;
   } catch {
-    return "https://checksiteaeo.com";
+    return "https://www.checksiteaeo.com";
   }
 }
 
 export const SITE_URL = normalizeSiteUrl(
-  process.env.NEXT_PUBLIC_APP_URL || "https://checksiteaeo.com"
+  process.env.NEXT_PUBLIC_APP_URL || "https://www.checksiteaeo.com"
 );
 export const OG_IMAGE = "/og-image.png";
 export const TWITTER_HANDLE = "@checksiteaeo";
