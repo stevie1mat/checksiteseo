@@ -21,6 +21,7 @@ from dependencies import get_current_user, get_optional_current_user
 
 import stripe
 from urllib.parse import urlparse
+import httpx
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -230,7 +231,25 @@ def get_status(score: int) -> str:
     if score >= 70: return "warning"
     return "critical"
 
-async def log_scan_to_db(url: str, result: dict, site_id: str | None = None):
+async def get_geoip_data(ip: str):
+    if not ip or ip in ("127.0.0.1", "localhost", "::1"):
+        return {"city": "Local", "country": "Local", "countryCode": "LCL"}
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"http://ip-api.com/json/{ip}")
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("status") == "success":
+                    return {
+                        "city": data.get("city"),
+                        "country": data.get("country"),
+                        "countryCode": data.get("countryCode")
+                    }
+    except Exception as e:
+        logger.error(f"GeoIP listup failed: {e}")
+    return {"city": "Unknown", "country": "Unknown", "countryCode": ""}
+
+async def log_scan_to_db(url: str, result: dict, site_id: str | None = None, metadata: dict | None = None):
     if not supabase: return
     try:
         # Find site_id if None (Anonymous Scan)
@@ -276,8 +295,8 @@ async def log_scan_to_db(url: str, result: dict, site_id: str | None = None):
                 engine = create_engine(db_url)
                 with engine.connect() as conn:
                     query = text("""
-                        INSERT INTO pages (site_id, url, checklist, aeo_score, status, last_scanned_at)
-                        VALUES (:site_id, :url, :checklist, :aeo_score, :status, :last_scanned_at)
+                        INSERT INTO pages (site_id, url, checklist, aeo_score, status, last_scanned_at, ip_address, city, country, user_agent)
+                        VALUES (:site_id, :url, :checklist, :aeo_score, :status, :last_scanned_at, :ip, :city, :country, :ua)
                     """)
                     conn.execute(query, {
                         "site_id": site_id,
@@ -285,7 +304,11 @@ async def log_scan_to_db(url: str, result: dict, site_id: str | None = None):
                         "checklist": json.dumps(breakdown),
                         "aeo_score": aeo_score,
                         "status": status,
-                        "last_scanned_at": datetime.now(timezone.utc).isoformat()
+                        "last_scanned_at": datetime.now(timezone.utc).isoformat(),
+                        "ip": metadata.get("ip") if metadata else None,
+                        "city": metadata.get("city") if metadata else None,
+                        "country": metadata.get("country") if metadata else None,
+                        "ua": metadata.get("ua") if metadata else None
                     })
                     conn.commit()
             except Exception as e:
@@ -296,13 +319,27 @@ async def log_scan_to_db(url: str, result: dict, site_id: str | None = None):
 @app.post("/analyze")
 async def analyze_url(
     request: AnalyzeRequest, 
+    raw_request: Request,
     background_tasks: BackgroundTasks,
     user: dict | None = Depends(get_optional_current_user)
 ):
-    print(f"Received analysis request for: {request.url} from user: {user.id if user else 'Guest'}")
+    url = str(request.url)
+    site_id = request.site_id
+    sync = request.sync
     
+    # Metadata Extraction
+    ip_addr = raw_request.headers.get("x-forwarded-for", raw_request.client.host).split(",")[0].strip()
+    user_agent = raw_request.headers.get("user-agent", "unknown")
+    geo = await get_geoip_data(ip_addr)
+    metadata = {
+        "ip": ip_addr,
+        "ua": user_agent,
+        "city": geo.get("city"),
+        "country": geo.get("country")
+    }
+
     # OWNER CHECK
-    if request.site_id:
+    if site_id:
         if not user:
             raise HTTPException(status_code=401, detail="Authentication required to save to a specific site.")
 
@@ -312,7 +349,7 @@ async def analyze_url(
 
         try:
             # Check if site exists and belongs to user
-            site_response = supabase.table("sites").select("user_id, status, last_scanned_at").eq("id", request.site_id).execute()
+            site_response = supabase.table("sites").select("user_id, status, last_scanned_at").eq("id", site_id).execute()
             
             if not site_response.data:
                  pass
@@ -388,15 +425,15 @@ async def analyze_url(
             print(f"Failed to update status: {e}")
 
     # 3. Handle Synchronous Request
-    if request.sync:
+    if sync:
         try:
             # Run analysis immediately and await result
-            result = await analyze_readiness(str(request.url), scan_mode="full")
+            result = await analyze_readiness(url, scan_mode="full")
             
             # Alias total_score to score for API consistency
             result['score'] = result.get('total_score', 0)
             
-            background_tasks.add_task(log_scan_to_db, str(request.url), result, request.site_id)
+            background_tasks.add_task(log_scan_to_db, url, result, site_id, metadata)
             
             return result
         except Exception as e:
@@ -404,11 +441,11 @@ async def analyze_url(
             raise HTTPException(status_code=500, detail=str(e))
 
     # 4. Schedule Background Task (Default Async behavior)
-    background_tasks.add_task(run_analysis_background, str(request.url), request.site_id)
+    background_tasks.add_task(run_analysis_background, url, site_id, metadata)
 
     return {"status": "processing", "message": "Analysis started in background"}
 
-async def run_analysis_background(url: str, site_id: str | None):
+async def run_analysis_background(url: str, site_id: str | None, metadata: dict | None = None):
     print(f"🚀 [Background] Starting analysis for {url}")
     try:
         # Perform Analysis with Timeout (120s safety limit)
@@ -486,8 +523,8 @@ async def run_analysis_background(url: str, site_id: str | None):
                     engine = create_engine(db_url)
                     with engine.connect() as conn:
                         query = text("""
-                            INSERT INTO pages (site_id, url, checklist, aeo_score, status, last_scanned_at)
-                            VALUES (:site_id, :url, :checklist, :aeo_score, :status, :last_scanned_at)
+                            INSERT INTO pages (site_id, url, checklist, aeo_score, status, last_scanned_at, ip_address, city, country, user_agent)
+                            VALUES (:site_id, :url, :checklist, :aeo_score, :status, :last_scanned_at, :ip, :city, :country, :ua)
                         """)
                         conn.execute(query, {
                             "site_id": site_id,
@@ -495,7 +532,11 @@ async def run_analysis_background(url: str, site_id: str | None):
                             "checklist": json.dumps(breakdown),
                             "aeo_score": aeo_score,
                             "status": "completed",
-                            "last_scanned_at": datetime.now(timezone.utc).isoformat()
+                            "last_scanned_at": datetime.now(timezone.utc).isoformat(),
+                            "ip": metadata.get("ip") if metadata else None,
+                            "city": metadata.get("city") if metadata else None,
+                            "country": metadata.get("country") if metadata else None,
+                            "ua": metadata.get("ua") if metadata else None
                         })
                         conn.commit()
                     print("   > Pages updated successfully (Direct SQL).")
@@ -1463,7 +1504,7 @@ async def get_admin_stats(x_admin_secret: str = Header(None, alias="x-admin-secr
         
         # Recent Scans (Logged-In Users) - Pull from pages table and join with sites/profiles
         # Since Supabase join syntax for 3 levels is complex, we fetch pages and map
-        recent_pages_res = supabase.table("pages").select("id, url, status, last_scanned_at, aeo_score, site_id").order("last_scanned_at", desc=True).limit(50).execute()
+        recent_pages_res = supabase.table("pages").select("id, url, status, last_scanned_at, aeo_score, site_id, ip_address, city, country, user_agent").order("last_scanned_at", desc=True).limit(50).execute()
         
         recent_sites = []
         landing_page_scans_data = []
@@ -1477,7 +1518,11 @@ async def get_admin_stats(x_admin_secret: str = Header(None, alias="x-admin-secr
                 "url": p["url"],
                 "status": p.get("status", "completed"),
                 "created_at": p["last_scanned_at"],
-                "aeo_score": p["aeo_score"]
+                "aeo_score": p["aeo_score"],
+                "ip": p.get("ip_address"),
+                "city": p.get("city"),
+                "country": p.get("country"),
+                "ua": p.get("user_agent")
             }
             
             if is_anon:

@@ -273,8 +273,10 @@ export default function AdminDashboard() {
             <div className="overflow-x-auto p-0 flex-1">
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="bg-slate-900/50 text-slate-400">
-                  <tr>
+                   <tr>
                     <th className="px-6 py-4 font-medium">URL</th>
+                    <th className="px-6 py-4 font-medium">Location</th>
+                    <th className="px-6 py-4 font-medium">IP/Device</th>
                     <th className="px-6 py-4 font-medium">Status</th>
                     <th className="px-6 py-4 font-medium">Score</th>
                     <th className="px-6 py-4 font-medium">Date Run</th>
@@ -283,7 +285,15 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-slate-700">
                   {stats?.recent_landing_page_scans?.map((scan, i) => (
                     <tr key={i} className="hover:bg-slate-700/50 transition-colors">
-                      <td className="px-6 py-4 font-medium text-amber-400 truncate max-w-[300px]">{scan.url}</td>
+                      <td className="px-6 py-4 font-medium text-amber-400 truncate max-w-[200px]">{scan.url}</td>
+                      <td className="px-6 py-4 text-xs">
+                        <div className="text-white font-medium">{scan.city || "Unknown City"}</div>
+                        <div className="text-slate-500 text-[10px]">{scan.country || "Unknown Country"}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                         <div className="text-[10px] font-mono text-emerald-500/70">{scan.ip || "—"}</div>
+                         <div className="text-[9px] text-slate-500 truncate max-w-[100px]" title={scan.ua}>{scan.ua || "unknown dev"}</div>
+                      </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded text-xs font-medium bg-slate-900 border ${
                           scan.status === "completed" ? "text-emerald-400 border-emerald-500/30" : 
@@ -294,7 +304,7 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-white font-mono">{scan.aeo_score || "N/A"}</td>
-                      <td className="px-6 py-4 text-slate-300 text-sm">
+                      <td className="px-6 py-4 text-slate-300 text-[11px]">
                         {scan.created_at ? new Date(scan.created_at).toLocaleString() : "N/A"}
                       </td>
                     </tr>
