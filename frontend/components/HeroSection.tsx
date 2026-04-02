@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
+import { useState, useRef, useEffect, useCallback, type ReactNode, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -208,6 +208,13 @@ export function HeroSection({
         hasAutoAnalyzedRef.current = true
         void handleAnalyze(initialUrl)
     }, [autoAnalyze, initialUrl, analyzeMode, handleAnalyze])
+
+    const handleHeroSubmit = useCallback((e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        const submitted = new FormData(e.currentTarget).get("site_url")
+        const submittedUrl = typeof submitted === "string" ? submitted : ""
+        void handleAnalyze(submittedUrl)
+    }, [handleAnalyze])
 
     const engineCards: EngineCard[] = result ? [
         {
@@ -447,8 +454,9 @@ export function HeroSection({
                     {/* Search Input Box - Refined */}
                     {!result && (
                         <div className="mt-12 w-full max-w-xl mx-auto animate-in fade-in zoom-in duration-500">
-                            <form onSubmit={(e) => { e.preventDefault(); handleAnalyze(); }} className="relative flex items-center bg-[#e8f1db] border border-[#d5e3ca] rounded-full p-1.5 shadow-sm">
+                            <form onSubmit={handleHeroSubmit} className="relative flex items-center bg-[#e8f1db] border border-[#d5e3ca] rounded-full p-1.5 shadow-sm">
                                 <Input
+                                    name="site_url"
                                     type="text"
                                     value={url}
                                     onChange={(e) => setUrl(e.target.value)}

@@ -668,51 +668,56 @@ export function InsightsWorkspace({ initialUrl }: { initialUrl?: string }) {
     }));
     const competitorPool = context.competitors;
 
-    const firstMentionRate = clamp(
-      Math.round(average(baseEngines.map((entry) => entry.score)) - 8)
-    );
-    const secondMentionRate = clamp(
-      Math.round((report.breakdown?.content?.gap?.score ?? 40) * 0.9)
-    );
-
-    const firstPrompt =
+    const promptTemplates =
       context.industry === "Tobacco and Nicotine Products"
-        ? "Which companies produce nicotine pouches globally?"
-        : `What are the top companies in ${context.industry.toLowerCase()}?`;
-    const secondPrompt =
-      context.industry === "Tobacco and Nicotine Products"
-        ? "What are the leading brands of nicotine gum?"
-        : `What are the leading products offered by ${brandName}?`;
+        ? [
+            "Which companies produce nicotine pouches globally?",
+            "What are the leading brands of nicotine gum?",
+            `How does ${brandName} compare against major nicotine brands?`,
+            "Which nicotine pouch products are best for beginners?",
+            `What trust signals should ${brandName} add to improve AI citations?`,
+          ]
+        : [
+            `What are the top companies in ${context.industry.toLowerCase()}?`,
+            `What are the leading products offered by ${brandName}?`,
+            `How does ${brandName} compare with other providers in ${context.industry.toLowerCase()}?`,
+            `What customer problems does ${brandName} solve best?`,
+            `Why should buyers trust ${brandName} in ${context.industry.toLowerCase()}?`,
+          ];
 
-    return [
-      {
-        id: "prompt-1",
-        prompt: firstPrompt,
-        status: "Active",
-        mentionRate: firstMentionRate,
-        responses: buildPromptResponses(
-          firstPrompt,
-          brandName,
-          domain,
-          competitorPool,
-          baseEngines
-        ),
-      },
-      {
-        id: "prompt-2",
-        prompt: secondPrompt,
-        status: "Active",
-        mentionRate: secondMentionRate,
-        responses: buildPromptResponses(
-          secondPrompt,
-          brandName,
-          domain,
-          competitorPool,
-          baseEngines
-        ),
-      },
+    const promptRates = [
+      clamp(Math.round(average(baseEngines.map((entry) => entry.score)) - 8)),
+      clamp(Math.round((report.breakdown?.content?.gap?.score ?? 40) * 0.9)),
+      clamp(Math.round(answerability * 0.9)),
+      clamp(Math.round(webPresence * 0.9)),
+      clamp(Math.round(structuredData * 0.92)),
     ];
-  }, [report, engineRows, context.industry, context.competitors, brandName, domain]);
+
+    return promptTemplates.map((prompt, index) => ({
+      id: `prompt-${index + 1}`,
+      prompt,
+      status: "Active" as const,
+      mentionRate: promptRates[index] ?? clamp(Math.round(averageEngineScore * 0.85)),
+      responses: buildPromptResponses(
+        prompt,
+        brandName,
+        domain,
+        competitorPool,
+        baseEngines
+      ),
+    }));
+  }, [
+    report,
+    engineRows,
+    context.industry,
+    context.competitors,
+    brandName,
+    domain,
+    answerability,
+    webPresence,
+    structuredData,
+    averageEngineScore,
+  ]);
 
   const activePrompt =
     keyPrompts.find((prompt) => prompt.id === activePromptId) ?? keyPrompts[0];
