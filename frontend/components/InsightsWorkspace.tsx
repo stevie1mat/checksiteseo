@@ -43,6 +43,11 @@ type AnalysisResult = {
   url: string;
   total_score: number;
   engine_scores?: EngineScores;
+  competitors?: {
+    top_competitors?: string[];
+    yourShare?: number;
+    others?: number;
+  };
   breakdown?: {
     technical?: {
       robots?: { score?: number; status?: string; details?: string[] };
@@ -283,6 +288,52 @@ function toTitleCase(input: string) {
     .join(" ");
 }
 
+function formatCompetitorLabel(input: string) {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+
+  // If it's a domain, convert root segment to readable brand-ish name.
+  if (trimmed.includes(".")) {
+    try {
+      const normalized = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
+      const host = new URL(normalized).hostname.replace(/^www\./, "");
+      const parts = host.split(".").filter(Boolean);
+      const root = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
+      return toTitleCase(root);
+    } catch {
+      return toTitleCase(trimmed.replace(/^www\./, "").split(".")[0] || trimmed);
+    }
+  }
+
+  return toTitleCase(trimmed);
+}
+
+function pickCompetitorWindow(
+  competitors: string[],
+  engineIndex: number,
+  prompt: string,
+  size = 3
+) {
+  if (!competitors.length) return [];
+  if (competitors.length <= size) return competitors;
+
+  const promptSeed = prompt
+    .split("")
+    .reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  const start = (engineIndex * 2 + promptSeed) % competitors.length;
+  const picked: string[] = [];
+
+  for (let cursor = 0; cursor < competitors.length; cursor += 1) {
+    const candidate = competitors[(start + cursor) % competitors.length];
+    if (!picked.includes(candidate)) {
+      picked.push(candidate);
+    }
+    if (picked.length >= size) break;
+  }
+
+  return picked;
+}
+
 function normalizeUrl(raw: string) {
   const trimmed = raw.trim();
   if (!trimmed) return null;
@@ -431,9 +482,13 @@ function buildPromptResponses(
 
   return engines.map((engine, index) => {
     const style = styleByEngine[engine.key];
-    const competitorsSlice = competitors.slice(index % 2, (index % 2) + 3);
-    const topCompetitors = competitorsSlice.join(", ");
-    const mentions = [brandName, ...competitorsSlice, ...competitors.slice(3, 4)];
+    const competitorsSlice = pickCompetitorWindow(competitors, index, prompt, 3);
+    const topCompetitors = competitorsSlice.length
+      ? competitorsSlice.join(", ")
+      : "other established brands";
+    const mentions = Array.from(
+      new Set([brandName, ...competitorsSlice])
+    );
     const mentionRate = clamp(
       Math.round(
         engine.score -
@@ -524,7 +579,11 @@ export function InsightsWorkspace({ initialUrl }: { initialUrl?: string }) {
       setReport(cached.data);
       setScannedAt(new Date(cached.analyzedAt));
       lastAutoUrl.current = initialUrl;
-      return;
+      const hasVerifiedCompetitors =
+        Boolean(cached.data.competitors?.top_competitors?.length);
+      if (hasVerifiedCompetitors) {
+        return;
+      }
     }
 
     lastAutoUrl.current = initialUrl;
@@ -534,6 +593,17 @@ export function InsightsWorkspace({ initialUrl }: { initialUrl?: string }) {
   const domain = useMemo(() => getDomain(report?.url || queryUrl || "xyz.com"), [report?.url, queryUrl]);
   const brandName = useMemo(() => getBrandName(domain), [domain]);
   const context = useMemo(() => inferContext(domain), [domain]);
+  const competitorCandidates = useMemo(() => {
+    const genericLabels = new Set(["wikipedia", "linkedin", "medium"]);
+    const fromReportRaw = report?.competitors?.top_competitors ?? [];
+    const fromReport = fromReportRaw
+      .map(formatCompetitorLabel)
+      .filter(Boolean)
+      .filter((label) => label.toLowerCase() !== brandName.toLowerCase())
+      .filter((label) => !genericLabels.has(label.toLowerCase()));
+
+    return Array.from(new Set(fromReport)).slice(0, 6);
+  }, [report?.competitors?.top_competitors, brandName]);
 
   const engineRows = useMemo(() => {
     if (!report) return [];
@@ -666,7 +736,7 @@ export function InsightsWorkspace({ initialUrl }: { initialUrl?: string }) {
       model: row.model,
       score: row.score,
     }));
-    const competitorPool = context.competitors;
+    const competitorPool = competitorCandidates;
 
     const promptTemplates =
       context.industry === "Tobacco and Nicotine Products"
@@ -710,7 +780,7 @@ export function InsightsWorkspace({ initialUrl }: { initialUrl?: string }) {
     report,
     engineRows,
     context.industry,
-    context.competitors,
+    competitorCandidates,
     brandName,
     domain,
     answerability,
@@ -1116,14 +1186,20 @@ export function InsightsWorkspace({ initialUrl }: { initialUrl?: string }) {
                   <div className="mt-4">
                     <p className="text-sm font-semibold text-slate-700 mb-2">Competitors Mentioned:</p>
                     <div className="flex flex-wrap gap-2">
-                      {context.competitors.slice(0, 5).map((competitor) => (
-                        <span
-                          key={competitor}
-                          className="text-xs rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600"
-                        >
-                          {competitor}
+                      {competitorCandidates.length ? (
+                        competitorCandidates.slice(0, 5).map((competitor) => (
+                          <span
+                            key={competitor}
+                            className="text-xs rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600"
+                          >
+                            {competitor}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-500">
+                          No verified competitors yet. Run a fresh scan to populate this section.
                         </span>
-                      ))}
+                      )}
                     </div>
                   </div>
                 </article>
@@ -1464,7 +1540,10 @@ export function InsightsWorkspace({ initialUrl }: { initialUrl?: string }) {
               </div>
 
               <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <h3 className="text-xl font-semibold text-slate-800">Query Responses by Engine</h3>
+                  <h3 className="text-xl font-semibold text-slate-800">Query Responses by Engine</h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Simulated from your site audit signals (not live web queries per engine).
+                  </p>
                 <div className="mt-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     {keyPrompts.map((prompt) => (
