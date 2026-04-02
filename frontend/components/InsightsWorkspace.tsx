@@ -308,30 +308,23 @@ function formatCompetitorLabel(input: string) {
   return toTitleCase(trimmed);
 }
 
-function pickCompetitorWindow(
+function pickEngineCompetitorPair(
   competitors: string[],
   engineIndex: number,
-  prompt: string,
-  size = 3
+  prompt: string
 ) {
-  if (!competitors.length) return [];
-  if (competitors.length <= size) return competitors;
+  if (!competitors.length) return { focus: "", support: "" };
 
   const promptSeed = prompt
     .split("")
     .reduce((sum, character) => sum + character.charCodeAt(0), 0);
-  const start = (engineIndex * 2 + promptSeed) % competitors.length;
-  const picked: string[] = [];
+  const focusIndex = (promptSeed + engineIndex) % competitors.length;
+  const supportIndex = (focusIndex + 2) % competitors.length;
 
-  for (let cursor = 0; cursor < competitors.length; cursor += 1) {
-    const candidate = competitors[(start + cursor) % competitors.length];
-    if (!picked.includes(candidate)) {
-      picked.push(candidate);
-    }
-    if (picked.length >= size) break;
-  }
+  const focus = competitors[focusIndex] ?? "";
+  const support = competitors.length > 1 ? competitors[supportIndex] ?? "" : "";
 
-  return picked;
+  return { focus, support: support === focus ? "" : support };
 }
 
 function normalizeUrl(raw: string) {
@@ -422,69 +415,79 @@ function buildPromptResponses(
 ): PromptResponse[] {
   const styleByEngine: Record<
     EngineKey,
-    { behavior: string; fix: string; variation: number }
+    { behavior: string; fix: string; variation: number; template: "analysis" | "structure" | "qa" | "citation" | "summary" | "clarity" }
   > = {
     chatgpt: {
       behavior:
         "prioritizes answer-first sections and concise explanations with clear trust signals",
       fix: "add a short FAQ answer block and one cited source directly below the claim",
       variation: 4,
+      template: "analysis",
     },
     gemini: {
       behavior:
         "leans on clean heading hierarchy and clear section labels for extraction quality",
       fix: "rename vague headings and add one direct summary sentence under each section heading",
       variation: 2,
+      template: "structure",
     },
     claude: {
       behavior:
         "prefers structured Q&A flows and logically chunked paragraphs",
       fix: "split dense paragraphs into short Q&A sections and keep one idea per paragraph",
       variation: 0,
+      template: "qa",
     },
     perplexity: {
       behavior:
         "favors verifiable statements that are paired with visible, trustworthy citations",
       fix: "place source links right under key claims to increase quote confidence",
       variation: 3,
+      template: "citation",
     },
     searchgpt: {
       behavior:
         "favors entity clarity and answer-first formatting for quick retrieval",
       fix: "add explicit entity context and one source-backed key claim near the top",
       variation: 1,
+      template: "summary",
     },
     meta: {
       behavior:
         "responds better to plain-language sections with clear topical focus",
       fix: "simplify technical wording and add short plain-language summary lines",
       variation: -2,
+      template: "clarity",
     },
     grok: {
       behavior:
         "picks up fast factual summaries and fresh crawlable content",
       fix: "add a quick answer summary near the top and keep updates visible",
       variation: -4,
+      template: "summary",
     },
     mistral: {
       behavior:
         "benefits from crisp structure and explicit section intent",
       fix: "tighten heading clarity and shorten long paragraphs for direct quoting",
       variation: -1,
+      template: "structure",
     },
     you: {
       behavior:
         "rewards pages that combine clear answers with source-backed proof",
       fix: "add one image alt text improvement and one cited source under a primary claim",
       variation: 2,
+      template: "citation",
     },
   };
 
   return engines.map((engine, index) => {
     const style = styleByEngine[engine.key];
-    const competitorsSlice = pickCompetitorWindow(competitors, index, prompt, 3);
+    const competitorPair = pickEngineCompetitorPair(competitors, index, prompt);
+    const competitorsSlice = [competitorPair.focus, competitorPair.support].filter(Boolean);
     const topCompetitors = competitorsSlice.length
-      ? competitorsSlice.join(", ")
+      ? competitorsSlice.join(" and ")
       : "other established brands";
     const mentions = Array.from(
       new Set([brandName, ...competitorsSlice])
@@ -497,16 +500,40 @@ function buildPromptResponses(
       )
     );
 
+    const promptLower = prompt.toLowerCase();
+    const responseByTemplate: Record<typeof style.template, string> = {
+      analysis:
+        `${engine.label} signals that ${brandName} can perform well for "${promptLower}" when content stays answer-first and easy to verify. ` +
+        `In this snapshot, it aligns ${domain} closest with ${topCompetitors}. ` +
+        `Highest-impact fix: ${style.fix}.`,
+      structure:
+        `${engine.label} is likely to elevate ${brandName} on "${promptLower}" once heading hierarchy is cleaner and sections are easier to parse. ` +
+        `Current benchmark overlap is strongest with ${topCompetitors}. ` +
+        `Next step: ${style.fix}.`,
+      qa:
+        `${engine.label} currently reads ${domain} as relevant but not consistently quote-ready for "${promptLower}". ` +
+        `It clusters your page near ${topCompetitors}. ` +
+        `To improve reliability, ${style.fix}.`,
+      citation:
+        `${engine.label} rewards pages that prove claims. For "${promptLower}", ${brandName} is in range but still behind parts of ${topCompetitors}. ` +
+        `You can raise citation confidence if you ${style.fix}.`,
+      summary:
+        `${engine.label} can surface ${brandName} for "${promptLower}" when your page starts with a fast factual summary and clear entity context. ` +
+        `Right now, comparison signals trend toward ${topCompetitors}. ` +
+        `Recommended action: ${style.fix}.`,
+      clarity:
+        `${engine.label} shows that ${brandName} is discoverable for "${promptLower}", but clarity and plain language are the main gap. ` +
+        `It currently groups your page with ${topCompetitors}. ` +
+        `To improve mention rate, ${style.fix}.`,
+    };
+
     return {
       engineKey: engine.key,
       engineLabel: engine.label,
       model: engine.model,
       mentionRate,
       mentions,
-      response:
-        `${engine.label} indicates ${brandName} can rank for "${prompt.toLowerCase()}" when the page ${style.behavior}. ` +
-        `It currently references ${domain} and compares it against ${topCompetitors}. ` +
-        `To raise mention rate for ${engine.label}, ${style.fix}.`,
+      response: responseByTemplate[style.template],
     };
   });
 }
