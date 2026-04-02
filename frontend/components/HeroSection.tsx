@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useState, useRef, type ReactNode } from "react"
+import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Check, Sparkles, AlertCircle, XCircle, Code, AlignLeft, Lock, Copy, Bot, ChevronLeft, ChevronRight } from "lucide-react"
 import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
 import { analytics } from "@/lib/analytics"
+import { requestAnalysis, saveCachedAnalysis } from "@/lib/analysis-client"
 
 type AnalysisResult = {
     url: string
@@ -59,6 +61,18 @@ type EngineCard = {
     exampleFix: string
 }
 
+const PLATFORM_CAROUSEL = [
+    { name: "ChatGPT", logo: "/logos/chatgpt-logo.png" },
+    { name: "Claude", logo: "/logos/claude-logo.png" },
+    { name: "Gemini", logo: "/logos/gemini-logo.png" },
+    { name: "Perplexity", logo: "/logos/perplexity-logo.png" },
+    { name: "Meta AI", logo: "/logos/meta-logo.webp" },
+    { name: "Grok", logo: "/logos/grok-logo.svg" },
+    { name: "Mistral", logo: "/logos/mistral-logo.png" },
+    { name: "You.com", logo: "/logos/you-logo.png" },
+]
+const PLATFORM_CAROUSEL_LOOP = [...PLATFORM_CAROUSEL, ...PLATFORM_CAROUSEL]
+
 function AIFixBox({ text }: { text: string }) {
     if (!text) return null;
     return (
@@ -82,8 +96,20 @@ function AIFixBox({ text }: { text: string }) {
     );
 }
 
-export function HeroSection() {
-    const [url, setUrl] = useState("")
+interface HeroSectionProps {
+    initialUrl?: string
+    autoAnalyze?: boolean
+    analyzeMode?: "inline" | "redirect"
+}
+
+export function HeroSection({
+    initialUrl = "",
+    autoAnalyze = false,
+    analyzeMode = "inline",
+}: HeroSectionProps) {
+    const router = useRouter()
+    const hasAutoAnalyzedRef = useRef(false)
+    const [url, setUrl] = useState(initialUrl)
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<AnalysisResult | null>(null)
     const [error, setError] = useState<string | null>(null)
@@ -102,23 +128,17 @@ export function HeroSection() {
         }
     };
 
-    const handleAnalyze = async () => {
-        const rawUrl = url.trim()
+    const handleAnalyze = useCallback(async (urlOverride?: string) => {
+        const rawUrl = (urlOverride ?? url).trim()
         if (!rawUrl) {
             setError("Please enter a website URL.")
             return
         }
 
-        setLoading(true)
-        setScanStatus('scanning')
-        setError("")
-        setResult(null)
-
         // Auto-add https:// if missing protocol
         let targetUrl = rawUrl
         if (!/^https?:\/\//i.test(targetUrl)) {
             targetUrl = `https://${targetUrl}`
-            setUrl(targetUrl) // Update UI
         }
 
         try {
@@ -130,24 +150,33 @@ export function HeroSection() {
             return
         }
 
+        setUrl(targetUrl)
+        setError("")
+
+        setLoading(true)
+        setScanStatus('scanning')
+        setResult(null)
+
         // Track scan started
         analytics.trackScanStarted(targetUrl)
 
         try {
-            const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-            const res = await fetch(`${BACKEND_URL}/analyze`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url: targetUrl, sync: true }),
-            })
-
-            if (!res.ok) throw new Error("Analysis failed.")
-            const data = await res.json()
+            const data = await requestAnalysis<AnalysisResult>(targetUrl)
 
             setScanStatus('complete')
 
             // Track scan completed
-            analytics.trackScanCompleted(targetUrl, data.total_score || data.score)
+            analytics.trackScanCompleted(targetUrl, data.total_score)
+
+            if (analyzeMode === "redirect") {
+                saveCachedAnalysis(targetUrl, data)
+                setTimeout(() => {
+                    setLoading(false)
+                    setScanStatus('idle')
+                    router.push(`/insights?url=${encodeURIComponent(targetUrl)}`)
+                }, 700)
+                return
+            }
 
             // Small delay to show complete state before showing results
             setTimeout(() => {
@@ -165,9 +194,20 @@ export function HeroSection() {
             analytics.trackScanFailed(targetUrl, errorMessage)
 
             // Don't close immediately on error so user can see it
-            setTimeout(() => setLoading(false), 3000)
+            setTimeout(() => {
+                setLoading(false)
+                setScanStatus('idle')
+            }, 3000)
         }
-    }
+    }, [analyzeMode, router, url])
+
+    useEffect(() => {
+        if (!autoAnalyze || !initialUrl || hasAutoAnalyzedRef.current || analyzeMode !== "inline") {
+            return
+        }
+        hasAutoAnalyzedRef.current = true
+        void handleAnalyze(initialUrl)
+    }, [autoAnalyze, initialUrl, analyzeMode, handleAnalyze])
 
     const engineCards: EngineCard[] = result ? [
         {
@@ -288,7 +328,6 @@ export function HeroSection() {
             return result.url.replace(/^https?:\/\//, "")
         }
     })()
-    const isChapmansSite = siteLabel.toLowerCase().includes("chapmans.ca")
     const selectedEngineExample = selectedEngine?.exampleFix?.replace("{site}", siteLabel)
     const copyPasteExample = (() => {
         if (!selectedEngine) {
@@ -323,18 +362,10 @@ export function HeroSection() {
                 return `<h2>Pricing and Timeline</h2>
 <p>Plans start at [price]. Most projects begin within [timeline].</p>`
             case "You.com": {
-                const altText = isChapmansSite
-                    ? "Chapman's ice cream cones, bars, and tubs on display"
-                    : `${siteLabel} product or service shown in the main hero section`
-                const claimText = isChapmansSite
-                    ? "Made with 100% Canadian milk and cream."
-                    : "Add your key trust claim here."
-                const sourceHref = isChapmansSite
-                    ? "https://www.chapmans.ca/faq/"
-                    : (result?.url || "https://example.com/source")
-                const sourceLabel = isChapmansSite
-                    ? "Chapman's FAQ - Which products are made with 100% Canadian milk?"
-                    : "Source page that proves this claim"
+                const altText = `${siteLabel} product or service shown in the main hero section`
+                const claimText = "Add your key trust claim here."
+                const sourceHref = result?.url || "https://example.com/source"
+                const sourceLabel = "Source page that proves this claim"
                 return `<img alt="${altText}" />
 <p><strong>Claim:</strong> ${claimText}</p>
 <p>Source: <a href="${sourceHref}">${sourceLabel}</a></p>`
@@ -344,79 +375,115 @@ export function HeroSection() {
 <p>${siteLabel} helps customers with [service] using [main benefit].</p>`
         }
     })()
+    const isResultView = Boolean(result && result.breakdown)
 
     return (
-        <section className={`relative min-h-[90vh] flex flex-col items-center pt-64 pb-20 px-6 bg-[#224034] text-white transition-all duration-700 overflow-hidden ${result ? 'min-h-screen' : ''}`}>
+        <section className={`relative min-h-[90vh] flex flex-col items-center pt-40 pb-20 px-6 bg-[#e9f4ee] text-[#223f33] transition-all duration-700 overflow-hidden ${isResultView ? 'min-h-screen' : ''}`}>
 
             {/* Background Details */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none -z-0" />
-            <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-[#8cd9b8]/5 rounded-full blur-[100px] pointer-events-none -z-0" />
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[480px] bg-[#7dc9a7]/15 rounded-full blur-[120px] pointer-events-none -z-0" />
+            <div className="absolute bottom-0 right-0 w-[640px] h-[640px] bg-[#8cd9b8]/15 rounded-full blur-[120px] pointer-events-none -z-0" />
 
             {/* Grid Pattern */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none -z-0" />
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#6d7f7514_1px,transparent_1px),linear-gradient(to_bottom,#6d7f7514_1px,transparent_1px)] bg-[size:38px_38px] pointer-events-none -z-0" />
 
             {/* Top Banner Tag */}
 
 
-            <div className="text-center max-w-4xl mx-auto space-y-6 z-10">
-                <h1 className="font-serif text-5xl md:text-7xl leading-tight">
-                    Fix Your <span className="text-emerald-400">ChatGPT & AI</span> Search Rankings
-                    <span className="block mt-4 text-3xl md:text-5xl italic opacity-90 font-light">in under 30 seconds.</span>
-                </h1>
-                <p className="text-lg md:text-xl text-white/70 max-w-3xl mx-auto leading-relaxed">
-                    Find what’s blocking your AI rankings and get exact fixes you can apply instantly.
-                </p>
-                <div className="flex flex-wrap justify-center gap-2 text-xs text-white/60 font-medium mt-6">
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">ChatGPT SEO</span>
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">Perplexity Rankings</span>
-                    <span className="px-3 py-1 rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-emerald-500/10 hover:border-emerald-500/30">Google Gemini SEO</span>
-                </div>
-
-                {/* Search Input Box - Refined */}
+            <div className={`z-10 w-full ${!result ? "max-w-6xl rounded-[32px] border border-[#d9e8df] bg-white/70 backdrop-blur-sm shadow-[0_24px_90px_rgba(30,64,48,0.12)] px-6 md:px-12 py-16 md:py-20 relative overflow-hidden" : "max-w-4xl text-center"}`}>
                 {!result && (
-                    <div className="mt-16 w-full max-w-lg mx-auto animate-in fade-in zoom-in duration-500 group">
+                    <>
+                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#7f94891f_1px,transparent_1px)] bg-[size:160px_100%] pointer-events-none" />
+                        <div className="absolute -left-24 top-24 w-64 h-64 bg-[#d5ebe0] rounded-full blur-[80px] pointer-events-none" />
+                        <div className="absolute -right-16 top-20 w-64 h-64 bg-[#dff1e8] rounded-full blur-[90px] pointer-events-none" />
+                    </>
+                )}
 
-                        {/* Input Wrapper with Glow */}
-                        <div className="relative">
-                            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                <div className={`relative ${!result ? "max-w-4xl mx-auto text-center space-y-6" : "space-y-6"}`}>
+                    <p className="font-serif italic text-3xl md:text-5xl leading-tight text-[#2a4a3b]/90">
+                        Fix Your AI Search Visibility
+                    </p>
+                    <h1 className="font-urbanist font-semibold text-[clamp(1.85rem,5.4vw,4.5rem)] leading-[1.05] tracking-tight text-[#1f2f2a] whitespace-nowrap">
+                        When Your Customer Searches
+                    </h1>
+                    {!result && (
+                        <div className="pt-2">
+                            <div className="mx-auto max-w-5xl overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]">
+                                <div className="flex w-max gap-3 pb-2 px-1 animate-[platform-marquee_26s_linear_infinite]">
+                                    {PLATFORM_CAROUSEL_LOOP.map((platform, index) => (
+                                    <div
+                                        key={`${platform.name}-${index}`}
+                                        className="snap-start shrink-0 flex items-center gap-2.5 rounded-full border border-[#d6e6dd] bg-white/90 px-4 py-2 shadow-sm"
+                                    >
+                                        <Image
+                                            src={platform.logo}
+                                            alt={`${platform.name} logo`}
+                                            width={18}
+                                            height={18}
+                                            className="w-[18px] h-[18px] object-contain"
+                                        />
+                                        <span className="text-sm font-medium text-[#2f4e40]">{platform.name}</span>
+                                    </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <style jsx>{`
+                                @keyframes platform-marquee {
+                                    0% { transform: translateX(0); }
+                                    100% { transform: translateX(-50%); }
+                                }
+                            `}</style>
+                        </div>
+                    )}
+                    <p className="text-lg md:text-2xl text-[#3f5f50] max-w-3xl mx-auto leading-relaxed">
+                        Find what’s blocking your AI rankings and get exact fixes you can apply instantly.
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2 text-xs text-[#3f6252] font-medium mt-6">
+                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">ChatGPT SEO</span>
+                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">Perplexity Rankings</span>
+                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">Google Gemini SEO</span>
+                    </div>
 
-                            <form onSubmit={(e) => { e.preventDefault(); handleAnalyze(); }} className="relative flex items-center bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1.5 focus-within:bg-white/10 focus-within:border-white/20 transition-all shadow-2xl">
+                    {/* Search Input Box - Refined */}
+                    {!result && (
+                        <div className="mt-12 w-full max-w-xl mx-auto animate-in fade-in zoom-in duration-500">
+                            <form onSubmit={(e) => { e.preventDefault(); handleAnalyze(); }} className="relative flex items-center bg-[#e8f1db] border border-[#d5e3ca] rounded-full p-1.5 shadow-sm">
                                 <Input
                                     type="text"
                                     value={url}
                                     onChange={(e) => setUrl(e.target.value)}
                                     placeholder="Enter your website URL"
-                                    className="border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 h-12 text-base px-4 flex-1"
+                                    className="border-0 bg-transparent text-[#1f3a2f] placeholder:text-[#587565] focus-visible:ring-0 h-12 text-base px-5 flex-1"
                                 />
                                 <Button
                                     type="submit"
                                     disabled={loading}
-                                    className="bg-[#8cd9b8] hover:bg-[#7bcfa7] text-[#16211d] h-11 px-6 rounded-md font-bold text-sm tracking-wide whitespace-nowrap shadow-lg shadow-[#8cd9b8]/20 transition-all transform active:scale-95"
+                                    className="bg-[#224034] hover:bg-[#1b332a] text-white h-11 px-7 rounded-full font-semibold text-sm tracking-wide whitespace-nowrap shadow-lg shadow-[#224034]/20 transition-all transform active:scale-95"
                                 >
                                     {loading ? "Scanning..." : "Fix My AI Rankings"}
                                 </Button>
                             </form>
-                        </div>
 
-                        <p className="mt-4 text-xs text-white/30 text-center font-light tracking-wide">
-                            Instant Analysis • No Credit Card Required • Free for 14 Days
-                        </p>
-                        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-                            <Link href="/aeo-checker-tool" className="text-xs text-emerald-200 hover:text-white transition-colors underline-offset-4 hover:underline">
-                                View Sample Report
-                            </Link>
-                            <span className="text-white/30">•</span>
-                            <Link href="/aeo-readiness" className="text-xs text-emerald-200 hover:text-white transition-colors underline-offset-4 hover:underline">
-                                Learn AEO & GEO Readiness
-                            </Link>
-                            <span className="text-white/30">•</span>
-                            <Link href="/aeo-monitoring" className="text-xs text-emerald-200 hover:text-white transition-colors underline-offset-4 hover:underline">
-                                Learn AEO & GEO Monitoring
-                            </Link>
+                            <p className="mt-4 text-xs text-[#5e776a] text-center font-medium tracking-wide">
+                                Instant Analysis • No Credit Card Required • Free for 14 Days
+                            </p>
+                            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                                <Link href="/aeo-checker-tool" className="text-xs text-[#2f6651] hover:text-[#224034] transition-colors underline-offset-4 hover:underline">
+                                    View Sample Report
+                                </Link>
+                                <span className="text-[#9cb6aa]">•</span>
+                                <Link href="/aeo-readiness" className="text-xs text-[#2f6651] hover:text-[#224034] transition-colors underline-offset-4 hover:underline">
+                                    Learn AEO & GEO Readiness
+                                </Link>
+                                <span className="text-[#9cb6aa]">•</span>
+                                <Link href="/aeo-monitoring" className="text-xs text-[#2f6651] hover:text-[#224034] transition-colors underline-offset-4 hover:underline">
+                                    Learn AEO & GEO Monitoring
+                                </Link>
+                            </div>
                         </div>
-                    </div>
-                )}
-                {error && <p className="text-red-300 mt-4 text-sm bg-red-900/20 p-2 rounded">{error}</p>}
+                    )}
+                    {error && <p className="text-red-600 mt-4 text-sm bg-red-50 border border-red-200 p-2 rounded">{error}</p>}
+                </div>
             </div>
 
             {/* Result Dashboard */}

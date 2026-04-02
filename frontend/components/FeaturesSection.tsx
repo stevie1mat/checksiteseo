@@ -24,7 +24,7 @@ export function FeaturesSection() {
     ];
 
     return (
-        <section id="features" className="py-24 bg-white">
+        <section id="features" className="py-24 bg-slate-50">
             <div className="max-w-7xl mx-auto px-6">
                 <div className="text-center mb-20">
                     <p className="text-sm font-medium text-slate-500 uppercase tracking-widest mb-4">Why CheckSite AEO?</p>
@@ -38,7 +38,7 @@ export function FeaturesSection() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {differentiators.map((item) => (
-                        <div key={item.title} className="rounded-2xl border border-slate-100 p-8 hover:shadow-lg transition-all duration-300">
+                        <div key={item.title} className="rounded-2xl border border-slate-100 bg-white p-8 hover:shadow-lg transition-all duration-300">
                             <div className="w-12 h-12 rounded-xl bg-emerald-50 text-[#224034] flex items-center justify-center mb-5">
                                 <item.icon className="w-6 h-6" />
                             </div>

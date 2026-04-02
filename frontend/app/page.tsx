@@ -57,7 +57,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen font-sans selection:bg-pink-500/30">
+    <main className="min-h-screen font-sans selection:bg-pink-500/30 landing-headings">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
@@ -69,8 +69,8 @@ export default function Home() {
       <Suspense fallback={null}>
         <AuthRedirectHandler />
       </Suspense>
-      <Navbar />
-      <HeroSection />
+      <Navbar variant="light-pill" />
+      <HeroSection analyzeMode="redirect" />
       <HomeResourceLinksSection />
       <FeaturesSection />
       <HowItWorksSection />

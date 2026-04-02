@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster"
 import { Analytics } from "@/components/Analytics"
@@ -8,9 +7,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { SentryInit } from "@/components/SentryInit"
 import { KeepAlivePinger } from "@/components/KeepAlivePinger"
 import { SITE_URL, OG_IMAGE, SITE_NAME, TWITTER_HANDLE } from "@/lib/seo"
-
-const playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-serif' });
-const inter = Inter({ subsets: ["latin"], variable: '--font-sans' });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -96,7 +92,7 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${playfair.variable} font-sans antialiased text-slate-900 bg-white`}>
+      <body className="font-sans antialiased text-slate-900 bg-white">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
