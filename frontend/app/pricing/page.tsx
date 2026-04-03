@@ -5,21 +5,21 @@ import { Metadata } from "next";
 import { createPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createPageMetadata({
-    title: "AEO Checker Pricing Plans",
-    description: "Compare CheckSiteAEO pricing plans for AEO audits, monitoring, and AI search optimization.",
+    title: "AEO Checker Token Pricing",
+    description: "Compare CheckSiteAEO token packs for AEO audits, monitoring, and AI search optimization.",
     path: "/pricing",
-    keywords: ["AEO pricing", "AEO checker plans", "AI SEO tool pricing"],
+    keywords: ["AEO pricing", "AEO checker token packs", "AI SEO tool pricing"],
 });
 
 export default function PricingPage() {
     const jsonLd = {
         "@context": "https://schema.org",
         "@type": "Product",
-        "name": "CheckSiteAEO Pro",
-        "description": "Advanced AEO auditing and monitoring tools.",
+        "name": "CheckSiteAEO Token Packs",
+        "description": "Token-based AEO auditing and monitoring tools.",
         "offers": {
             "@type": "Offer",
-            "price": "29.00",
+            "price": "19.00",
             "priceCurrency": "USD",
             "availability": "https://schema.org/InStock"
         }

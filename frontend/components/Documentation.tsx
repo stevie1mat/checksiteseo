@@ -52,7 +52,7 @@ export function Documentation() {
                             <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-emerald-500 border-4 border-white shadow-sm"></div>
                             <h3 className="text-xl font-semibold text-[#224034] mb-2">1. Create an Account</h3>
                             <p className="text-slate-600 mb-4">
-                                Sign up for a free account. No credit card is required for the free tier, which includes 5 monthly scans.
+                                Sign up for a free account. No credit card is required, and you receive free scan tokens daily.
                             </p>
                             <Link href="/signup" className="text-emerald-600 font-medium hover:underline">
                                 Create Account &rarr;

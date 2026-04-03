@@ -6,56 +6,45 @@ export async function GET() {
     try {
         const supabase = createClient()
         const { data: { user }, error: authError } = await supabase.auth.getUser()
+        const { data: { session } } = await supabase.auth.getSession()
 
-        if (authError || !user) {
+        if (authError || !user || !session?.access_token) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // 1. Get Subscription Tier
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('subscription_tier')
-            .eq('id', user.id)
-            .single()
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
+        const usageResponse = await fetch(`${backendUrl}/token-usage`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+            },
+            cache: 'no-store',
+        })
 
-        const tier = profile?.subscription_tier || 'free'
-
-        // 2. Define Limits
-        const LIMITS: Record<string, number | null> = {
-            "free": 5,
-            "plus": 50,
-            "pro": null
+        if (!usageResponse.ok) {
+            const errorData = await usageResponse.json().catch(() => ({}))
+            const message = errorData?.detail || `Backend returned ${usageResponse.status}`
+            return NextResponse.json({ error: message }, { status: usageResponse.status })
         }
-        const limit = LIMITS[tier] ?? 5
 
-        // 3. Count Scans This Month
-        const now = new Date()
-        const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()
+        const usageData = await usageResponse.json()
 
-        // Get user's sites first
-        const { data: sites } = await supabase
-            .from('sites')
-            .select('id')
-            .eq('user_id', user.id)
-
-        const siteIds = sites?.map(s => s.id) || []
-
-        let usageCount = 0
-        if (siteIds.length > 0) {
-            const { count } = await supabase
-                .from('pages')
-                .select('*', { count: 'exact', head: true })
-                .in('site_id', siteIds)
-                .gte('last_scanned_at', startOfMonth)
-
-            usageCount = count || 0
-        }
+        const tokenBalance = usageData.token_balance ?? 0
+        const dailyFreeTokens = usageData.daily_free_tokens ?? 0
+        const canClaimDailyFree = Boolean(usageData.can_claim_daily_free)
+        const effectiveRemainingTokens = tokenBalance + (canClaimDailyFree ? dailyFreeTokens : 0)
 
         return NextResponse.json({
-            count: usageCount,
-            limit: limit,
-            tier: tier,
-            remaining: limit === null ? null : Math.max(0, limit - usageCount)
+            tokenBalance,
+            remainingTokens: effectiveRemainingTokens,
+            dailyFreeTokens,
+            canClaimDailyFree,
+            tokensPerScan: usageData.tokens_per_scan ?? 1,
+            tokensPerChat: usageData.tokens_per_chat ?? 1,
+            totalTokensUsed: usageData.total_tokens_used ?? 0,
+            totalTokensPurchased: usageData.total_tokens_purchased ?? 0,
+            lastDailyGrantAt: usageData.daily_free_tokens_last_granted_at ?? null,
         })
 
     } catch (error: unknown) {

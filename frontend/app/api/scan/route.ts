@@ -177,6 +177,8 @@ export async function GET(request: Request) {
         }
 
         const breakdown = latestPage.checklist || {};
+        const siteCompetitors = site.competitors || {};
+        const breakdownCompetitors = breakdown.competitors || {};
 
         // 3. Map to AEOReport Interface
         const report = {
@@ -190,6 +192,7 @@ export async function GET(request: Request) {
                 content: breakdown?.content_score || 0,
                 authority: breakdown?.authority_score || breakdown?.authority?.eeat?.score || 0
             },
+            engineScores: breakdown?.engine_scores || {},
 
             technical: {
                 robotsTxt: breakdown?.technical?.robots?.status === 'valid',
@@ -245,10 +248,13 @@ export async function GET(request: Request) {
                 missing_critical: breakdown?.authority?.knowledge_graph?.data?.missing_critical || []
             },
 
-            competitors: breakdown.competitors || {
-                yourShare: 0,
-                others: 100,
-                top_competitors: []
+            competitors: {
+                yourShare: breakdownCompetitors?.yourShare ?? siteCompetitors?.yourShare ?? 0,
+                others: breakdownCompetitors?.others ?? siteCompetitors?.others ?? 100,
+                top_competitors:
+                    breakdownCompetitors?.top_competitors ??
+                    siteCompetitors?.top_competitors ??
+                    []
             },
             // DEBUG FIELDS - Keeping for one more verify cycle
             _debug_keys: Object.keys(breakdown),

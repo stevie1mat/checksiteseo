@@ -9,6 +9,17 @@ export interface AEOReport {
         content: number;
         authority: number;
     };
+    engineScores?: {
+        chatgpt?: number;
+        gemini?: number;
+        claude?: number;
+        perplexity?: number;
+        searchgpt?: number;
+        meta?: number;
+        grok?: number;
+        mistral?: number;
+        you?: number;
+    };
 
     technical: {
         robotsTxt: boolean; // Pass/Fail
@@ -87,5 +98,6 @@ export interface AEOReport {
     competitors: {
         yourShare: number; // e.g. 12
         others: number;    // e.g. 60
+        top_competitors?: string[];
     };
 }

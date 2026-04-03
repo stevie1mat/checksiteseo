@@ -26,7 +26,7 @@ export function DashboardHeader({ userEmail }: { userEmail?: string }) {
     }
 
     return (
-        <header className="h-16 border-b border-slate-200 bg-white px-4 md:px-6 flex items-center justify-between z-40 relative">
+        <header className="h-16 border-b border-[#d3e6dc] bg-white/70 backdrop-blur-md px-4 md:px-6 flex items-center justify-between z-40 relative">
             <div className="flex items-center gap-4">
                 <Sheet>
                     <SheetTrigger asChild>
@@ -80,7 +80,7 @@ export function DashboardHeader({ userEmail }: { userEmail?: string }) {
 
                         <DropdownMenuItem onClick={() => router.push('/dashboard/billing')}>
                             <CreditCard className="mr-2 h-4 w-4" />
-                            Billing
+                            Top Up
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
                             <Settings className="mr-2 h-4 w-4" />

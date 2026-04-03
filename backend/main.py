@@ -5,7 +5,15 @@ logger = logging.getLogger(__name__)
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl, EmailStr, Field
-from analyzer import analyze_readiness, generate_content_strategy, generate_answer_strategy, analyze_ambiguity_issues
+from analyzer import (
+    analyze_readiness,
+    generate_content_strategy,
+    generate_answer_strategy,
+    analyze_ambiguity_issues,
+    set_llm_runtime,
+    reset_llm_runtime,
+    get_llm_usage_snapshot,
+)
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -15,6 +23,7 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from sqlalchemy import create_engine, text
 import json
 import asyncio
+import re
 import resend
 from email_templates import get_email_html
 from dependencies import get_current_user, get_optional_current_user
@@ -22,6 +31,7 @@ from dependencies import get_current_user, get_optional_current_user
 import stripe
 from urllib.parse import urlparse
 import httpx
+from typing import Literal
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -31,9 +41,42 @@ print(f"DEBUG: Loaded RESEND_API_KEY: {'Yes' if RESEND_API_KEY else 'No'}")
 # Stripe Setup
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-# Replace these with your actual Stripe Price IDs
-STRIPE_PRICE_ID_PLUS = os.getenv("STRIPE_PRICE_ID_PLUS", "price_plus_placeholder")
-STRIPE_PRICE_ID_PRO = os.getenv("STRIPE_PRICE_ID_PRO", "price_pro_placeholder")
+EDEN_API_KEY = os.getenv("EDEN_API_KEY")
+EDEN_API_BASE_URL = os.getenv("EDEN_API_BASE_URL", "https://api.edenai.run")
+EDEN_DEFAULT_MODEL = os.getenv("EDEN_DEFAULT_MODEL", "openai/gpt-4o-mini")
+
+
+def _env_int(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    try:
+        return int(raw_value)
+    except ValueError:
+        logger.warning(f"Invalid integer for {name}: {raw_value}. Falling back to {default}.")
+        return default
+
+
+DAILY_FREE_TOKENS = max(0, _env_int("DAILY_FREE_TOKENS", 1000))
+TOKENS_PER_SCAN = max(1, _env_int("TOKENS_PER_SCAN", 1000))
+TOKENS_PER_CHAT = max(1, _env_int("TOKENS_PER_CHAT", 300))
+MAX_SITES_PER_USER = max(1, _env_int("MAX_SITES_PER_USER", 100))
+ENABLE_LEGACY_PLAN_GATES = os.getenv("ENABLE_LEGACY_PLAN_GATES", "false").lower() == "true"
+
+TOKEN_PACKS = {
+    "starter": {
+        "price_id": os.getenv("STRIPE_PRICE_ID_TOKENS_STARTER", ""),
+        "tokens": max(1, _env_int("TOKEN_PACK_STARTER_TOKENS", 100)),
+    },
+    "growth": {
+        "price_id": os.getenv("STRIPE_PRICE_ID_TOKENS_GROWTH", ""),
+        "tokens": max(1, _env_int("TOKEN_PACK_GROWTH_TOKENS", 500)),
+    },
+    "scale": {
+        "price_id": os.getenv("STRIPE_PRICE_ID_TOKENS_SCALE", ""),
+        "tokens": max(1, _env_int("TOKEN_PACK_SCALE_TOKENS", 2000)),
+    },
+}
 
 if STRIPE_SECRET_KEY:
     stripe.api_key = STRIPE_SECRET_KEY
@@ -179,12 +222,282 @@ def _get_subscription_tier(user_id: str | None) -> str:
 
 def _require_tier(user_id: str | None, allowed_tiers: set[str], feature_name: str):
     tier = _get_subscription_tier(user_id)
+    if not ENABLE_LEGACY_PLAN_GATES:
+        return tier
     if tier not in allowed_tiers:
         raise HTTPException(
             status_code=403,
             detail=f"{feature_name} is available on {', '.join(sorted(allowed_tiers)).upper()} plans. Please upgrade."
         )
     return tier
+
+
+def _parse_rpc_payload(response) -> dict:
+    data = getattr(response, "data", None)
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, list) and data and isinstance(data[0], dict):
+        return data[0]
+    return {}
+
+
+def _get_token_summary(user_id: str | None) -> dict:
+    if not user_id or not supabase:
+        return {
+            "token_balance": 0,
+            "daily_free_tokens_last_granted_at": None,
+            "total_tokens_used": 0,
+            "total_tokens_purchased": 0,
+        }
+
+    try:
+        profile = (
+            supabase.table("profiles")
+            .select("token_balance, daily_free_tokens_last_granted_at, total_tokens_used, total_tokens_purchased")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+        if profile.data:
+            return {
+                "token_balance": int(profile.data.get("token_balance") or 0),
+                "daily_free_tokens_last_granted_at": profile.data.get("daily_free_tokens_last_granted_at"),
+                "total_tokens_used": int(profile.data.get("total_tokens_used") or 0),
+                "total_tokens_purchased": int(profile.data.get("total_tokens_purchased") or 0),
+            }
+    except Exception as e:
+        logger.error(f"Failed to load token summary for user {user_id}: {e}")
+
+    return {
+        "token_balance": 0,
+        "daily_free_tokens_last_granted_at": None,
+        "total_tokens_used": 0,
+        "total_tokens_purchased": 0,
+    }
+
+
+def _grant_daily_tokens_if_eligible(user_id: str | None) -> dict:
+    if not user_id or not supabase or DAILY_FREE_TOKENS <= 0:
+        return {"granted": False}
+
+    try:
+        response = supabase.rpc(
+            "grant_daily_free_tokens",
+            {"p_user_id": user_id, "p_tokens": DAILY_FREE_TOKENS},
+        ).execute()
+        payload = _parse_rpc_payload(response)
+        return payload if payload else {"granted": False}
+    except Exception as e:
+        logger.error(f"Failed to grant daily tokens for user {user_id}: {e}")
+
+    # Fallback when RPC function is unavailable.
+    try:
+        summary = _get_token_summary(user_id)
+        today_utc = datetime.now(timezone.utc).date().isoformat()
+        if summary.get("daily_free_tokens_last_granted_at") == today_utc:
+            return {"granted": False, "new_balance": summary.get("token_balance", 0)}
+
+        new_balance = int(summary.get("token_balance", 0)) + DAILY_FREE_TOKENS
+        supabase.table("profiles").update({
+            "token_balance": new_balance,
+            "daily_free_tokens_last_granted_at": today_utc,
+        }).eq("id", user_id).execute()
+
+        try:
+            supabase.table("token_transactions").insert({
+                "user_id": user_id,
+                "tokens": DAILY_FREE_TOKENS,
+                "transaction_type": "daily_grant",
+                "description": "Daily free token grant",
+                "metadata": {"date_utc": today_utc},
+            }).execute()
+        except Exception:
+            # Ignore transaction log failure in fallback mode.
+            pass
+
+        return {"granted": True, "new_balance": new_balance}
+    except Exception as fallback_error:
+        logger.error(f"Fallback daily grant failed for user {user_id}: {fallback_error}")
+        return {"granted": False}
+
+
+def _token_usage_total(usage: dict | None) -> int:
+    if not isinstance(usage, dict):
+        return 0
+    value = usage.get("total_tokens", 0)
+    try:
+        return max(int(value), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _estimate_tokens_from_text(text: str | None) -> int:
+    if not text:
+        return 0
+    return max(len(text) // 4, 0)
+
+
+def _estimate_tokens_from_messages(messages: list[dict] | None) -> int:
+    if not messages:
+        return 0
+    total_chars = 0
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        content = message.get("content")
+        if isinstance(content, str):
+            total_chars += len(content)
+    return max(total_chars // 4, 0)
+
+
+def _consume_tokens_for_scan(
+    user_id: str | None,
+    reason: str = "Token usage for scan",
+    prefer_daily_source: bool = False,
+    tokens: int | None = None,
+) -> dict:
+    token_amount = TOKENS_PER_SCAN if tokens is None else max(1, int(tokens))
+
+    if not user_id or not supabase:
+        return {"success": True, "balance": 0, "source": "unknown"}
+    if token_amount <= 0:
+        summary = _get_token_summary(user_id)
+        return {"success": True, "balance": summary.get("token_balance", 0), "source": "free"}
+
+    try:
+        response = supabase.rpc(
+            "consume_tokens",
+            {"p_user_id": user_id, "p_tokens": token_amount, "p_reason": reason},
+        ).execute()
+        payload = _parse_rpc_payload(response)
+        if payload:
+            payload.setdefault("balance", _get_token_summary(user_id).get("token_balance", 0))
+            payload.setdefault("source", "daily" if prefer_daily_source else "paid")
+            return payload
+    except Exception as e:
+        logger.error(f"Failed to consume tokens via RPC for user {user_id}: {e}")
+
+    # Fallback path if RPC is unavailable.
+    summary = _get_token_summary(user_id)
+    current_balance = summary.get("token_balance", 0)
+    if current_balance < token_amount:
+        return {"success": False, "balance": current_balance, "source": "paid"}
+
+    try:
+        new_balance = current_balance - token_amount
+        supabase.table("profiles").update({
+            "token_balance": new_balance,
+            "total_tokens_used": summary.get("total_tokens_used", 0) + token_amount,
+        }).eq("id", user_id).execute()
+        supabase.table("token_transactions").insert({
+            "user_id": user_id,
+            "tokens": -token_amount,
+            "transaction_type": "scan_usage",
+            "description": reason,
+            "metadata": {},
+        }).execute()
+        return {"success": True, "balance": new_balance, "source": "daily" if prefer_daily_source else "paid"}
+    except Exception as e:
+        logger.error(f"Fallback token consumption failed for user {user_id}: {e}")
+        return {"success": False, "balance": current_balance, "source": "paid"}
+
+
+def _credit_user_tokens(
+    user_id: str | None,
+    tokens: int,
+    description: str,
+    transaction_type: str = "purchase",
+    stripe_session_id: str | None = None,
+    metadata: dict | None = None,
+) -> dict:
+    if not user_id or not supabase or tokens == 0:
+        return {"success": False}
+
+    metadata = metadata or {}
+
+    try:
+        response = supabase.rpc(
+            "add_tokens",
+            {
+                "p_user_id": user_id,
+                "p_tokens": tokens,
+                "p_transaction_type": transaction_type,
+                "p_description": description,
+                "p_stripe_session_id": stripe_session_id,
+                "p_metadata": metadata,
+            },
+        ).execute()
+        payload = _parse_rpc_payload(response)
+        if payload:
+            return payload
+    except Exception as e:
+        logger.error(f"Token credit RPC failed for user {user_id}: {e}")
+
+    # Fallback path if RPC is unavailable.
+    summary = _get_token_summary(user_id)
+    try:
+        new_balance = summary.get("token_balance", 0) + tokens
+        purchased_delta = tokens if tokens > 0 else 0
+        supabase.table("profiles").update({
+            "token_balance": new_balance,
+            "total_tokens_purchased": summary.get("total_tokens_purchased", 0) + purchased_delta,
+        }).eq("id", user_id).execute()
+        supabase.table("token_transactions").insert({
+            "user_id": user_id,
+            "tokens": tokens,
+            "transaction_type": transaction_type,
+            "description": description,
+            "stripe_session_id": stripe_session_id,
+            "metadata": metadata,
+        }).execute()
+        return {"success": True, "new_balance": new_balance}
+    except Exception as e:
+        logger.error(f"Fallback token credit failed for user {user_id}: {e}")
+        return {"success": False}
+
+
+def _settle_token_usage(
+    user_id: str | None,
+    held_tokens: int,
+    usage: dict | None,
+    reason_prefix: str,
+    fallback_total_tokens: int | None = None,
+) -> dict:
+    hold = max(1, int(held_tokens))
+    usage_total = _token_usage_total(usage)
+    fallback_total = hold if fallback_total_tokens is None else max(1, int(fallback_total_tokens))
+    billed_tokens = max(hold, usage_total if usage_total > 0 else fallback_total)
+    additional_tokens = max(0, billed_tokens - hold)
+
+    additional_charge_success = True
+    additional_balance = None
+    if additional_tokens > 0:
+        additional_result = _consume_tokens_for_scan(
+            user_id,
+            reason=f"{reason_prefix} (additional model tokens)",
+            prefer_daily_source=False,
+            tokens=additional_tokens,
+        )
+        additional_charge_success = bool(additional_result.get("success"))
+        additional_balance = additional_result.get("balance")
+        if not additional_charge_success:
+            logger.warning(
+                "Failed to settle additional tokens",
+                extra={
+                    "user_id": user_id,
+                    "additional_tokens": additional_tokens,
+                    "reason_prefix": reason_prefix,
+                },
+            )
+
+    return {
+        "held_tokens": hold,
+        "billed_tokens": billed_tokens,
+        "additional_tokens": additional_tokens,
+        "usage_total_tokens": usage_total,
+        "additional_charge_success": additional_charge_success,
+        "balance_after_additional_charge": additional_balance,
+    }
 
 # Startup event to ensure functions are defined before scheduler starts
 @app.on_event("startup")
@@ -337,6 +650,10 @@ async def analyze_url(
         "city": geo.get("city"),
         "country": geo.get("country")
     }
+    llm_provider = "groq"
+    llm_model: str | None = None
+    user_id: str | None = None
+    scan_token_hold = TOKENS_PER_SCAN
 
     # OWNER CHECK
     if site_id:
@@ -362,38 +679,27 @@ async def analyze_url(
             logger.error(f"Ownership check failed: {e}")
             raise HTTPException(status_code=500, detail="Ownership verification failed")
 
-    # LIMIT CHECK
+    # TOKEN CHECK
     try:
         if user:
-            # Get User Tier
-            tier = _get_subscription_tier(_get_user_id(user))
-                
-            # Get Current Month's Scans
-            now = datetime.now(timezone.utc)
-            start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            
-            user_sites = supabase.table("sites").select("id").eq("user_id", user.id).execute()
-            site_ids = [s['id'] for s in user_sites.data] if user_sites.data else []
-            
-            if site_ids:
-                scan_count_response = supabase.table("pages") \
-                    .select("*", count="exact") \
-                    .in_("site_id", site_ids) \
-                    .gte("last_scanned_at", start_of_month.isoformat()) \
-                    .execute()
-                    
-                scan_count = scan_count_response.count if scan_count_response.count is not None else 0
-                
-                LIMITS = {
-                    "free": 5,
-                    "plus": 50,
-                    "pro": None  # Unlimited
-                }
-
-                limit = LIMITS.get(tier, 5)
-
-                if limit is not None and scan_count >= limit:
-                    raise HTTPException(status_code=429, detail=f"Monthly scan limit reached ({scan_count}/{limit}). Please upgrade your plan.")
+            user_id = _get_user_id(user)
+            grant_result = _grant_daily_tokens_if_eligible(user_id)
+            was_daily_granted_now = bool(grant_result.get("granted"))
+            token_consume_result = _consume_tokens_for_scan(
+                user_id,
+                reason="Token usage hold for on-demand scan",
+                prefer_daily_source=was_daily_granted_now,
+                tokens=scan_token_hold,
+            )
+            if not token_consume_result.get("success"):
+                remaining_balance = int(token_consume_result.get("balance") or 0)
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Insufficient tokens. Scans require at least {scan_token_hold} token(s) available, and you currently have {remaining_balance}.",
+                )
+            llm_provider = "groq" if token_consume_result.get("source") == "daily" else "eden"
+            if llm_provider == "eden":
+                llm_model = EDEN_DEFAULT_MODEL
         else:
             # Guest Limit?
             # For now, we allow guests to scan freely as it's a landing page hook.
@@ -403,8 +709,8 @@ async def analyze_url(
     except HTTPException as he:
         raise he
     except Exception as e:
-        logger.error(f"Limit check failed: {e}")
-        pass
+        logger.error(f"Token check failed: {e}")
+        raise HTTPException(status_code=500, detail="Token validation failed")
 
     # 1. Rate Limiting Check (24h per site)
     ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true"
@@ -427,8 +733,23 @@ async def analyze_url(
     # 3. Handle Synchronous Request
     if sync:
         try:
-            # Run analysis immediately and await result
-            result = await analyze_readiness(url, scan_mode="full")
+            runtime_tokens = set_llm_runtime(llm_provider, llm_model)
+            llm_usage: dict = {}
+            try:
+                # Run analysis immediately and await result
+                result = await analyze_readiness(url, scan_mode="full")
+                llm_usage = get_llm_usage_snapshot()
+            finally:
+                reset_llm_runtime(runtime_tokens)
+
+            if user_id:
+                usage_settlement = _settle_token_usage(
+                    user_id=user_id,
+                    held_tokens=scan_token_hold,
+                    usage=llm_usage,
+                    reason_prefix="Token usage for on-demand scan",
+                )
+                result["token_usage"] = usage_settlement
             
             # Alias total_score to score for API consistency
             result['score'] = result.get('total_score', 0)
@@ -441,17 +762,50 @@ async def analyze_url(
             raise HTTPException(status_code=500, detail=str(e))
 
     # 4. Schedule Background Task (Default Async behavior)
-    background_tasks.add_task(run_analysis_background, url, site_id, metadata)
+    background_tasks.add_task(
+        run_analysis_background,
+        url,
+        site_id,
+        metadata,
+        llm_provider,
+        llm_model,
+        user_id,
+        scan_token_hold,
+    )
 
     return {"status": "processing", "message": "Analysis started in background"}
 
-async def run_analysis_background(url: str, site_id: str | None, metadata: dict | None = None):
+async def run_analysis_background(
+    url: str,
+    site_id: str | None,
+    metadata: dict | None = None,
+    llm_provider: str = "groq",
+    llm_model: str | None = None,
+    user_id: str | None = None,
+    scan_token_hold: int = TOKENS_PER_SCAN,
+):
     print(f"🚀 [Background] Starting analysis for {url}")
     try:
         # Perform Analysis with Timeout (120s safety limit)
         # analyze_readiness handles its own internal concurrency, but this is a global safety net.
         print(f"⏳ [Background] Calling analyze_readiness for {url}...")
-        result = await asyncio.wait_for(analyze_readiness(url, scan_mode="full"), timeout=120.0)
+        runtime_tokens = set_llm_runtime(llm_provider, llm_model)
+        llm_usage: dict = {}
+        try:
+            result = await asyncio.wait_for(analyze_readiness(url, scan_mode="full"), timeout=120.0)
+            llm_usage = get_llm_usage_snapshot()
+        finally:
+            reset_llm_runtime(runtime_tokens)
+
+        if user_id:
+            usage_settlement = _settle_token_usage(
+                user_id=user_id,
+                held_tokens=scan_token_hold,
+                usage=llm_usage,
+                reason_prefix=f"Token usage for async scan ({site_id or url})",
+            )
+            logger.info(f"Async scan token settlement: {usage_settlement}")
+
         print(f"✅ [Background] Analysis finished for {url}")
         print(f"🔍 [Background] Result keys: {result.keys() if result else 'None'}")
         
@@ -669,6 +1023,37 @@ async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None,
         supabase.table("scheduled_scans").update({"status": "processing"}).eq("id", scan_id).execute()
 
     try:
+        llm_provider = "groq"
+        llm_model: str | None = None
+        owner_user_id: str | None = None
+        if supabase and site_id:
+            owner_res = (
+                supabase.table("sites")
+                .select("user_id")
+                .eq("id", site_id)
+                .limit(1)
+                .execute()
+            )
+            owner_user_id = owner_res.data[0].get("user_id") if owner_res.data else None
+            if owner_user_id:
+                grant_result = _grant_daily_tokens_if_eligible(owner_user_id)
+                was_daily_granted_now = bool(grant_result.get("granted"))
+                token_consume_result = _consume_tokens_for_scan(
+                    owner_user_id,
+                    reason=f"Token usage hold for scheduled scan ({site_id})",
+                    prefer_daily_source=was_daily_granted_now,
+                    tokens=TOKENS_PER_SCAN,
+                )
+                if not token_consume_result.get("success"):
+                    balance = int(token_consume_result.get("balance") or 0)
+                    raise HTTPException(
+                        status_code=402,
+                        detail=f"Scheduled scan skipped due to insufficient tokens. Need at least {TOKENS_PER_SCAN}, have {balance}.",
+                    )
+                llm_provider = "groq" if token_consume_result.get("source") == "daily" else "eden"
+                if llm_provider == "eden":
+                    llm_model = EDEN_DEFAULT_MODEL
+
         # 1.1 Fetch previous score for delta calculation
         old_score = 0
         if supabase and site_id:
@@ -684,7 +1069,23 @@ async def perform_scheduled_scan(site_id: str, url: str, user_email: str | None,
                 logger.warning(f"Could not fetch previous score: {e}")
 
         # 2. Run Analysis
-        result = await analyze_readiness(url, scan_mode=scan_type)
+        runtime_tokens = set_llm_runtime(llm_provider, llm_model)
+        llm_usage: dict = {}
+        try:
+            result = await analyze_readiness(url, scan_mode=scan_type)
+            llm_usage = get_llm_usage_snapshot()
+        finally:
+            reset_llm_runtime(runtime_tokens)
+
+        if owner_user_id:
+            usage_settlement = _settle_token_usage(
+                user_id=owner_user_id,
+                held_tokens=TOKENS_PER_SCAN,
+                usage=llm_usage,
+                reason_prefix=f"Token usage for scheduled scan ({site_id})",
+            )
+            logger.info(f"Scheduled scan token settlement: {usage_settlement}")
+
         new_score = result.get("total_score", 0)
         delta = new_score - old_score
         
@@ -1087,12 +1488,279 @@ async def apply_career(
         # But for now assuming Resend SDK handles it.
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/token-usage")
+async def token_usage(user: dict = Depends(get_current_user)):
+    user_id = _get_user_id(user)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    summary = _get_token_summary(user_id)
+    today_utc = datetime.now(timezone.utc).date().isoformat()
+    last_grant = summary.get("daily_free_tokens_last_granted_at")
+    can_claim_daily_free = last_grant != today_utc
+
+    return {
+        "token_balance": summary.get("token_balance", 0),
+        "daily_free_tokens": DAILY_FREE_TOKENS,
+        "tokens_per_scan": TOKENS_PER_SCAN,
+        "tokens_per_chat": TOKENS_PER_CHAT,
+        "total_tokens_used": summary.get("total_tokens_used", 0),
+        "total_tokens_purchased": summary.get("total_tokens_purchased", 0),
+        "daily_free_tokens_last_granted_at": last_grant,
+        "can_claim_daily_free": can_claim_daily_free,
+    }
+
+def _eden_headers() -> dict:
+    return {
+        "Authorization": f"Bearer {EDEN_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+def _extract_content_from_eden_response(payload: dict) -> str:
+    choices = payload.get("choices", [])
+    if not choices:
+        return ""
+    choice = choices[0]
+    message = choice.get("message", {})
+    if message.get("content"):
+        return message["content"]
+    delta = choice.get("delta", {})
+    if delta.get("content"):
+        return delta["content"]
+    return ""
+
+
+def _extract_usage_from_eden_response(payload: dict | None) -> dict:
+    if not isinstance(payload, dict):
+        return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+    usage = payload.get("usage")
+    if not isinstance(usage, dict):
+        usage = {}
+
+    prompt_tokens = usage.get("prompt_tokens", usage.get("input_tokens", 0))
+    completion_tokens = usage.get("completion_tokens", usage.get("output_tokens", 0))
+    total_tokens = usage.get("total_tokens", 0)
+
+    try:
+        prompt_tokens = max(int(prompt_tokens or 0), 0)
+    except (TypeError, ValueError):
+        prompt_tokens = 0
+    try:
+        completion_tokens = max(int(completion_tokens or 0), 0)
+    except (TypeError, ValueError):
+        completion_tokens = 0
+    try:
+        total_tokens = max(int(total_tokens or 0), 0)
+    except (TypeError, ValueError):
+        total_tokens = 0
+
+    if total_tokens <= 0:
+        total_tokens = prompt_tokens + completion_tokens
+
+    return {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+    }
+
+
+def _extract_content_from_eden_sse(raw_text: str) -> str:
+    parts: list[str] = []
+    for raw_line in raw_text.splitlines():
+        line = raw_line.strip()
+        if not line.startswith("data:"):
+            continue
+        data_part = line[len("data:"):].strip()
+        if data_part == "[DONE]":
+            break
+        try:
+            event = json.loads(data_part)
+        except json.JSONDecodeError:
+            continue
+        content = _extract_content_from_eden_response(event)
+        if content:
+            parts.append(content)
+    return "".join(parts).strip()
+
+
+async def _eden_chat_completion(messages: list[dict], model: str, temperature: float = 0.2) -> dict:
+    if not EDEN_API_KEY:
+        raise HTTPException(status_code=500, detail="Eden API is not configured")
+
+    endpoint = f"{EDEN_API_BASE_URL.rstrip('/')}/v3/llm/chat/completions"
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": False,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(endpoint, headers=_eden_headers(), json=payload)
+            response.raise_for_status()
+            data = response.json()
+    except httpx.HTTPStatusError as e:
+        detail = e.response.text[:400] if e.response is not None else str(e)
+        raise HTTPException(status_code=502, detail=f"Eden API error: {detail}")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Eden request failed: {e}")
+
+    content = _extract_content_from_eden_response(data)
+    usage = _extract_usage_from_eden_response(data)
+
+    if not content:
+        raise HTTPException(status_code=502, detail="Eden returned an empty response")
+
+    return {"content": content, "usage": usage}
+
+
+EDEN_MODEL_OPTIONS = [
+    {"id": "openai/gpt-4o-mini", "label": "ChatGPT"},
+    {"id": "anthropic/claude-3-5-sonnet", "label": "Claude"},
+    {"id": "google/gemini-2.0-flash", "label": "Gemini"},
+    {"id": "meta/llama-3.3-70b", "label": "Llama"},
+    {"id": "xai/grok-2-latest", "label": "Grok"},
+    {"id": "mistral/mistral-large-latest", "label": "Mistral"},
+    {"id": "deepseek/deepseek-chat", "label": "DeepSeek"},
+    {"id": "cohere/command-r-plus", "label": "Command"},
+    {"id": "amazon/ai21.jamba-1-5-large-v1:0", "label": "Jamba"},
+]
+EDEN_ALLOWED_MODEL_IDS = {entry["id"] for entry in EDEN_MODEL_OPTIONS}
+
+
+async def _fetch_eden_models() -> list[dict]:
+    return EDEN_MODEL_OPTIONS
+
+
+@app.get("/eden-models")
+async def eden_models(user: dict = Depends(get_current_user)):
+    _ = _get_user_id(user)
+    models = await _fetch_eden_models()
+    return {"models": models}
+
+
+class SiteChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1, max_length=4000)
+
+
+class SiteModelChatRequest(BaseModel):
+    site_id: str
+    model: str = Field(..., min_length=3, max_length=120)
+    messages: list[SiteChatMessage] = Field(..., min_length=1, max_length=30)
+    temperature: float = Field(default=0.2, ge=0.0, le=1.0)
+
+
+@app.post("/site-model-chat")
+async def site_model_chat(
+    payload: SiteModelChatRequest,
+    user: dict = Depends(get_current_user),
+):
+    user_id = _get_user_id(user)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if payload.model not in EDEN_ALLOWED_MODEL_IDS:
+        raise HTTPException(status_code=400, detail="Unsupported model selection")
+
+    grant_result = _grant_daily_tokens_if_eligible(user_id)
+    was_daily_granted_now = bool(grant_result.get("granted"))
+    chat_hold_result = _consume_tokens_for_scan(
+        user_id=user_id,
+        reason="Token usage hold for site chat",
+        prefer_daily_source=was_daily_granted_now,
+        tokens=TOKENS_PER_CHAT,
+    )
+    if not chat_hold_result.get("success"):
+        remaining_balance = int(chat_hold_result.get("balance") or 0)
+        raise HTTPException(
+            status_code=402,
+            detail=f"Insufficient tokens. Chat requires at least {TOKENS_PER_CHAT} token(s), and you currently have {remaining_balance}.",
+        )
+
+    site_response = (
+        supabase.table("sites")
+        .select("id, user_id, url, name, aeo_score, last_scanned_at")
+        .eq("id", payload.site_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not site_response.data:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    site = site_response.data[0]
+    page_response = (
+        supabase.table("pages")
+        .select("checklist, aeo_score, last_scanned_at")
+        .eq("site_id", payload.site_id)
+        .order("last_scanned_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    latest_page = page_response.data[0] if page_response.data else {}
+    checklist = latest_page.get("checklist") or {}
+
+    site_context = {
+        "site_name": site.get("name") or site.get("url"),
+        "site_url": site.get("url"),
+        "aeo_score": latest_page.get("aeo_score") or site.get("aeo_score"),
+        "technical_score": checklist.get("technical_score"),
+        "content_score": checklist.get("content_score"),
+        "authority_score": checklist.get("authority_score"),
+        "last_scanned_at": latest_page.get("last_scanned_at") or site.get("last_scanned_at"),
+        "top_competitors": (checklist.get("competitors") or {}).get("top_competitors", []),
+    }
+
+    system_prompt = f"""
+You are an AI assistant for CheckSiteAEO.
+You must ONLY answer questions related to this specific site's AEO, SEO, and GEO strategy/performance.
+If the user asks about anything unrelated to AEO/SEO/GEO for this site, politely refuse and redirect to those topics.
+Be practical, concise, and actionable.
+Do not invent facts. If data is missing, say so clearly.
+
+SITE CONTEXT (trusted):
+{json.dumps(site_context, ensure_ascii=True)}
+""".strip()
+
+    safe_messages = [{"role": m.role, "content": m.content.strip()} for m in payload.messages if m.content.strip()]
+    if not safe_messages:
+        raise HTTPException(status_code=400, detail="No valid chat messages provided")
+    safe_messages = safe_messages[-20:]
+
+    eden_messages = [{"role": "system", "content": system_prompt}] + safe_messages
+    completion = await _eden_chat_completion(
+        messages=eden_messages,
+        model=payload.model,
+        temperature=payload.temperature,
+    )
+    eden_usage = completion.get("usage", {})
+    usage_fallback = max(
+        TOKENS_PER_CHAT,
+        _estimate_tokens_from_messages(eden_messages) + _estimate_tokens_from_text(completion.get("content")),
+    )
+    chat_usage_settlement = _settle_token_usage(
+        user_id=user_id,
+        held_tokens=TOKENS_PER_CHAT,
+        usage=eden_usage,
+        reason_prefix=f"Token usage for site chat ({payload.site_id})",
+        fallback_total_tokens=usage_fallback,
+    )
+
+    return {
+        "reply": completion["content"],
+        "model": payload.model,
+        "site_context": site_context,
+        "token_usage": chat_usage_settlement,
+    }
+
 # --- Stripe Integration ---
 
 class CheckoutRequest(BaseModel):
-    plan: str  # 'plus' or 'pro'
+    pack_id: str  # 'starter' | 'growth' | 'scale'
     email: str | None = None
-    site_id: str | None = None
     user_id: str | None = None
 
 def _normalize_origin(url: str | None) -> str | None:
@@ -1126,15 +1794,14 @@ async def create_checkout_session(payload: CheckoutRequest, http_request: Reques
     if not STRIPE_SECRET_KEY:
         raise HTTPException(status_code=500, detail="Stripe is not configured")
 
-    price_id = STRIPE_PRICE_ID_PLUS if payload.plan == "plus" else STRIPE_PRICE_ID_PRO
-    
-    # Handle 'pro' mapping if needed, or strictly check
-    if payload.plan == "pro":
-        price_id = STRIPE_PRICE_ID_PRO
-    elif payload.plan == "plus":
-        price_id = STRIPE_PRICE_ID_PLUS
-    else:
-        raise HTTPException(status_code=400, detail="Invalid plan selected")
+    selected_pack = TOKEN_PACKS.get(payload.pack_id)
+    if not selected_pack:
+        raise HTTPException(status_code=400, detail="Invalid token pack selected")
+
+    price_id = selected_pack.get("price_id")
+    token_amount = int(selected_pack.get("tokens", 0))
+    if not price_id:
+        raise HTTPException(status_code=500, detail=f"Stripe price is not configured for pack '{payload.pack_id}'")
 
     try:
         frontend_base_url = _resolve_frontend_base_url(http_request)
@@ -1162,13 +1829,14 @@ async def create_checkout_session(payload: CheckoutRequest, http_request: Reques
                     'quantity': 1,
                 },
             ],
-            mode='subscription',
-            success_url=frontend_base_url + "/dashboard?payment=success",
-            cancel_url=frontend_base_url + "/pricing?payment=cancelled",
+            mode='payment',
+            invoice_creation={"enabled": True},
+            success_url=frontend_base_url + "/dashboard/billing?payment=success",
+            cancel_url=frontend_base_url + "/dashboard/billing?payment=cancelled",
             metadata={
-                "site_id": payload.site_id,
-                "plan": payload.plan,
-                "user_id": payload.user_id
+                "pack_id": payload.pack_id,
+                "token_amount": str(token_amount),
+                "user_id": payload.user_id or "",
             },
             allow_promotion_codes=True,
             **customer_kwargs
@@ -1239,61 +1907,84 @@ async def stripe_webhook(request: Request):
     return {"status": "success"}
 
 async def handle_checkout_completed(session):
-    # Fulfill the purchase...
     customer_email = session.get('customer_details', {}).get('email')
-    plan = session.get('metadata', {}).get('plan')
+    metadata = session.get('metadata', {}) or {}
+    pack_id = metadata.get('pack_id')
+    token_amount_raw = metadata.get('token_amount')
     stripe_customer_id = session.get('customer')
-    user_id = session.get('metadata', {}).get('user_id')
-    
-    print(f"💰 Payment received for {customer_email} - Plan: {plan} - User ID: {user_id}")
+    stripe_session_id = session.get('id')
+    user_id = metadata.get('user_id') or None
+
+    token_amount = 0
+    try:
+        token_amount = int(token_amount_raw) if token_amount_raw else 0
+    except (TypeError, ValueError):
+        token_amount = 0
+
+    if token_amount <= 0 and pack_id in TOKEN_PACKS:
+        token_amount = int(TOKEN_PACKS[pack_id].get("tokens", 0))
+
+    print(
+        f"💰 Payment received for {customer_email} - Pack: {pack_id} "
+        f"- Tokens: {token_amount} - User ID: {user_id}"
+    )
 
     if supabase:
         try:
-             response = None
-             if user_id:
-                 print(f"   > Updating subscription for ID {user_id}...")
-                 response = supabase.table("profiles").update({
-                     "subscription_tier": plan,
-                     "subscription_status": "active",
-                     "stripe_customer_id": stripe_customer_id
-                 }).eq("id", user_id).execute()
-             elif customer_email:
-                 print(f"   > Updating subscription for email {customer_email}...")
-                 response = supabase.table("profiles").update({
-                     "subscription_tier": plan,
-                     "subscription_status": "active",
-                     "stripe_customer_id": stripe_customer_id
-                 }).eq("email", customer_email).execute()
-             
-             if response and response.data:
-                 print(f"   > ✅ Subscription updated.")
-             else:
-                 print(f"   > ⚠️ User profile not found. Attempting to create one...")
-                 # If no profile found, create one
-                 if user_id and customer_email:
-                    try:
-                        upsert_data = {
-                            "id": user_id,
-                            "email": customer_email,
-                            "subscription_tier": plan,
-                            "subscription_status": "active",
-                            "stripe_customer_id": stripe_customer_id
-                        }
-                        print(f"   > Upserting profile: {upsert_data}")
-                        # Upsert requires checking for conflict on 'id'
-                        # But since update failed, it likely doesn't exist.
-                        # We use upsert=True just in case.
-                        res = supabase.table("profiles").upsert(upsert_data).execute()
-                        if res.data:
-                            print(f"   > ✅ Profile created/updated via upsert.")
-                        else:
-                            print(f"   > ❌ Failed to create profile (unknown reason).")
-                    except Exception as insert_err:
-                        print(f"   > ❌ Failed to create profile: {insert_err}")
-                        logger.error(f"Failed to create profile: {insert_err}")
-                 
+            if stripe_session_id:
+                existing_tx = (
+                    supabase.table("token_transactions")
+                    .select("id")
+                    .eq("stripe_session_id", stripe_session_id)
+                    .limit(1)
+                    .execute()
+                )
+                if existing_tx.data:
+                    print(f"   > Stripe session {stripe_session_id} already processed. Skipping.")
+                    return
+
+            if not user_id and customer_email:
+                profile_by_email = (
+                    supabase.table("profiles")
+                    .select("id")
+                    .eq("email", customer_email)
+                    .limit(1)
+                    .execute()
+                )
+                if profile_by_email.data:
+                    user_id = profile_by_email.data[0].get("id")
+
+            if not user_id:
+                logger.error("Unable to resolve user for token credit (missing user_id and email lookup failed).")
+                return
+
+            if stripe_customer_id:
+                supabase.table("profiles").update({
+                    "stripe_customer_id": stripe_customer_id
+                }).eq("id", user_id).execute()
+
+            if token_amount <= 0:
+                logger.error(f"Invalid token amount in checkout session {stripe_session_id}: {token_amount}")
+                return
+
+            credit_result = _credit_user_tokens(
+                user_id=user_id,
+                tokens=token_amount,
+                description=f"Stripe token purchase ({pack_id or 'custom'})",
+                transaction_type="purchase",
+                stripe_session_id=stripe_session_id,
+                metadata={
+                    "pack_id": pack_id,
+                    "customer_email": customer_email,
+                },
+            )
+
+            if credit_result.get("success"):
+                print(f"   > ✅ Credited {token_amount} tokens to user {user_id}.")
+            else:
+                logger.error(f"Token credit failed for user {user_id}. Result: {credit_result}")
         except Exception as e:
-            logger.error(f"Failed to update subscription in DB: {e}")
+            logger.error(f"Failed to process token checkout in DB: {e}")
 
 # --- Site Verification Endpoints ---
 
@@ -1321,21 +2012,13 @@ async def initiate_verification(
     domain = urlparse(request.url).netloc
     
     # --- ENFORCE SITE LIMITS ---
-    # 1. Get User Tier
-    profile_res = supabase.table("profiles").select("subscription_tier").eq("id", user.id).execute()
-    tier = "free"
-    if profile_res.data:
-        tier = profile_res.data[0].get("subscription_tier", "free")
-        
-    # 2. Get Current Site Count
+    # Get current site count for the account.
     # count='exact' is efficient
     sites_res = supabase.table("sites").select("*", count="exact").eq("user_id", user.id).execute()
     current_count = sites_res.count if sites_res.count is not None else len(sites_res.data)
     
-    # 3. Define Limits
-    MAX_SITES = 3
-    if tier == "plus": MAX_SITES = 50
-    if tier == "pro": MAX_SITES = 100000 # Unlimited
+    # Token model uses a single site limit for all users.
+    MAX_SITES = MAX_SITES_PER_USER
     
     # --- END LIMIT CHECK ---
     
@@ -1371,7 +2054,7 @@ async def initiate_verification(
     if current_count >= MAX_SITES:
         raise HTTPException(
             status_code=403, 
-            detail=f"Plan limit reached. You can only add {MAX_SITES} sites on the {tier.capitalize()} plan. Please upgrade or delete a site."
+            detail=f"Site limit reached. You can only add {MAX_SITES} sites on your account."
         )
 
     # Create new

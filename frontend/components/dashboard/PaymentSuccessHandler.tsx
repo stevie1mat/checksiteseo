@@ -13,8 +13,8 @@ function PaymentSuccessContent() {
         if (searchParams.get("payment") === "success") {
             // Show success message
             toast({
-                title: "Payment Successful!",
-                description: "Your subscription has been updated. Welcome to the new plan!",
+                title: "Tokens Added!",
+                description: "Your Stripe payment was successful and your token balance has been updated.",
                 duration: 5000,
             })
 

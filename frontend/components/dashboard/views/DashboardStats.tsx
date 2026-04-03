@@ -42,8 +42,8 @@ export function DashboardStats({ siteCount, maxSites, sites }: DashboardStatsPro
         <div className="grid gap-6 md:grid-cols-3">
             {/* Portfolio Usage */}
             <Card className={cn(
-                "shadow-xs bg-white transition-all duration-300",
-                siteCount >= maxSites ? "border-amber-200 ring-4 ring-amber-50" : "border-slate-200"
+                "bg-white/75 backdrop-blur-sm transition-all duration-300 shadow-[0_10px_34px_rgba(30,64,48,0.08)]",
+                siteCount >= maxSites ? "border-amber-200 ring-4 ring-amber-50" : "border-[#d9e8df]"
             )}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-slate-500">Portfolio Usage</CardTitle>
@@ -64,8 +64,8 @@ export function DashboardStats({ siteCount, maxSites, sites }: DashboardStatsPro
                             {siteCount >= maxSites ? 'Limit reached' : `${maxSites - siteCount} slots remaining`}
                         </p>
                         {siteCount >= maxSites && (
-                            <Link href="/#pricing" className="text-[10px] font-bold uppercase tracking-wider text-amber-600 hover:text-amber-700 hover:underline">
-                                Upgrade Plan
+                            <Link href="/dashboard/billing" className="text-[10px] font-bold uppercase tracking-wider text-amber-600 hover:text-amber-700 hover:underline">
+                                Top Up
                             </Link>
                         )}
                     </div>
@@ -74,7 +74,7 @@ export function DashboardStats({ siteCount, maxSites, sites }: DashboardStatsPro
             </Card>
 
             {/* Portfolio Health */}
-            <Card className="border-slate-200 shadow-xs bg-white">
+            <Card className="border-[#d9e8df] bg-white/75 backdrop-blur-sm shadow-[0_10px_34px_rgba(30,64,48,0.08)]">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-slate-500">Portfolio Health</CardTitle>
                     <Activity className={`h-4 w-4 ${healthColor}`} />
@@ -91,7 +91,7 @@ export function DashboardStats({ siteCount, maxSites, sites }: DashboardStatsPro
             </Card>
 
             {/* Competitor Movements */}
-            <Card className="border-slate-200 shadow-xs bg-white">
+            <Card className="border-[#d9e8df] bg-white/75 backdrop-blur-sm shadow-[0_10px_34px_rgba(30,64,48,0.08)]">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-slate-500">Active Competitors</CardTitle>
                     <TrendingUp className="h-4 w-4 text-blue-500" />

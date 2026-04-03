@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Home, LayoutDashboard, Settings, CreditCard, LogOut, ChevronRight, BookOpen, LifeBuoy } from "lucide-react"
@@ -10,13 +11,13 @@ import { useRouter } from "next/navigation"
 const sidebarItems = [
     { name: "Overview", href: "/dashboard", icon: Home },
     { name: "My Sites", href: "/dashboard/sites", icon: LayoutDashboard },
-    { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
+    { name: "Top Up", href: "/dashboard/billing", icon: CreditCard },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
     { name: "Guide", href: "/aeo-guide", icon: BookOpen },
     { name: "Support", href: "/contact", icon: LifeBuoy }
 ]
 
-export function SidebarContent({ subscriptionTier = 'free' }: { subscriptionTier?: string }) {
+export function SidebarContent() {
     const pathname = usePathname()
     const router = useRouter()
     const supabase = createClient()
@@ -27,10 +28,41 @@ export function SidebarContent({ subscriptionTier = 'free' }: { subscriptionTier
         router.refresh()
     }
 
-    // Normalize tier for display
-    const planName = (subscriptionTier || 'free').toUpperCase()
-    const isPro = subscriptionTier === 'pro'
-    const isPlus = subscriptionTier === 'plus'
+    const [tokenSummary, setTokenSummary] = useState<{
+        totalAvailable: number
+    } | null>(null)
+
+    useEffect(() => {
+        let isMounted = true
+
+        const loadTokenSummary = async () => {
+            try {
+                const response = await fetch("/api/usage", { cache: "no-store" })
+                const data = await response.json().catch(() => ({}))
+                if (!response.ok) return
+
+                if (isMounted) {
+                    setTokenSummary({
+                        totalAvailable: Number(data.remainingTokens || 0),
+                    })
+                }
+            } catch {
+                // Ignore sidebar token summary fetch errors
+            }
+        }
+
+        loadTokenSummary()
+        const interval = setInterval(loadTokenSummary, 10000)
+        const onFocus = () => {
+            loadTokenSummary()
+        }
+        window.addEventListener("focus", onFocus)
+        return () => {
+            isMounted = false
+            clearInterval(interval)
+            window.removeEventListener("focus", onFocus)
+        }
+    }, [pathname])
 
     return (
         <div className="flex h-full w-full flex-col bg-gradient-to-b from-[#1A4036] to-[#122e26] text-white">
@@ -42,26 +74,18 @@ export function SidebarContent({ subscriptionTier = 'free' }: { subscriptionTier
                 </Link>
 
                 {/* Plan Badge */}
-                <div className={cn(
-                    "relative overflow-hidden rounded-xl border p-4 transition-all hover:bg-white/5",
-                    isPro ? "border-purple-500/30 bg-purple-500/10" :
-                        isPlus ? "border-emerald-500/30 bg-emerald-500/10" :
-                            "border-slate-500/30 bg-slate-500/10"
-                )}>
+                <div className="relative overflow-hidden rounded-xl border p-4 transition-all hover:bg-white/5 border-emerald-500/30 bg-emerald-500/10">
                     <div className="flex items-center justify-between mb-1">
-                        <span className={cn(
-                            "text-sm font-bold tracking-widest",
-                            isPro ? "text-purple-200" :
-                                isPlus ? "text-emerald-200" :
-                                    "text-slate-300"
-                        )}>
-                            {planName} PLAN
+                        <span className="text-sm font-bold tracking-widest text-emerald-200">
+                            TOKENS
                         </span>
-                        {isPro && <div className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />}
+                        <div className="h-2 w-2 rounded-full bg-emerald-300 animate-pulse" />
                     </div>
-                    <div className="text-xs text-white/60 font-medium">
-                        {isPro ? "Unlimited Access" : isPlus ? "Increased Limits" : "Basic Access"}
-                    </div>
+                    {tokenSummary && (
+                        <div className="mt-1 text-sm text-emerald-100 font-semibold">
+                            {tokenSummary.totalAvailable.toLocaleString()} tokens available
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -106,10 +130,10 @@ export function SidebarContent({ subscriptionTier = 'free' }: { subscriptionTier
     )
 }
 
-export function DashboardSidebar({ subscriptionTier }: { subscriptionTier?: string }) {
+export function DashboardSidebar() {
     return (
         <div className="hidden md:block md:w-72 h-full sticky top-0 overflow-y-auto border-r border-[#2a4e40] bg-[#1A4036]">
-            <SidebarContent subscriptionTier={subscriptionTier} />
+            <SidebarContent />
         </div>
     )
 }

@@ -1,9 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Globe, BarChart3, Clock, Plus, ExternalLink, ArrowRight } from "lucide-react"
+import { Plus } from "lucide-react"
 import { AddSiteDialog } from "@/components/dashboard/AddSiteDialog"
-import Link from "next/link"
-import { RescanButton } from "@/components/RescanButton"
 import { SiteHealthGrid } from "@/components/dashboard/views/SiteHealthGrid"
 import { DashboardStats } from "@/components/dashboard/views/DashboardStats"
 import { DashboardTracker } from "@/components/dashboard/DashboardTracker"
@@ -31,27 +29,16 @@ export default async function DashboardPage() {
         .limit(30, { referencedTable: 'site_history' }) // Last 30 points per site
 
     const siteCount = sites?.length || 0
-    // Fetch user profile for subscription tier
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('subscription_tier')
-        .eq('id', user?.id)
-        .single()
-
-    const tier = profile?.subscription_tier || 'free'
-    const isFreePlan = tier === 'free'
-
-    let maxSites = 3
-    if (tier === 'plus') maxSites = 50
-    if (tier === 'pro') maxSites = 100000
+    const maxSites = Number(process.env.NEXT_PUBLIC_MAX_SITES_PER_USER || 100)
 
     return (
-        <div className="space-y-8 w-full p-6">
+        <div className="space-y-8 w-full p-6 pb-10">
             <DashboardTracker />
             <PaymentSuccessHandler />
-            {/* Header Section with Background */}
-            <div className="bg-slate-50 border-b border-slate-200 -mt-4 -mx-4 px-8 py-8 mb-8">
-                <div className="flex items-center justify-between px-4">
+            <div className="relative overflow-hidden rounded-[28px] border border-[#d9e8df] bg-white/70 backdrop-blur-sm shadow-[0_24px_70px_rgba(30,64,48,0.10)] px-6 md:px-8 py-7 md:py-8">
+                <div className="pointer-events-none absolute -left-20 top-8 h-44 w-44 rounded-full bg-[#d5ebe0] blur-3xl" />
+                <div className="pointer-events-none absolute -right-16 top-0 h-52 w-52 rounded-full bg-[#dff1e8] blur-3xl" />
+                <div className="relative flex items-center justify-between gap-4">
                     <div>
                         <h1 className="font-serif text-3xl text-[#224034]">Overview</h1>
                         <p className="text-slate-500 mt-1">Track your AEO performance across all sites.</p>
@@ -60,15 +47,15 @@ export default async function DashboardPage() {
                 </div>
             </div>
 
-            <div className="px-4 space-y-8">
+            <div className="space-y-8">
                 {/* Active Top Cards */}
                 <DashboardStats siteCount={siteCount} maxSites={maxSites} sites={sites || []} />
 
                 {/* Site Health Grid */}
                 {sites && sites.length > 0 ? (
-                    <SiteHealthGrid sites={sites} isFreePlan={isFreePlan} />
+                    <SiteHealthGrid sites={sites} isFreePlan={false} />
                 ) : (
-                    <Card className="border-slate-200 shadow-xs min-h-[400px]">
+                    <Card className="min-h-[400px] border-[#d9e8df] bg-white/75 backdrop-blur-sm shadow-[0_12px_40px_rgba(30,64,48,0.08)]">
                         <CardHeader>
                             <CardTitle className="text-[#224034] font-serif">Site Health Grid</CardTitle>
                         </CardHeader>

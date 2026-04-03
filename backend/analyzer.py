@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+from contextvars import ContextVar
 from dotenv import load_dotenv
 import httpx
 from bs4 import BeautifulSoup
@@ -13,24 +14,177 @@ load_dotenv()
 from groq import AsyncGroq
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+EDEN_API_KEY = os.getenv("EDEN_API_KEY")
+EDEN_API_BASE_URL = os.getenv("EDEN_API_BASE_URL", "https://api.edenai.run")
+EDEN_DEFAULT_MODEL = os.getenv("EDEN_DEFAULT_MODEL", "openai/gpt-4o-mini")
+
+_LLM_PROVIDER: ContextVar[str] = ContextVar("llm_provider", default="groq")
+_LLM_MODEL: ContextVar[str] = ContextVar("llm_model", default=EDEN_DEFAULT_MODEL)
+_LLM_USAGE: ContextVar[dict] = ContextVar(
+    "llm_usage",
+    default={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "requests": 0},
+)
+
+
+def _new_usage_bucket() -> dict:
+    return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "requests": 0}
+
+
+def _to_int(value) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _extract_usage_from_payload(payload: dict | None) -> tuple[int, int, int]:
+    if not isinstance(payload, dict):
+        return 0, 0, 0
+
+    candidates: list[dict] = []
+    direct_usage = payload.get("usage")
+    if isinstance(direct_usage, dict):
+        candidates.append(direct_usage)
+    if isinstance(payload.get("token_usage"), dict):
+        candidates.append(payload["token_usage"])
+    if isinstance(payload.get("meta"), dict) and isinstance(payload["meta"].get("usage"), dict):
+        candidates.append(payload["meta"]["usage"])
+
+    for candidate in candidates:
+        prompt_tokens = _to_int(candidate.get("prompt_tokens") or candidate.get("input_tokens"))
+        completion_tokens = _to_int(candidate.get("completion_tokens") or candidate.get("output_tokens"))
+        total_tokens = _to_int(candidate.get("total_tokens"))
+        if total_tokens <= 0:
+            total_tokens = prompt_tokens + completion_tokens
+        if total_tokens > 0 or prompt_tokens > 0 or completion_tokens > 0:
+            return prompt_tokens, completion_tokens, total_tokens
+
+    return 0, 0, 0
+
+
+def _record_usage(prompt_tokens: int = 0, completion_tokens: int = 0, total_tokens: int = 0) -> None:
+    usage = _LLM_USAGE.get()
+    if not isinstance(usage, dict):
+        usage = _new_usage_bucket()
+    else:
+        usage = dict(usage)
+
+    p = max(_to_int(prompt_tokens), 0)
+    c = max(_to_int(completion_tokens), 0)
+    t = max(_to_int(total_tokens), 0)
+    if t <= 0:
+        t = p + c
+
+    usage["prompt_tokens"] = _to_int(usage.get("prompt_tokens")) + p
+    usage["completion_tokens"] = _to_int(usage.get("completion_tokens")) + c
+    usage["total_tokens"] = _to_int(usage.get("total_tokens")) + t
+    usage["requests"] = _to_int(usage.get("requests")) + 1
+    _LLM_USAGE.set(usage)
+
+
+def set_llm_runtime(provider: str = "groq", model: str | None = None):
+    provider_token = _LLM_PROVIDER.set((provider or "groq").lower())
+    model_token = _LLM_MODEL.set(model or EDEN_DEFAULT_MODEL)
+    usage_token = _LLM_USAGE.set(_new_usage_bucket())
+    return provider_token, model_token, usage_token
+
+
+def reset_llm_runtime(tokens) -> None:
+    provider_token, model_token, usage_token = tokens
+    _LLM_PROVIDER.reset(provider_token)
+    _LLM_MODEL.reset(model_token)
+    _LLM_USAGE.reset(usage_token)
+
+
+def get_llm_usage_snapshot() -> dict:
+    usage = _LLM_USAGE.get()
+    if not isinstance(usage, dict):
+        return _new_usage_bucket()
+    return {
+        "prompt_tokens": _to_int(usage.get("prompt_tokens")),
+        "completion_tokens": _to_int(usage.get("completion_tokens")),
+        "total_tokens": _to_int(usage.get("total_tokens")),
+        "requests": _to_int(usage.get("requests")),
+    }
+
+
+def _extract_json_content(raw_content: str) -> dict | None:
+    if not raw_content:
+        return None
+    try:
+        return json.loads(raw_content)
+    except json.JSONDecodeError:
+        cleaned = raw_content.replace("```json", "").replace("```", "").strip()
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            return None
+
+
+async def _query_eden_llm(prompt: str, json_mode: bool = True, temperature: float = 0.3) -> dict | str | None:
+    if not EDEN_API_KEY:
+        return None
+
+    model = _LLM_MODEL.get() or EDEN_DEFAULT_MODEL
+    endpoint = f"{EDEN_API_BASE_URL.rstrip('/')}/v3/llm/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {EDEN_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload: dict = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": temperature,
+        "stream": False,
+    }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+
+    try:
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            response = await client.post(endpoint, headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+    except Exception as e:
+        print(f"❌ [AI] Eden Exception: {e}")
+        return None
+
+    content = (
+        data.get("choices", [{}])[0]
+        .get("message", {})
+        .get("content", "")
+    )
+    prompt_tokens, completion_tokens, total_tokens = _extract_usage_from_payload(data)
+    _record_usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens)
+
+    if json_mode:
+        return _extract_json_content(content)
+    return content
 
 # --- AI Helper Function ---
 
 async def query_llm(prompt: str, json_mode: bool = True, temperature: float = 0.3) -> dict | str | None:
     """
-    Queries Groq (Llama 3 70B).
+    Queries configured LLM provider.
     Returns a dict if json_mode is True, otherwise a string.
     """
-    
+    provider = (_LLM_PROVIDER.get() or "groq").lower()
+    if provider == "eden":
+        print("⚡ [AI] Using Eden API...")
+        eden_result = await _query_eden_llm(prompt, json_mode=json_mode, temperature=temperature)
+        if eden_result is not None:
+            return eden_result
+        print("⚠️ [AI] Eden call failed. Falling back to Groq.")
+
     if not GROQ_API_KEY:
         print("❌ [AI] Groq API Key missing!")
         return None
 
-    print(f"⚡ [AI] Using Groq (LLaMA 3.3 70B)...")
-    
+    print("⚡ [AI] Using Groq (LLaMA 3.3 70B)...")
+
     try:
         client = AsyncGroq(api_key=GROQ_API_KEY)
-        
+
         chat_completion = await client.chat.completions.create(
             messages=[
                 {
@@ -44,15 +198,15 @@ async def query_llm(prompt: str, json_mode: bool = True, temperature: float = 0.
         )
 
         content = chat_completion.choices[0].message.content
-        
+        usage_obj = getattr(chat_completion, "usage", None)
+        prompt_tokens = _to_int(getattr(usage_obj, "prompt_tokens", 0))
+        completion_tokens = _to_int(getattr(usage_obj, "completion_tokens", 0))
+        total_tokens = _to_int(getattr(usage_obj, "total_tokens", 0))
+        _record_usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens)
+
         if json_mode:
-            try:
-                return json.loads(content)
-            except json.JSONDecodeError:
-                # Sometimes Llama wraps in markdown even with json_mode
-                cleaned = content.replace('```json', '').replace('```', '').strip()
-                return json.loads(cleaned)
-                
+            return _extract_json_content(content)
+
         return content
 
     except Exception as e:

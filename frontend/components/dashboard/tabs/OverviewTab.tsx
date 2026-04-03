@@ -1,5 +1,6 @@
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import Image from "next/image"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -7,6 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { BarChart3, Info, FileText, AlertCircle, Sparkles, Code, Search, Check, Clock, Cpu } from "lucide-react"
 import { AEOReport } from "@/types/aeo"
 import { useToast } from "@/components/ui/use-toast"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface OverviewTabProps {
     activeReport: AEOReport
@@ -16,7 +18,231 @@ interface OverviewTabProps {
     domain?: string
 }
 
-// ... imports remain the same
+type EngineKey =
+    | "chatgpt"
+    | "gemini"
+    | "claude"
+    | "perplexity"
+    | "searchgpt"
+    | "meta"
+    | "grok"
+    | "mistral"
+    | "you"
+
+type PromptResponse = {
+    engineKey: EngineKey
+    engineLabel: string
+    model: string
+    mentionRate: number
+    response: string
+    mentions: string[]
+}
+
+const ENGINE_META: Array<{
+    key: EngineKey
+    label: string
+    model: string
+    logo: string
+    fallbackOffset: number
+}> = [
+        { key: "chatgpt", label: "OpenAI", model: "GPT-5 Mini + Search", logo: "/logos/chatgpt-logo.png", fallbackOffset: 4 },
+        { key: "gemini", label: "Gemini", model: "Gemini 2.5 Flash + Search", logo: "/logos/gemini-logo.png", fallbackOffset: 1 },
+        { key: "claude", label: "Claude", model: "Claude Sonnet 4", logo: "/logos/claude-logo.png", fallbackOffset: 0 },
+        { key: "perplexity", label: "Perplexity", model: "Perplexity + Search", logo: "/logos/perplexity-logo.png", fallbackOffset: 2 },
+        { key: "searchgpt", label: "SearchGPT", model: "OpenAI Prototype", logo: "/logos/chatgpt-logo.png", fallbackOffset: 1 },
+        { key: "meta", label: "Meta AI", model: "Llama + Web Search", logo: "/logos/meta-logo.webp", fallbackOffset: -1 },
+        { key: "grok", label: "Grok", model: "Grok 3", logo: "/logos/grok-logo.svg", fallbackOffset: -2 },
+        { key: "mistral", label: "Mistral", model: "Le Chat Search", logo: "/logos/mistral-logo.png", fallbackOffset: -1 },
+        { key: "you", label: "You.com", model: "YouChat Pro", logo: "/logos/you-logo.png", fallbackOffset: 2 },
+    ]
+
+const ENGINE_AEO_COPY: Record<EngineKey, string> = {
+    chatgpt: "ChatGPT rewards pages that answer quickly, use simple wording, and show trust signals.",
+    gemini: "Gemini relies on clean heading structure and explicit section labels to parse your page.",
+    claude: "Claude performs best when content is broken into short Q&A style sections.",
+    perplexity: "Perplexity favors claims with nearby citations and source-backed language.",
+    searchgpt: "SearchGPT favors clear entity context and answer-first formatting for fast retrieval.",
+    meta: "Meta AI responds better to plain-language sections with clear topical focus.",
+    grok: "Grok prefers fast factual summaries and consistently crawlable content.",
+    mistral: "Mistral responds best to crisp section intent and short direct paragraphs.",
+    you: "You.com rewards clear answers paired with visible source proof.",
+}
+
+const ENGINE_GEO_COPY: Record<EngineKey, string> = {
+    chatgpt: "Use short answer-first blocks so quotes are extracted with minimal rewriting.",
+    gemini: "Keep one idea per paragraph and pair each heading with a plain-language summary line.",
+    claude: "Split dense text into clean chunks so generated summaries preserve your original meaning.",
+    perplexity: "Put source links right below major claims to improve citation confidence.",
+    searchgpt: "Add explicit entity definitions and one source-backed claim near the top of the page.",
+    meta: "Reduce jargon and use short direct wording so outputs stay accurate.",
+    grok: "Add a quick answer near the top and keep key pages freshly updated.",
+    mistral: "Tighten headings and simplify long sentences to improve quote accuracy.",
+    you: "Combine short paragraphs with citation-friendly source links under key claims.",
+}
+
+const ENGINE_FIX_COPY: Record<EngineKey, { exampleFix: string; copyPaste: string }> = {
+    chatgpt: {
+        exampleFix: "Add a short FAQ answer block under one key customer claim.",
+        copyPaste: `<h2>What problem does this service solve?</h2>\n<p>We help [audience] solve [specific problem] in [timeframe].</p>\n<p>Source: <a href="[source-url]">Supporting source</a></p>`,
+    },
+    gemini: {
+        exampleFix: "Rename vague headings and add one summary sentence under each heading.",
+        copyPaste: `<h2>Implementation Timeline</h2>\n<p>Most teams launch in [timeframe] with [onboarding step].</p>`,
+    },
+    claude: {
+        exampleFix: "Break one long paragraph into 2-3 Q&A blocks.",
+        copyPaste: `<h2>Frequently Asked Question</h2>\n<p><strong>Q:</strong> How long does setup take?</p>\n<p><strong>A:</strong> Most customers are live in [timeframe].</p>`,
+    },
+    perplexity: {
+        exampleFix: "Place source links directly below one important claim.",
+        copyPaste: `<p><strong>Claim:</strong> [Insert key claim]</p>\n<p>Source: <a href="[trusted-source-url]">Trusted source</a></p>`,
+    },
+    searchgpt: {
+        exampleFix: "Add one entity-focused summary line and a supporting source near the top.",
+        copyPaste: `<p><strong>Summary:</strong> [Brand] helps [audience] with [specific outcome].</p>\n<p>Source: <a href="[source-url]">Source link</a></p>`,
+    },
+    meta: {
+        exampleFix: "Rewrite one technical section into plain language with concrete wording.",
+        copyPaste: `<p>We help [audience] get [result] using [method], usually in [timeframe].</p>`,
+    },
+    grok: {
+        exampleFix: "Add a 2-line quick answer summary at the top of your page.",
+        copyPaste: `<p><strong>Quick answer:</strong> We help [audience] achieve [outcome] in [timeframe].</p>`,
+    },
+    mistral: {
+        exampleFix: "Clarify section names and shorten one long paragraph for direct quoting.",
+        copyPaste: `<h2>Pricing and Timeline</h2>\n<p>Plans start at [price]. Projects usually begin within [timeline].</p>`,
+    },
+    you: {
+        exampleFix: "Add alt text to a primary image and cite one source under a key claim.",
+        copyPaste: `<img alt="[Brand] service shown in use by customer" />\n<p><strong>Claim:</strong> [Insert key claim]</p>\n<p>Source: <a href="[source-url]">Source page</a></p>`,
+    },
+}
+
+function clamp(value: number, min = 0, max = 100) {
+    return Math.min(max, Math.max(min, value))
+}
+
+function average(values: number[]) {
+    if (!values.length) return 0
+    return values.reduce((sum, current) => sum + current, 0) / values.length
+}
+
+function toTitleCase(input: string) {
+    return input
+        .replace(/[-_]/g, " ")
+        .split(" ")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ")
+}
+
+function getDomain(rawUrl: string) {
+    try {
+        return new URL(rawUrl).hostname.replace(/^www\./, "")
+    } catch {
+        return rawUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
+    }
+}
+
+function getBrandName(domain: string) {
+    const parts = domain.split(".").filter(Boolean)
+    if (!parts.length) return "Your Brand"
+    const root = parts.length >= 2 ? parts[parts.length - 2] : parts[0]
+    return toTitleCase(root)
+}
+
+function formatCompetitorLabel(input: string) {
+    const trimmed = input.trim()
+    if (!trimmed) return ""
+
+    if (trimmed.includes(".")) {
+        try {
+            const normalized = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`
+            const host = new URL(normalized).hostname.replace(/^www\./, "")
+            const parts = host.split(".").filter(Boolean)
+            const root = parts.length >= 2 ? parts[parts.length - 2] : parts[0]
+            return toTitleCase(root)
+        } catch {
+            return toTitleCase(trimmed.replace(/^www\./, "").split(".")[0] || trimmed)
+        }
+    }
+
+    return toTitleCase(trimmed)
+}
+
+function pickEngineCompetitorPair(competitors: string[], engineIndex: number, prompt: string) {
+    if (!competitors.length) return { focus: "", support: "" }
+    const promptSeed = prompt.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0)
+    const focusIndex = (promptSeed + engineIndex) % competitors.length
+    const supportIndex = (focusIndex + 2) % competitors.length
+    const focus = competitors[focusIndex] ?? ""
+    const support = competitors.length > 1 ? competitors[supportIndex] ?? "" : ""
+    return { focus, support: support === focus ? "" : support }
+}
+
+function buildPromptResponses(
+    prompt: string,
+    brandName: string,
+    domain: string,
+    competitors: string[],
+    engines: Array<{ key: EngineKey; label: string; model: string; score: number }>
+): PromptResponse[] {
+    const styleByEngine: Record<EngineKey, { variation: number; fix: string; template: "analysis" | "structure" | "qa" | "citation" | "summary" }> = {
+        chatgpt: { variation: 4, fix: "add a short FAQ answer block and one cited source directly below the claim", template: "analysis" },
+        gemini: { variation: 2, fix: "rename vague headings and add one direct summary sentence under each section heading", template: "structure" },
+        claude: { variation: 0, fix: "split dense paragraphs into short Q&A sections and keep one idea per paragraph", template: "qa" },
+        perplexity: { variation: 3, fix: "place source links right under key claims to increase quote confidence", template: "citation" },
+        searchgpt: { variation: 1, fix: "add explicit entity context and one source-backed key claim near the top", template: "summary" },
+        meta: { variation: -2, fix: "simplify technical wording and add short plain-language summary lines", template: "summary" },
+        grok: { variation: -4, fix: "add a quick answer summary near the top and keep updates visible", template: "summary" },
+        mistral: { variation: -1, fix: "tighten heading clarity and shorten long paragraphs for direct quoting", template: "structure" },
+        you: { variation: 2, fix: "add one image alt text improvement and one cited source under a primary claim", template: "citation" },
+    }
+
+    return engines.map((engine, index) => {
+        const style = styleByEngine[engine.key]
+        const pair = pickEngineCompetitorPair(competitors, index, prompt)
+        const topCompetitors = [pair.focus, pair.support].filter(Boolean).join(" and ") || "other established brands"
+        const mentions = Array.from(new Set([brandName, pair.focus, pair.support].filter(Boolean))) as string[]
+        const mentionRate = clamp(
+            Math.round(
+                engine.score - (prompt.toLowerCase().includes("leading products") ? 18 : 10) + style.variation
+            )
+        )
+        const promptLower = prompt.toLowerCase()
+        const responseByTemplate: Record<typeof style.template, string> = {
+            analysis:
+                `${engine.label} signals that ${brandName} can perform well for "${promptLower}" when content stays answer-first and easy to verify. ` +
+                `In this snapshot, it aligns ${domain} closest with ${topCompetitors}. ` +
+                `Highest-impact fix: ${style.fix}.`,
+            structure:
+                `${engine.label} is likely to elevate ${brandName} on "${promptLower}" once heading hierarchy is cleaner and sections are easier to parse. ` +
+                `Current benchmark overlap is strongest with ${topCompetitors}. ` +
+                `Next step: ${style.fix}.`,
+            qa:
+                `${engine.label} currently reads ${domain} as relevant but not consistently quote-ready for "${promptLower}". ` +
+                `It clusters your page near ${topCompetitors}. ` +
+                `To improve reliability, ${style.fix}.`,
+            citation:
+                `${engine.label} rewards pages that prove claims. For "${promptLower}", ${brandName} is in range but still behind parts of ${topCompetitors}. ` +
+                `You can raise citation confidence if you ${style.fix}.`,
+            summary:
+                `${engine.label} can surface ${brandName} for "${promptLower}" when your page starts with a fast factual summary and clear entity context. ` +
+                `Right now, comparison signals trend toward ${topCompetitors}. ` +
+                `Recommended action: ${style.fix}.`,
+        }
+
+        return {
+            engineKey: engine.key,
+            engineLabel: engine.label,
+            model: engine.model,
+            mentionRate,
+            response: responseByTemplate[style.template],
+            mentions,
+        }
+    })
+}
 
 export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free', domain }: OverviewTabProps) {
     const { toast } = useToast()
@@ -26,6 +252,8 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
     const [isScheduling, setIsScheduling] = useState(false)
     const [isCancelling, setIsCancelling] = useState(false)
     const [nextScheduledFor, setNextScheduledFor] = useState<string | null>(null)
+    const [selectedEngineKey, setSelectedEngineKey] = useState<EngineKey | null>(null)
+    const [activePromptIndex, setActivePromptIndex] = useState(0)
 
     // Helper variables
     const failedQueries = activeReport.content?.missingAnswers || []
@@ -39,6 +267,116 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
     
     // Knowledge graph data
     const knowledgeGraph = activeReport.authority?.knowledge_graph || {} as any
+    const reportDomain = getDomain(domain || activeReport.domain || "")
+    const brandName = getBrandName(reportDomain)
+
+    const competitorCandidates = useMemo(() => {
+        const genericLabels = new Set(["wikipedia", "linkedin", "medium"])
+        const raw = activeReport.competitors?.top_competitors || []
+        return Array.from(
+            new Set(
+                raw
+                    .map(formatCompetitorLabel)
+                    .filter(Boolean)
+                    .filter((item) => !genericLabels.has(item.toLowerCase()))
+                    .filter((item) => item.toLowerCase() !== brandName.toLowerCase())
+            )
+        ).slice(0, 6)
+    }, [activeReport.competitors?.top_competitors, brandName])
+
+    const engineRows = useMemo(() => {
+        return ENGINE_META.map((engine) => {
+            const fromReport = activeReport.engineScores?.[engine.key]
+            const fallback = clamp(aeoScore + engine.fallbackOffset)
+            return {
+                ...engine,
+                score: typeof fromReport === "number" ? clamp(fromReport) : fallback,
+            }
+        })
+    }, [activeReport.engineScores, aeoScore])
+
+    const engineIssueByKey = useMemo(() => ({
+        chatgpt:
+            activeReport.content?.readabilityGrade && activeReport.content.readabilityGrade > 12
+                ? "Your content is hard to read in places. ChatGPT prefers simple, direct wording."
+                : "Add more answer-first blocks and proof links for stronger ChatGPT extraction.",
+        gemini:
+            !activeReport.technical?.robotsTxt
+                ? "Crawler access looks limited. Gemini may miss key pages."
+                : "Use clearer headings and section labels for Gemini understanding.",
+        claude:
+            (activeReport.content?.questionTargetingScore || 0) < 3
+                ? "Question-led structure is limited, so Claude has less clean Q&A context."
+                : "Break long sections into short, explicit Q&A blocks.",
+        perplexity:
+            (activeReport.technical?.schema?.length || 0) === 0
+                ? "Structured citation signals are weak, reducing quote confidence."
+                : "Add source links directly under key claims for stronger citations.",
+        searchgpt:
+            !activeReport.technical?.llmsTxt
+                ? "No llms.txt detected, so SearchGPT may miss concise agent-friendly summaries."
+                : "Improve entity clarity near the top so SearchGPT can retrieve key claims faster.",
+        meta:
+            activeReport.content?.readabilityGrade && activeReport.content.readabilityGrade > 11
+                ? "Complex wording reduces recall quality for Meta AI."
+                : "Use more plain-language summaries and direct section intent.",
+        grok:
+            !activeReport.technical?.sitemap
+                ? "Discovery signals are weak. Grok may miss fresh updates."
+                : "Keep fast factual summaries near the top for better pickup.",
+        mistral:
+            activeReport.content?.readabilityGrade && activeReport.content.readabilityGrade > 11
+                ? "Long, complex paragraphs lower quote quality for Mistral."
+                : "Tighten section intent and simplify long paragraphs.",
+        you:
+            (activeReport.content?.visualContextScore || 0) < 70
+                ? "Visual context signals are weak. You.com may skip key page evidence."
+                : "Add source-backed claims and maintain clear image context for better extraction.",
+    }), [
+        activeReport.content?.questionTargetingScore,
+        activeReport.content?.readabilityGrade,
+        activeReport.content?.visualContextScore,
+        activeReport.technical?.llmsTxt,
+        activeReport.technical?.robotsTxt,
+        activeReport.technical?.schema,
+        activeReport.technical?.sitemap,
+    ])
+
+    const promptBundles = useMemo(() => {
+        const prompts = [
+            `What customer problems does ${brandName} solve best?`,
+            `How does ${brandName} compare with leading alternatives?`,
+            `Why should buyers trust ${brandName}?`,
+        ]
+
+        const avgScore = average(engineRows.map((engine) => engine.score))
+        const baseRates = [
+            clamp(Math.round(avgScore - 8)),
+            clamp(Math.round(avgScore - 12)),
+            clamp(Math.round(avgScore - 10)),
+        ]
+
+        return prompts.map((prompt, index) => ({
+            id: `prompt-${index + 1}`,
+            prompt,
+            mentionRate: baseRates[index] ?? clamp(Math.round(avgScore - 10)),
+            responses: buildPromptResponses(
+                prompt,
+                brandName,
+                reportDomain || activeReport.domain || "your-site.com",
+                competitorCandidates,
+                engineRows.map((engine) => ({
+                    key: engine.key,
+                    label: engine.label,
+                    model: engine.model,
+                    score: engine.score,
+                }))
+            ),
+        }))
+    }, [activeReport.domain, brandName, competitorCandidates, engineRows, reportDomain])
+
+    const activePrompt = promptBundles[activePromptIndex] || promptBundles[0]
+    const selectedEngine = engineRows.find((engine) => engine.key === selectedEngineKey) || null
 
     useEffect(() => {
         const loadScheduledStatus = async () => {
@@ -599,6 +937,174 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                 </div>
             </div>
 
+            <div className="space-y-6">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-bold text-slate-800">AI Engine Visibility Estimate</h3>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Click card for AEO/GEO details</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                        {engineRows.map((engine) => (
+                            <button
+                                key={engine.key}
+                                type="button"
+                                onClick={() => setSelectedEngineKey(engine.key)}
+                                className="rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100/80 text-left p-4 transition-colors"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Image
+                                        src={engine.logo}
+                                        alt={`${engine.label} logo`}
+                                        width={18}
+                                        height={18}
+                                        className="w-[18px] h-[18px] object-contain"
+                                    />
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-800">{engine.label}</p>
+                                        <p className="text-[11px] text-slate-500">{engine.model}</p>
+                                    </div>
+                                </div>
+                                <div className="mt-2 flex items-end gap-1">
+                                    <span className="text-2xl font-semibold text-[#224034]">{engine.score}</span>
+                                    <span className="text-xs text-slate-400 mb-1">/100</span>
+                                </div>
+                                <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${engine.score}%` }} />
+                                </div>
+                                <p className="mt-3 text-[10px] uppercase tracking-wider text-red-500 font-semibold">Core Issue</p>
+                                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                                    {engineIssueByKey[engine.key]}
+                                </p>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                    <h3 className="text-lg font-bold text-slate-800">Query Responses by Engine</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                        Simulated from your site audit signals (not live per-engine web queries).
+                    </p>
+                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                            {promptBundles.map((item, index) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => setActivePromptIndex(index)}
+                                    className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${index === activePromptIndex
+                                            ? "border-slate-400 bg-slate-100"
+                                            : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                                        }`}
+                                >
+                                    <p className="text-sm text-slate-800 leading-snug">{item.prompt}</p>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Mention rate: <strong className="text-slate-700">{item.mentionRate}%</strong>
+                                    </p>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="lg:col-span-2 space-y-3">
+                            {(activePrompt?.responses || []).map((entry) => (
+                                <div key={`${activePrompt?.id}-${entry.engineKey}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Image
+                                                src={
+                                                    ENGINE_META.find((engine) => engine.key === entry.engineKey)?.logo ||
+                                                    "/logos/chatgpt-logo.png"
+                                                }
+                                                alt={`${entry.engineLabel} logo`}
+                                                width={16}
+                                                height={16}
+                                                className="w-4 h-4 object-contain"
+                                            />
+                                            <p className="font-semibold text-slate-800">{entry.engineLabel}</p>
+                                            <p className="text-xs text-slate-500">{entry.model}</p>
+                                        </div>
+                                        <span className="text-xs rounded-md bg-white px-2 py-1 border border-slate-200 text-slate-600">
+                                            {entry.mentionRate}%
+                                        </span>
+                                    </div>
+                                    <p className="mt-2 text-sm text-slate-600 leading-relaxed">{entry.response}</p>
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                        {entry.mentions.slice(0, 6).map((mention) => (
+                                            <span
+                                                key={`${entry.engineKey}-${mention}`}
+                                                className="text-[11px] rounded-md bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5"
+                                            >
+                                                {mention}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <Dialog
+                open={Boolean(selectedEngine)}
+                onOpenChange={(open) => {
+                    if (!open) setSelectedEngineKey(null)
+                }}
+            >
+                <DialogContent className="sm:max-w-4xl border border-slate-200 bg-white">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-serif text-[#224034]">
+                            {selectedEngine?.label} Visibility Breakdown
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        <p className="text-base text-slate-600">
+                            {selectedEngine?.model} • Visibility estimate: {selectedEngine?.score || 0}/100
+                        </p>
+                        <p className="text-sm text-slate-500">
+                            AEO means getting found by AI search. GEO means getting quoted correctly in AI answers.
+                        </p>
+
+                        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                            <p className="text-[11px] uppercase tracking-wider text-red-600 font-semibold">Current Issue</p>
+                            <p className="text-sm text-slate-700 mt-1">
+                                {selectedEngine ? engineIssueByKey[selectedEngine.key] : ""}
+                            </p>
+                        </div>
+
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                            <p className="text-[11px] uppercase tracking-wider text-emerald-700 font-semibold">How This Engine Uses AEO</p>
+                            <p className="text-sm text-slate-700 mt-1">
+                                {selectedEngine ? ENGINE_AEO_COPY[selectedEngine.key] : ""}
+                            </p>
+                        </div>
+
+                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                            <p className="text-[11px] uppercase tracking-wider text-blue-700 font-semibold">How This Engine Uses GEO</p>
+                            <p className="text-sm text-slate-700 mt-1">
+                                {selectedEngine ? ENGINE_GEO_COPY[selectedEngine.key] : ""}
+                            </p>
+                        </div>
+
+                        <div className="rounded-xl border border-violet-200 bg-violet-50 p-4">
+                            <p className="text-[11px] uppercase tracking-wider text-violet-700 font-semibold">
+                                Example Fix for {(reportDomain || activeReport.domain || "your-site.com").toUpperCase()}
+                            </p>
+                            <p className="text-sm text-slate-700 mt-1">
+                                {selectedEngine ? ENGINE_FIX_COPY[selectedEngine.key].exampleFix : ""}
+                            </p>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-[11px] uppercase tracking-wider text-slate-600 font-semibold">Copy/Paste Example</p>
+                            <pre className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 whitespace-pre-wrap break-words">
+                                {selectedEngine ? ENGINE_FIX_COPY[selectedEngine.key].copyPaste : ""}
+                            </pre>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
         </div>
     )

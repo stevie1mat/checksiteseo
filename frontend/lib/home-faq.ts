@@ -32,7 +32,7 @@ export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
     question: "Can I try CheckSite AEO before committing?",
     answer:
-      "Yes. We offer a free tier with 5 URL scans per month, and paid plans include a 14-day trial period.",
+      "Yes. Every account gets free tokens daily, and you can buy one-time token packs anytime if you need more scans.",
   },
   {
     question: "How often should I run AEO audits?",
@@ -52,7 +52,7 @@ export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
     question: "Does CheckSite AEO integrate with my existing tools?",
     answer:
-      "Yes. Pro plans include API access and support integration with CMS, analytics, and workflow tools.",
+      "Yes. CheckSite AEO supports integrations with CMS, analytics, and workflow tools for teams and advanced users.",
   },
   {
     question: "What makes your E-E-A-T analysis unique?",
@@ -67,6 +67,6 @@ export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
     question: "Is there a limit to how many URLs I can analyze?",
     answer:
-      "The Free plan includes 5 scans per month, while paid plans increase scan and site limits substantially.",
+      "Scans are token-based. You receive free tokens daily and can top up with token packs whenever you need more.",
   },
 ];

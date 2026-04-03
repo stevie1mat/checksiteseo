@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { RescanButton } from "@/components/RescanButton"
 import { SiteReportView } from "@/components/dashboard/SiteReportView"
-import { ArrowLeft, Globe, Calendar } from "lucide-react"
+import { ArrowLeft, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
@@ -25,9 +25,7 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
         .eq('user_id', user.id)
         .single()
 
-    // Fetch user profile for tier
-    const { data: profile } = await supabase.from('profiles').select('subscription_tier').eq('id', user.id).single()
-    const tier = profile?.subscription_tier || 'free'
+    const tier = 'pro'
 
     if (!site) {
         notFound()
@@ -58,7 +56,14 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
                     <h1 className="text-2xl font-serif text-[#224034]">{site.name || site.url}</h1>
                     <p className="text-slate-500 text-sm">{site.url}</p>
                 </div>
-                <div className="ml-auto">
+                <div className="ml-auto flex items-center gap-2">
+                    <Link
+                        href={`/dashboard/sites/${site.id}/chat`}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-[#224034] bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                    >
+                        <MessageSquare className="h-4 w-4" />
+                        AI Chat
+                    </Link>
                     <RescanButton siteId={site.id} url={site.url} />
                 </div>
             </div>
@@ -75,6 +80,7 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
                     content: breakdown?.content_score || 0,
                     authority: breakdown?.authority_score || breakdown?.authority?.eeat?.score || 0
                 },
+                engineScores: breakdown?.engine_scores || {},
 
                 technical: {
                     robotsTxt: breakdown?.technical?.robots?.status === 'valid',
@@ -131,7 +137,11 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
 
                 competitors: {
                     yourShare: site.competitors?.yourShare || 0,
-                    others: site.competitors?.others || 100
+                    others: site.competitors?.others || 100,
+                    top_competitors:
+                        breakdown?.competitors?.top_competitors ||
+                        site.competitors?.top_competitors ||
+                        []
                 }
             }} />
         </div>

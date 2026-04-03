@@ -22,17 +22,6 @@ export default async function ShareOfVoicePage({ params }: { params: { id: strin
         redirect('/dashboard')
     }
 
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('subscription_tier')
-        .eq('id', user.id)
-        .single()
-
-    const tier = profile?.subscription_tier || 'free'
-    if (tier !== 'pro') {
-        redirect('/dashboard/billing?upgrade=pro')
-    }
-
     // Fetch latest scan
     const { data: pages } = await supabase
         .from('pages')

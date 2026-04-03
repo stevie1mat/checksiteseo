@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
-import { Globe, ArrowRight, Activity, CheckCircle, AlertTriangle, Zap, Clock, Trash2, Loader2 } from "lucide-react"
+import { Globe, ArrowRight, Activity, CheckCircle, AlertTriangle, Zap, Clock, Trash2, Loader2, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -159,8 +159,8 @@ export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProp
 
     return (
         <>
-            <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
-                <CardHeader className="py-4 px-6 border-b border-slate-100 bg-white">
+            <Card className="border-[#d9e8df] bg-white/75 backdrop-blur-sm shadow-[0_14px_46px_rgba(30,64,48,0.08)] overflow-hidden">
+                <CardHeader className="py-4 px-6 border-b border-[#e2efe8] bg-white/70">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-[#224034] font-serif text-lg tracking-wide">Site Health Grid</CardTitle>
                     </div>
@@ -168,7 +168,7 @@ export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProp
                 <div className="p-0">
                     <Table>
                         <TableHeader>
-                            <TableRow className="hover:bg-transparent border-slate-100 bg-slate-50/50">
+                            <TableRow className="hover:bg-transparent border-[#e2efe8] bg-[#edf6f1]/60">
                                 <TableHead className="w-[300px] pl-6 h-10 text-xs font-semibold tracking-widest text-slate-500 uppercase">Client / Site</TableHead>
                                 <TableHead className="h-10 text-xs font-semibold tracking-widest text-slate-500 uppercase">Health Status</TableHead>
                                 <TableHead className="h-10 text-xs font-semibold tracking-widest text-slate-500 uppercase">Last Change</TableHead>
@@ -190,7 +190,7 @@ export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProp
                                 const daysRemaining = 15 - daysSinceCreation
 
                                 return (
-                                    <TableRow key={site.id} className="group border-slate-100 hover:bg-slate-50 transition-all duration-200">
+                                    <TableRow key={site.id} className="group border-[#e5f0ea] hover:bg-[#f5fbf8] transition-all duration-200">
                                         <TableCell className="py-4 pl-6">
                                             <div className="flex items-center gap-3">
                                                 <div className="h-10 w-10 rounded-full bg-[#224034]/5 flex items-center justify-center text-[#224034] ring-1 ring-slate-200 shadow-sm">
@@ -275,6 +275,18 @@ export function SiteHealthGrid({ sites, isFreePlan = false }: SiteHealthGridProp
                                                 <Link href={`/dashboard/sites/${site.id}`} className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-white text-slate-400 hover:text-[#224034] hover:bg-slate-50 border border-slate-200 hover:border-[#224034]/30 transition-all shadow-sm">
                                                     <ArrowRight className="w-4 h-4" />
                                                 </Link>
+                                                <TooltipProvider>
+                                                    <Tooltip delayDuration={0}>
+                                                        <TooltipTrigger asChild>
+                                                            <Link href={`/dashboard/sites/${site.id}/chat`} className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-white text-slate-400 hover:text-[#224034] hover:bg-slate-50 border border-slate-200 hover:border-[#224034]/30 transition-all shadow-sm">
+                                                                <MessageSquare className="w-4 h-4" />
+                                                            </Link>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent className="max-w-[200px] text-center">
+                                                            <p>Open AI chat for this site</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
                                             </div>
                                         </TableCell>
                                     </TableRow>

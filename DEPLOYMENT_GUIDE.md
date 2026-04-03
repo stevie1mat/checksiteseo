@@ -120,6 +120,9 @@ SUPABASE_SERVICE_KEY=your-supabase-service-key
 GEMINI_API_KEY=your-gemini-key
 MISTRAL_API_KEY=your-mistral-key
 GROQ_API_KEY=your-groq-key
+EDEN_API_KEY=your-eden-key
+EDEN_API_BASE_URL=https://api.edenai.run
+EDEN_DEFAULT_MODEL=openai/gpt-4o-mini
 ```
 
 #### Services:
@@ -127,8 +130,17 @@ GROQ_API_KEY=your-groq-key
 RESEND_API_KEY=your-resend-key
 STRIPE_SECRET_KEY=your-stripe-secret
 STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret
-STRIPE_PRICE_ID_PLUS=your-plus-price-id
-STRIPE_PRICE_ID_PRO=your-pro-price-id
+STRIPE_PRICE_ID_TOKENS_STARTER=your-starter-pack-price-id
+STRIPE_PRICE_ID_TOKENS_GROWTH=your-growth-pack-price-id
+STRIPE_PRICE_ID_TOKENS_SCALE=your-scale-pack-price-id
+DAILY_FREE_TOKENS=1000
+TOKENS_PER_SCAN=1000
+TOKENS_PER_CHAT=300
+MAX_SITES_PER_USER=100
+TOKEN_PACK_STARTER_TOKENS=100
+TOKEN_PACK_GROWTH_TOKENS=500
+TOKEN_PACK_SCALE_TOKENS=2000
+ENABLE_LEGACY_PLAN_GATES=false
 ```
 
 #### Optional:
