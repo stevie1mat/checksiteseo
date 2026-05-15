@@ -213,6 +213,30 @@ export default function AeoCheckerToolPage() {
         </div>
       </section>
 
+      <section className="pb-20 px-6">
+        <div className="max-w-5xl mx-auto rounded-2xl bg-white border border-slate-200 p-8 md:p-10">
+          <h2 className="font-serif text-3xl text-[#224034] mb-5">Related AEO resources</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-700">
+            <Link href="/aeo-grader" className="rounded-xl border border-slate-200 bg-slate-50 p-5 hover:border-[#8cd9b8] transition-colors">
+              <h3 className="font-serif text-2xl text-[#224034] mb-2">AEO Grader</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">Get a quick score benchmark before running a deeper audit.</p>
+            </Link>
+            <Link href="/sample-aeo-report" className="rounded-xl border border-slate-200 bg-slate-50 p-5 hover:border-[#8cd9b8] transition-colors">
+              <h3 className="font-serif text-2xl text-[#224034] mb-2">Sample AEO Report</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">Review what a useful AI visibility report should contain.</p>
+            </Link>
+            <Link href="/aeo-checker-vs-aeo-grader" className="rounded-xl border border-slate-200 bg-slate-50 p-5 hover:border-[#8cd9b8] transition-colors">
+              <h3 className="font-serif text-2xl text-[#224034] mb-2">AEO Checker vs Grader</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">Choose the right tool for benchmarking, diagnosis, or monitoring.</p>
+            </Link>
+            <Link href="/how-to-improve-aeo-score" className="rounded-xl border border-slate-200 bg-slate-50 p-5 hover:border-[#8cd9b8] transition-colors">
+              <h3 className="font-serif text-2xl text-[#224034] mb-2">How to Improve AEO Score</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">Learn the highest-impact fixes for technical setup, content, and trust.</p>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <Footer />
     </main>
   );

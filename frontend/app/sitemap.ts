@@ -55,6 +55,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.85,
     },
     {
+      url: `${baseUrl}/aeo-grader`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.84,
+    },
+    {
       url: `${baseUrl}/aeo-software`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
@@ -65,6 +71,30 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.85,
+    },
+    {
+      url: `${baseUrl}/sample-aeo-report`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/aeo-checker-vs-aeo-grader`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.78,
+    },
+    {
+      url: `${baseUrl}/how-to-improve-aeo-score`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.78,
+    },
+    {
+      url: `${baseUrl}/ai-seo-checker`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
     },
     {
       url: `${baseUrl}/about`,

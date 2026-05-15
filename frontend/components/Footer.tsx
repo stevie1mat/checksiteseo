@@ -136,9 +136,14 @@ export function Footer() {
                         <h4 className="font-semibold mb-4 text-white">Resources</h4>
                         <ul className="space-y-3 text-sm text-white/60">
                             <li><Link href="/aeo-checker-tool" className="hover:text-white transition-colors">AEO Checker Tool</Link></li>
+                            <li><Link href="/aeo-grader" className="hover:text-white transition-colors">AEO Grader</Link></li>
                             <li><Link href="/aeo-readiness" className="hover:text-white transition-colors">AEO Readiness</Link></li>
                             <li><Link href="/aeo-monitoring" className="hover:text-white transition-colors">AEO Monitoring</Link></li>
                             <li><Link href="/aeo-audit" className="hover:text-white transition-colors">Free AEO Audit</Link></li>
+                            <li><Link href="/sample-aeo-report" className="hover:text-white transition-colors">Sample AEO Report</Link></li>
+                            <li><Link href="/aeo-checker-vs-aeo-grader" className="hover:text-white transition-colors">AEO Checker vs Grader</Link></li>
+                            <li><Link href="/how-to-improve-aeo-score" className="hover:text-white transition-colors">Improve AEO Score</Link></li>
+                            <li><Link href="/ai-seo-checker" className="hover:text-white transition-colors">AI SEO Checker</Link></li>
                             <li><Link href="/aeo-software" className="hover:text-white transition-colors">Best AEO Software</Link></li>
                             <li><Link href="/aeo-tracker" className="hover:text-white transition-colors">AEO Tracker Hub</Link></li>
                             <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
