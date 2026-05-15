@@ -31,7 +31,7 @@ export default async function SitesPage() {
         .limit(30, { referencedTable: 'site_history' })
 
     const siteCount = sites?.length || 0
-    const MAX_SITES = Number(process.env.NEXT_PUBLIC_MAX_SITES_PER_USER || 100)
+    const MAX_SITES = Number(process.env.NEXT_PUBLIC_MAX_SITES_PER_USER || 25)
 
     return (
         <div className="space-y-8 w-full p-6 pb-10">

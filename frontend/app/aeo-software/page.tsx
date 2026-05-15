@@ -46,7 +46,7 @@ export default function AeoSoftwarePage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button asChild size="lg" className="bg-[#8cd9b8] hover:bg-[#7bcfa7] text-[#16211d] h-14 px-8 rounded-full font-bold text-lg shadow-lg">
-              <Link href="/#pricing">Start 14-Day Free Trial</Link>
+              <Link href="/signup">Start Free</Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="border-emerald-400 text-emerald-400 hover:bg-emerald-400/10 h-14 px-8 rounded-full font-bold text-lg">
               <Link href="/aeo-checker-tool">Run Free Scan</Link>

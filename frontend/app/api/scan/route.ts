@@ -8,7 +8,44 @@ export const dynamic = 'force-dynamic'
 const routeScanSchema = z.object({
     url: urlSchema,
     siteId: uuidSchema.optional().nullable(),
+    initialScan: z.boolean().optional().default(false),
 });
+
+const extractReadabilityGrade = (readability: any): number => {
+    const directGrade = Number(readability?.grade)
+    if (Number.isFinite(directGrade) && directGrade > 0) {
+        return directGrade
+    }
+
+    const firstDetail = readability?.details?.[0]
+    if (typeof firstDetail === "string") {
+        const match = firstDetail.match(/Grade\s+([0-9]+(?:\.[0-9]+)?)/i)
+        if (match?.[1]) {
+            const parsed = Number(match[1])
+            if (Number.isFinite(parsed) && parsed > 0) return parsed
+        }
+    }
+
+    return 0
+}
+
+const extractQuestionTargetingScore = (questions: any): number => {
+    const detail = questions?.details?.[0]
+    if (typeof detail === "string") {
+        const detailMatch = detail.match(/([0-9]+)\s*\/\s*5/i)
+        if (detailMatch?.[1]) {
+            const parsed = Number(detailMatch[1])
+            if (Number.isFinite(parsed)) return Math.max(0, Math.min(5, parsed))
+        }
+    }
+
+    const score = Number(questions?.score)
+    if (Number.isFinite(score) && score > 0) {
+        return Math.max(0, Math.min(5, Math.round(score / 20)))
+    }
+
+    return 0
+}
 
 export async function POST(request: Request) {
     try {
@@ -20,7 +57,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: validation.error.flatten().fieldErrors }, { status: 400 });
         }
 
-        const { siteId, url } = validation.data
+        const { siteId, url, initialScan } = validation.data
         const supabase = createClient()
 
         console.log(`[Scan API] Proxying scan to Python Backend for: ${url}`)
@@ -35,11 +72,42 @@ export async function POST(request: Request) {
         // Fetch current site data
         const { data: currentSite } = await supabase
             .from('sites')
-            .select('last_scanned_at')
+            .select('last_scanned_at, status')
             .eq('id', siteId)
             .single()
 
+        if (currentSite?.status === 'analyzing') {
+            return NextResponse.json(
+                { error: 'A scan is already in progress for this site.' },
+                { status: 409 }
+            )
+        }
+
         const ENABLE_RATE_LIMIT = process.env.ENABLE_RATE_LIMIT === 'true';
+
+        if (ENABLE_RATE_LIMIT) {
+            const { data: latestUserScan } = await supabase
+                .from('sites')
+                .select('last_scanned_at')
+                .eq('user_id', user.id)
+                .not('last_scanned_at', 'is', null)
+                .order('last_scanned_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+
+            if (latestUserScan?.last_scanned_at) {
+                const lastScan = new Date(latestUserScan.last_scanned_at)
+                const now = new Date()
+                const diffHours = (now.getTime() - lastScan.getTime()) / (1000 * 60 * 60)
+
+                if (diffHours < 24) {
+                    return NextResponse.json(
+                        { error: 'Rate limit exceeded: 1 scan per 24h allowed.' },
+                        { status: 429 }
+                    )
+                }
+            }
+        }
 
         if (ENABLE_RATE_LIMIT && currentSite?.last_scanned_at) {
             const lastScan = new Date(currentSite.last_scanned_at)
@@ -74,7 +142,7 @@ export async function POST(request: Request) {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ url: url, site_id: siteId }),
+                body: JSON.stringify({ url: url, site_id: siteId, initial_scan: initialScan }),
                 signal: AbortSignal.timeout(60000) // 60s timeout
             });
 
@@ -211,10 +279,10 @@ export async function GET(request: Request) {
             },
 
             content: {
-                readabilityGrade: breakdown?.content?.readability?.grade || 0,
-                questionTargetingScore: 0,
+                readabilityGrade: extractReadabilityGrade(breakdown?.content?.readability),
+                questionTargetingScore: extractQuestionTargetingScore(breakdown?.content?.questions),
                 missingAnswers: (breakdown?.content?.gap?.data || breakdown?.content?.gap || []).map((q: any) => ({
-                    query: q.query,
+                    query: q.query || q.question || q.prompt || q.user_query || "",
                     status: q.status,
                     draftAnswer: q.draft_answer
                 })),

@@ -126,7 +126,6 @@ export function Footer() {
                         <h4 className="font-semibold mb-4 text-white">Platform</h4>
                         <ul className="space-y-3 text-sm text-white/60">
                             <li><Link href="/#features" className="hover:text-white transition-colors">Features</Link></li>
-                            <li><Link href="/#pricing" className="hover:text-white transition-colors">Pricing</Link></li>
                             <li><Link href="/integrations" className="hover:text-white transition-colors">Integrations</Link></li>
                             <li><Link href="/changelog" className="hover:text-white transition-colors">Changelog</Link></li>
                         </ul>
@@ -137,7 +136,6 @@ export function Footer() {
                         <h4 className="font-semibold mb-4 text-white">Resources</h4>
                         <ul className="space-y-3 text-sm text-white/60">
                             <li><Link href="/aeo-checker-tool" className="hover:text-white transition-colors">AEO Checker Tool</Link></li>
-                            <li><Link href="/aeo-checking-tool" className="hover:text-white transition-colors">AEO Checking Tool</Link></li>
                             <li><Link href="/aeo-readiness" className="hover:text-white transition-colors">AEO Readiness</Link></li>
                             <li><Link href="/aeo-monitoring" className="hover:text-white transition-colors">AEO Monitoring</Link></li>
                             <li><Link href="/aeo-audit" className="hover:text-white transition-colors">Free AEO Audit</Link></li>

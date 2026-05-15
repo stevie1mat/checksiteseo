@@ -6,6 +6,16 @@ const nextConfig = {
         instrumentationHook: true,
     },
 
+    async redirects() {
+        return [
+            {
+                source: '/aeo-checking-tool',
+                destination: '/aeo-checker-tool',
+                permanent: true,
+            },
+        ]
+    },
+
     async headers() {
         return [
             {

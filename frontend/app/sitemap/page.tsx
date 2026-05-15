@@ -36,7 +36,7 @@ export default function SitemapPage() {
             description: "Explore our features and plans.",
             links: [
                 { name: "Features", href: "/#features", description: "Detailed breakdown of our AI analysis capabilities." },
-                { name: "Pricing", href: "/#pricing", description: "Compare plans and find the right fit for you." },
+                { name: "Free Plan", href: "/pricing", description: "View current access limits and scan policy." },
                 { name: "Integrations", href: "/integrations", description: "Connect with CMS and other tools." },
                 { name: "Changelog", href: "/changelog", description: "See what's new and what we've improved." },
             ]
@@ -47,7 +47,7 @@ export default function SitemapPage() {
             description: "Learn and grow with our guides.",
             links: [
                 { name: "AEO Checker Tool", href: "/aeo-checker-tool", description: "Run a free AEO checker tool audit for your website." },
-                { name: "AEO Checking Tool", href: "/aeo-checking-tool", description: "Try the AEO checking tool workflow used for instant website audits." },
+                { name: "Free AEO Audit", href: "/aeo-audit", description: "Review the AEO audit checklist and run a free website audit." },
                 { name: "AEO Readiness", href: "/aeo-readiness", description: "Understand and improve your AEO readiness score." },
                 { name: "AEO Monitoring", href: "/aeo-monitoring", description: "Track AEO performance changes over time." },
                 { name: "Documentation", href: "/documentation", description: "Comprehensive guides and tutorials." },

@@ -51,7 +51,7 @@ services:
       - key: TOKENS_PER_CHAT
         value: "300"
       - key: MAX_SITES_PER_USER
-        value: "100"
+        value: "25"
       - key: TOKEN_PACK_STARTER_TOKENS
         value: "100"
       - key: TOKEN_PACK_GROWTH_TOKENS
@@ -67,7 +67,7 @@ services:
       - key: NEXT_PUBLIC_TOKENS_PER_CHAT
         value: "300"
       - key: NEXT_PUBLIC_MAX_SITES_PER_USER
-        value: "100"
+        value: "25"
       - key: ENABLE_RATE_LIMIT
         value: "true"
       - key: NODE_ENV

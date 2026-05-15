@@ -5,7 +5,6 @@ import { HomeResourceLinksSection } from "@/components/HomeResourceLinksSection"
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { HowItWorksSection } from "@/components/HowItWorksSection";
 import { BenefitsSection } from "@/components/BenefitsSection";
-import { PricingSection } from "@/components/PricingSection";
 import { FAQSection } from "@/components/FAQSection";
 import { Footer } from "@/components/Footer";
 import { Metadata } from "next";
@@ -14,21 +13,22 @@ import { HOME_FAQ_ITEMS } from "@/lib/home-faq";
 import { createPageMetadata, absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "Free ChatGPT & AI SEO Checker Tool | CheckSite",
+  title: "Free AEO Checker Tool & AI Search Visibility Audit",
   description:
-    "Use our free AI SEO checker tool to audit your site for ChatGPT, Perplexity, and Claude search visibility. Secure your rankings in Answer Engines today.",
+    "Run a free AEO checker to audit your site for ChatGPT, Gemini, Claude, and Perplexity visibility. Find technical, content, and trust issues blocking AI citations.",
   path: "/",
   keywords: [
+    "AEO checker",
+    "AEO checking tool",
+    "AEO audit",
+    "answer engine optimization tool",
     "ChatGPT SEO",
     "Claude SEO",
     "Perplexity Optimization",
     "Gemini SEO checker",
     "AI search visibility",
-    "AEO checker tool",
-    "answer engine optimization",
     "LLM SEO",
-    "AI SEO tool",
-    "ChatGPT ranking checker",
+    "AI citation audit",
   ],
 });
 
@@ -49,10 +49,10 @@ export default function Home() {
   const webPageJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    "name": "Free ChatGPT & AI SEO Checker Tool",
+    "name": "Free AEO Checker Tool & AI Search Visibility Audit",
     "url": absoluteUrl("/"),
     "description":
-      "Run a free AI SEO check to improve search visibility in ChatGPT, Perplexity, Claude, and Gemini.",
+      "Run a free AEO checker to improve AI search visibility in ChatGPT, Perplexity, Claude, and Gemini.",
     "inLanguage": "en-US",
   };
 
@@ -75,7 +75,6 @@ export default function Home() {
       <FeaturesSection />
       <HowItWorksSection />
       <BenefitsSection />
-      <PricingSection redirectTo="/dashboard/billing" />
       <FAQSection />
       <Footer />
     </main>

@@ -31,9 +31,6 @@ export function Navbar({ variant = "default" }: NavbarProps) {
                     <Link href="#how-it-works" className={`text-sm font-medium transition-colors ${isLightPill ? "text-slate-600 hover:text-[#223f33]" : "text-white/80 hover:text-white"}`}>
                         How It Works
                     </Link>
-                    <Link href="#pricing" className={`text-sm font-medium transition-colors ${isLightPill ? "text-slate-600 hover:text-[#223f33]" : "text-white/80 hover:text-white"}`}>
-                        Pricing
-                    </Link>
                     <Link href="/blog" className={`text-sm font-medium transition-colors ${isLightPill ? "text-slate-600 hover:text-[#223f33]" : "text-white/80 hover:text-white"}`}>
                         Blog
                     </Link>
@@ -81,9 +78,6 @@ export function Navbar({ variant = "default" }: NavbarProps) {
                     </Link>
                     <Link onClick={() => setMobileMenuOpen(false)} href="#how-it-works" className={`block text-sm font-medium transition-colors ${isLightPill ? "text-slate-700 hover:text-[#223f33]" : "text-white hover:text-white/80"}`}>
                         How It Works
-                    </Link>
-                    <Link onClick={() => setMobileMenuOpen(false)} href="#pricing" className={`block text-sm font-medium transition-colors ${isLightPill ? "text-slate-700 hover:text-[#223f33]" : "text-white hover:text-white/80"}`}>
-                        Pricing
                     </Link>
                     <Link onClick={() => setMobileMenuOpen(false)} href="/blog" className={`block text-sm font-medium transition-colors ${isLightPill ? "text-slate-700 hover:text-[#223f33]" : "text-white hover:text-white/80"}`}>
                         Blog

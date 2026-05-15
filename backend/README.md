@@ -55,7 +55,7 @@ The backend relies on several third-party services. Configure these in your `.en
 -   `DAILY_FREE_TOKENS`: Number of free tokens granted per user per day (default `1000`).
 -   `TOKENS_PER_SCAN`: Minimum token hold charged before a scan (default `1000`), then auto-settled against model usage.
 -   `TOKENS_PER_CHAT`: Minimum token hold charged before each site chat message (default `300`), then auto-settled against model usage.
--   `MAX_SITES_PER_USER`: Max allowed sites per account.
+-   `MAX_SITES_PER_USER`: Max allowed sites per account (default `25`).
 -   `TOKEN_PACK_STARTER_TOKENS`: Number of tokens credited for starter pack.
 -   `TOKEN_PACK_GROWTH_TOKENS`: Number of tokens credited for growth pack.
 -   `TOKEN_PACK_SCALE_TOKENS`: Number of tokens credited for scale pack.

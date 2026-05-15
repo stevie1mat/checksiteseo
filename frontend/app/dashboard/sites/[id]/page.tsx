@@ -4,8 +4,45 @@ import { SiteReportView } from "@/components/dashboard/SiteReportView"
 import { ArrowLeft, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { OverviewModeToggle } from "@/components/dashboard/OverviewModeToggle"
 
-export default async function SiteDetailsPage({ params }: { params: { id: string } }) {
+const extractReadabilityGrade = (readability: any): number => {
+    const directGrade = Number(readability?.grade)
+    if (Number.isFinite(directGrade) && directGrade > 0) {
+        return directGrade
+    }
+
+    const firstDetail = readability?.details?.[0]
+    if (typeof firstDetail === "string") {
+        const match = firstDetail.match(/Grade\s+([0-9]+(?:\.[0-9]+)?)/i)
+        if (match?.[1]) {
+            const parsed = Number(match[1])
+            if (Number.isFinite(parsed) && parsed > 0) return parsed
+        }
+    }
+
+    return 0
+}
+
+const extractQuestionTargetingScore = (questions: any): number => {
+    const detail = questions?.details?.[0]
+    if (typeof detail === "string") {
+        const detailMatch = detail.match(/([0-9]+)\s*\/\s*5/i)
+        if (detailMatch?.[1]) {
+            const parsed = Number(detailMatch[1])
+            if (Number.isFinite(parsed)) return Math.max(0, Math.min(5, parsed))
+        }
+    }
+
+    const score = Number(questions?.score)
+    if (Number.isFinite(score) && score > 0) {
+        return Math.max(0, Math.min(5, Math.round(score / 20)))
+    }
+
+    return 0
+}
+
+export default async function SiteDetailsPage({ params, searchParams }: { params: { id: string }, searchParams: { [key: string]: string | string[] | undefined } }) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -46,27 +83,11 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
     console.log('[SiteDetailsPage] breakdown.content:', breakdown?.content);
     console.log('[SiteDetailsPage] breakdown.content.gap:', breakdown?.content?.gap);
 
+    const tab = searchParams?.tab || 'overview'
+    const isOverview = tab === 'overview'
+
     return (
         <div className="space-y-6 w-full p-6">
-            <div className="flex items-center gap-3 mb-6">
-                <Link href="/dashboard/sites" className="p-2 -ml-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors">
-                    <ArrowLeft className="w-5 h-5" />
-                </Link>
-                <div>
-                    <h1 className="text-2xl font-serif text-[#224034]">{site.name || site.url}</h1>
-                    <p className="text-slate-500 text-sm">{site.url}</p>
-                </div>
-                <div className="ml-auto flex items-center gap-2">
-                    <Link
-                        href={`/dashboard/sites/${site.id}/chat`}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-[#224034] bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-                    >
-                        <MessageSquare className="h-4 w-4" />
-                        AI Chat
-                    </Link>
-                    <RescanButton siteId={site.id} url={site.url} />
-                </div>
-            </div>
 
             {/* @ts-ignore */}
             <SiteReportView siteId={site.id} domain={site.url} tier={tier} initialReport={{
@@ -99,10 +120,10 @@ export default async function SiteDetailsPage({ params }: { params: { id: string
                 },
 
                 content: {
-                    readabilityGrade: breakdown?.content?.readability?.grade || 0,
-                    questionTargetingScore: 0,
+                    readabilityGrade: extractReadabilityGrade(breakdown?.content?.readability),
+                    questionTargetingScore: extractQuestionTargetingScore(breakdown?.content?.questions),
                     missingAnswers: (breakdown?.content?.gap?.data || breakdown?.content?.gap || []).map((q: any) => ({
-                        query: q.query,
+                        query: q.query || q.question || q.prompt || q.user_query || "",
                         status: q.status,
                         draftAnswer: q.draft_answer
                     })),

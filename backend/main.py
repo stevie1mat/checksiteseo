@@ -17,7 +17,7 @@ from analyzer import (
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from sqlalchemy import create_engine, text
@@ -57,24 +57,52 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-DAILY_FREE_TOKENS = max(0, _env_int("DAILY_FREE_TOKENS", 1000))
-TOKENS_PER_SCAN = max(1, _env_int("TOKENS_PER_SCAN", 1000))
-TOKENS_PER_CHAT = max(1, _env_int("TOKENS_PER_CHAT", 300))
-MAX_SITES_PER_USER = max(1, _env_int("MAX_SITES_PER_USER", 100))
+def _env_float(name: str, default: float) -> float:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    try:
+        return float(raw_value)
+    except ValueError:
+        logger.warning(f"Invalid float for {name}: {raw_value}. Falling back to {default}.")
+        return default
+
+
+TOKENS_PER_DIAMOND = max(1, _env_int("TOKENS_PER_DIAMOND", 100))
+DIAMONDS_PER_SCAN = max(0.01, _env_float("DIAMONDS_PER_SCAN", 10.0))
+DIAMONDS_PER_CHAT = max(0.01, _env_float("DIAMONDS_PER_CHAT", 0.5))
+DIAMONDS_PER_AMBIGUITY_SCAN = max(0.01, _env_float("DIAMONDS_PER_AMBIGUITY_SCAN", DIAMONDS_PER_CHAT))
+DIAMONDS_PER_INITIAL_SCAN = max(DIAMONDS_PER_SCAN, _env_float("DIAMONDS_PER_INITIAL_SCAN", 50.0))
+
+DAILY_FREE_DIAMONDS = _env_float("DAILY_FREE_DIAMONDS", -1.0)
+if DAILY_FREE_DIAMONDS >= 0:
+    DAILY_FREE_TOKENS = max(0, int(round(DAILY_FREE_DIAMONDS * TOKENS_PER_DIAMOND)))
+else:
+    DAILY_FREE_TOKENS = max(0, _env_int("DAILY_FREE_TOKENS", 1000))
+
+TOKENS_PER_SCAN = max(1, int(round(TOKENS_PER_DIAMOND * DIAMONDS_PER_SCAN)))
+TOKENS_PER_CHAT = max(1, int(round(TOKENS_PER_DIAMOND * DIAMONDS_PER_CHAT)))
+TOKENS_PER_AMBIGUITY_SCAN = max(1, int(round(TOKENS_PER_DIAMOND * DIAMONDS_PER_AMBIGUITY_SCAN)))
+TOKENS_PER_INITIAL_SCAN = max(1, int(round(TOKENS_PER_DIAMOND * DIAMONDS_PER_INITIAL_SCAN)))
+MAX_TOKENS_PER_CHAT_BILL = TOKENS_PER_CHAT
+MAX_SITES_PER_USER = max(1, _env_int("MAX_SITES_PER_USER", 25))
 ENABLE_LEGACY_PLAN_GATES = os.getenv("ENABLE_LEGACY_PLAN_GATES", "false").lower() == "true"
 
 TOKEN_PACKS = {
     "starter": {
         "price_id": os.getenv("STRIPE_PRICE_ID_TOKENS_STARTER", ""),
-        "tokens": max(1, _env_int("TOKEN_PACK_STARTER_TOKENS", 100)),
+        "tokens": max(1, int(round(max(0.1, _env_float("TOKEN_PACK_STARTER_DIAMONDS", 100.0)) * TOKENS_PER_DIAMOND))),
+        "usd_cents": max(1, _env_int("TOKEN_PACK_STARTER_USD_CENTS", 1900)),
     },
     "growth": {
         "price_id": os.getenv("STRIPE_PRICE_ID_TOKENS_GROWTH", ""),
-        "tokens": max(1, _env_int("TOKEN_PACK_GROWTH_TOKENS", 500)),
+        "tokens": max(1, int(round(max(0.1, _env_float("TOKEN_PACK_GROWTH_DIAMONDS", 500.0)) * TOKENS_PER_DIAMOND))),
+        "usd_cents": max(1, _env_int("TOKEN_PACK_GROWTH_USD_CENTS", 7900)),
     },
     "scale": {
         "price_id": os.getenv("STRIPE_PRICE_ID_TOKENS_SCALE", ""),
-        "tokens": max(1, _env_int("TOKEN_PACK_SCALE_TOKENS", 2000)),
+        "tokens": max(1, int(round(max(0.1, _env_float("TOKEN_PACK_SCALE_DIAMONDS", 2000.0)) * TOKENS_PER_DIAMOND))),
+        "usd_cents": max(1, _env_int("TOKEN_PACK_SCALE_USD_CENTS", 24900)),
     },
 }
 
@@ -241,6 +269,31 @@ def _parse_rpc_payload(response) -> dict:
     return {}
 
 
+def _normalize_utc_date_string(value: object | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.date().isoformat()
+        return value.astimezone(timezone.utc).date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+
+    text = str(value).strip()
+    if not text:
+        return None
+    if len(text) >= 10 and text[4:5] == "-" and text[7:8] == "-":
+        return text[:10]
+
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            return parsed.date().isoformat()
+        return parsed.astimezone(timezone.utc).date().isoformat()
+    except ValueError:
+        return text
+
+
 def _get_token_summary(user_id: str | None) -> dict:
     if not user_id or not supabase:
         return {
@@ -261,7 +314,7 @@ def _get_token_summary(user_id: str | None) -> dict:
         if profile.data:
             return {
                 "token_balance": int(profile.data.get("token_balance") or 0),
-                "daily_free_tokens_last_granted_at": profile.data.get("daily_free_tokens_last_granted_at"),
+                "daily_free_tokens_last_granted_at": _normalize_utc_date_string(profile.data.get("daily_free_tokens_last_granted_at")),
                 "total_tokens_used": int(profile.data.get("total_tokens_used") or 0),
                 "total_tokens_purchased": int(profile.data.get("total_tokens_purchased") or 0),
             }
@@ -331,6 +384,14 @@ def _token_usage_total(usage: dict | None) -> int:
         return 0
 
 
+def _to_diamonds(tokens: int | float) -> float:
+    try:
+        normalized = max(float(tokens), 0.0)
+    except (TypeError, ValueError):
+        normalized = 0.0
+    return round(normalized / max(TOKENS_PER_DIAMOND, 1), 4)
+
+
 def _estimate_tokens_from_text(text: str | None) -> int:
     if not text:
         return 0
@@ -355,6 +416,7 @@ def _consume_tokens_for_scan(
     reason: str = "Token usage for scan",
     prefer_daily_source: bool = False,
     tokens: int | None = None,
+    metadata: dict | None = None,
 ) -> dict:
     token_amount = TOKENS_PER_SCAN if tokens is None else max(1, int(tokens))
 
@@ -367,7 +429,12 @@ def _consume_tokens_for_scan(
     try:
         response = supabase.rpc(
             "consume_tokens",
-            {"p_user_id": user_id, "p_tokens": token_amount, "p_reason": reason},
+            {
+                "p_user_id": user_id,
+                "p_tokens": token_amount,
+                "p_reason": reason,
+                "p_metadata": metadata or {},
+            },
         ).execute()
         payload = _parse_rpc_payload(response)
         if payload:
@@ -394,7 +461,7 @@ def _consume_tokens_for_scan(
             "tokens": -token_amount,
             "transaction_type": "scan_usage",
             "description": reason,
-            "metadata": {},
+            "metadata": metadata or {},
         }).execute()
         return {"success": True, "balance": new_balance, "source": "daily" if prefer_daily_source else "paid"}
     except Exception as e:
@@ -411,9 +478,10 @@ def _credit_user_tokens(
     metadata: dict | None = None,
 ) -> dict:
     if not user_id or not supabase or tokens == 0:
-        return {"success": False}
+        return {"success": False, "reason": "invalid_credit_request"}
 
     metadata = metadata or {}
+    last_error_message: str | None = None
 
     try:
         response = supabase.rpc(
@@ -432,6 +500,7 @@ def _credit_user_tokens(
             return payload
     except Exception as e:
         logger.error(f"Token credit RPC failed for user {user_id}: {e}")
+        last_error_message = str(e)
 
     # Fallback path if RPC is unavailable.
     summary = _get_token_summary(user_id)
@@ -453,7 +522,7 @@ def _credit_user_tokens(
         return {"success": True, "new_balance": new_balance}
     except Exception as e:
         logger.error(f"Fallback token credit failed for user {user_id}: {e}")
-        return {"success": False}
+        return {"success": False, "reason": last_error_message or str(e) or "credit_failed"}
 
 
 def _settle_token_usage(
@@ -462,12 +531,16 @@ def _settle_token_usage(
     usage: dict | None,
     reason_prefix: str,
     fallback_total_tokens: int | None = None,
+    max_billed_tokens: int | None = None,
 ) -> dict:
     hold = max(1, int(held_tokens))
     usage_total = _token_usage_total(usage)
     fallback_total = hold if fallback_total_tokens is None else max(1, int(fallback_total_tokens))
-    billed_tokens = max(hold, usage_total if usage_total > 0 else fallback_total)
+    billed_raw = usage_total if usage_total > 0 else fallback_total
+    cap = max(1, int(max_billed_tokens)) if max_billed_tokens is not None else hold
+    billed_tokens = min(cap, max(1, int(billed_raw)))
     additional_tokens = max(0, billed_tokens - hold)
+    refund_tokens = max(0, hold - billed_tokens)
 
     additional_charge_success = True
     additional_balance = None
@@ -477,6 +550,7 @@ def _settle_token_usage(
             reason=f"{reason_prefix} (additional model tokens)",
             prefer_daily_source=False,
             tokens=additional_tokens,
+            metadata={"settlement_stage": "additional", "billed_tokens": billed_tokens, "hold_tokens": hold},
         )
         additional_charge_success = bool(additional_result.get("success"))
         additional_balance = additional_result.get("balance")
@@ -490,13 +564,66 @@ def _settle_token_usage(
                 },
             )
 
+    refund_success = True
+    balance_after_refund = None
+    if refund_tokens > 0 and user_id and supabase:
+        try:
+            refund_response = supabase.rpc(
+                "refund_tokens",
+                {
+                    "p_user_id": user_id,
+                    "p_tokens": refund_tokens,
+                    "p_reason": f"{reason_prefix} (unused hold refund)",
+                    "p_metadata": {
+                        "settlement_stage": "refund",
+                        "billed_tokens": billed_tokens,
+                        "hold_tokens": hold,
+                        "usage_total_tokens": usage_total,
+                    },
+                },
+            ).execute()
+            refund_payload = _parse_rpc_payload(refund_response)
+            if isinstance(refund_payload, dict) and refund_payload:
+                balance_after_refund = refund_payload.get("new_balance")
+        except Exception as e:
+            logger.error(f"Refund RPC failed for user {user_id} (will attempt fallback): {e}")
+            try:
+                summary = _get_token_summary(user_id)
+                current_balance = int(summary.get("token_balance") or 0)
+                current_used = int(summary.get("total_tokens_used") or 0)
+                new_balance = current_balance + refund_tokens
+                new_used = max(current_used - refund_tokens, 0)
+                supabase.table("profiles").update({
+                    "token_balance": new_balance,
+                    "total_tokens_used": new_used,
+                }).eq("id", user_id).execute()
+                supabase.table("token_transactions").insert({
+                    "user_id": user_id,
+                    "tokens": refund_tokens,
+                    "transaction_type": "refund",
+                    "description": f"{reason_prefix} (unused hold refund)",
+                    "metadata": {
+                        "settlement_stage": "refund_fallback",
+                        "billed_tokens": billed_tokens,
+                        "hold_tokens": hold,
+                        "usage_total_tokens": usage_total,
+                    },
+                }).execute()
+                balance_after_refund = new_balance
+            except Exception as fallback_error:
+                refund_success = False
+                logger.error(f"Fallback refund failed for user {user_id}: {fallback_error}")
+
     return {
         "held_tokens": hold,
         "billed_tokens": billed_tokens,
         "additional_tokens": additional_tokens,
+        "refund_tokens": refund_tokens,
         "usage_total_tokens": usage_total,
         "additional_charge_success": additional_charge_success,
         "balance_after_additional_charge": additional_balance,
+        "refund_success": refund_success,
+        "balance_after_refund": balance_after_refund,
     }
 
 # Startup event to ensure functions are defined before scheduler starts
@@ -528,6 +655,7 @@ class AnalyzeRequest(BaseModel):
     url: HttpUrl
     site_id: str | None = None
     sync: bool = False
+    initial_scan: bool = False
 
 @app.get("/")
 def read_root():
@@ -654,6 +782,8 @@ async def analyze_url(
     llm_model: str | None = None
     user_id: str | None = None
     scan_token_hold = TOKENS_PER_SCAN
+    is_initial_site_scan = False
+    site_data: dict | None = None
 
     # OWNER CHECK
     if site_id:
@@ -672,6 +802,28 @@ async def analyze_url(
                  pass
             elif site_response.data[0]['user_id'] != user.id:
                  raise HTTPException(status_code=403, detail="You do not have permission to scan this site.")
+            else:
+                site_data = site_response.data[0]
+                status = str(site_data.get("status") or "")
+
+                # Detect first paid scan by whether any page snapshot exists yet.
+                # Some site rows can have last_scanned_at populated by default, which is not a real scan.
+                existing_pages_response = (
+                    supabase.table("pages")
+                    .select("id")
+                    .eq("site_id", site_id)
+                    .limit(1)
+                    .execute()
+                )
+                has_page_snapshots = bool(existing_pages_response.data)
+
+                if request.initial_scan and (not has_page_snapshots):
+                    is_initial_site_scan = True
+                    scan_token_hold = TOKENS_PER_INITIAL_SCAN
+
+                # Prevent duplicate on-demand scan charges while a scan is already in progress.
+                if status == "analyzing":
+                    raise HTTPException(status_code=409, detail="A scan is already in progress for this site.")
                  
         except HTTPException as he:
             raise he
@@ -687,15 +839,16 @@ async def analyze_url(
             was_daily_granted_now = bool(grant_result.get("granted"))
             token_consume_result = _consume_tokens_for_scan(
                 user_id,
-                reason="Token usage hold for on-demand scan",
+                reason="Token usage hold for initial site scan" if is_initial_site_scan else "Token usage hold for on-demand scan",
                 prefer_daily_source=was_daily_granted_now,
                 tokens=scan_token_hold,
             )
             if not token_consume_result.get("success"):
                 remaining_balance = int(token_consume_result.get("balance") or 0)
+                requirement_label = "Initial site scan" if is_initial_site_scan else "Scans"
                 raise HTTPException(
                     status_code=402,
-                    detail=f"Insufficient tokens. Scans require at least {scan_token_hold} token(s) available, and you currently have {remaining_balance}.",
+                    detail=f"Insufficient tokens. {requirement_label} require at least {scan_token_hold} token(s) available, and you currently have {remaining_balance}.",
                 )
             llm_provider = "groq" if token_consume_result.get("source") == "daily" else "eden"
             if llm_provider == "eden":
@@ -712,9 +865,30 @@ async def analyze_url(
         logger.error(f"Token check failed: {e}")
         raise HTTPException(status_code=500, detail="Token validation failed")
 
-    # 1. Rate Limiting Check (24h per site)
+    # 1. Rate Limiting Check (24h per user and per site)
     ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true"
-    
+
+    if ENABLE_RATE_LIMIT and user_id and supabase:
+        try:
+            latest_user_scan = (
+                supabase.table("sites")
+                .select("last_scanned_at")
+                .eq("user_id", user_id)
+                .order("last_scanned_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if latest_user_scan.data and len(latest_user_scan.data) > 0:
+                last_scanned = latest_user_scan.data[0].get("last_scanned_at")
+                if last_scanned:
+                    last_time = datetime.fromisoformat(last_scanned.replace('Z', '+00:00'))
+                    if datetime.now(timezone.utc) - last_time < timedelta(hours=24):
+                        raise HTTPException(status_code=429, detail="Rate limit exceeded: 1 scan per 24 hours.")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Global rate limit check failed: {e}")
+
     if ENABLE_RATE_LIMIT and request.site_id and 'site_response' in locals() and site_response.data:
         site = site_response.data[0]
         last_scanned = site.get("last_scanned_at")
@@ -747,7 +921,7 @@ async def analyze_url(
                     user_id=user_id,
                     held_tokens=scan_token_hold,
                     usage=llm_usage,
-                    reason_prefix="Token usage for on-demand scan",
+                    reason_prefix="Token usage for initial site scan" if is_initial_site_scan else "Token usage for on-demand scan",
                 )
                 result["token_usage"] = usage_settlement
             
@@ -1367,11 +1541,35 @@ async def generate_answer_plan(request: AnswerPlanRequest, user: dict = Depends(
 @app.post("/analyze-ambiguity")
 async def analyze_ambiguity(request: AnswerPlanRequest, user: dict = Depends(get_current_user)): # Reusing AnswerPlanRequest which has user_domain
     user_id = _get_user_id(user)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
     _require_tier(user_id, {"plus", "pro"}, "Ambiguity Inspector")
+
+    grant_result = _grant_daily_tokens_if_eligible(user_id)
+    was_daily_granted_now = bool(grant_result.get("granted"))
+    hold_result = _consume_tokens_for_scan(
+        user_id=user_id,
+        reason="Token usage hold for ambiguity scan",
+        prefer_daily_source=was_daily_granted_now,
+        tokens=TOKENS_PER_AMBIGUITY_SCAN,
+        metadata={
+            "kind": "ambiguity_scan",
+            "domain": request.user_domain,
+            "stage": "hold",
+        },
+    )
+    if not hold_result.get("success"):
+        remaining_balance = int(hold_result.get("balance") or 0)
+        raise HTTPException(
+            status_code=402,
+            detail=f"Insufficient tokens. Ambiguity scan requires at least {TOKENS_PER_AMBIGUITY_SCAN} token(s), and you currently have {remaining_balance}.",
+        )
+
     # Fetch content
     url = request.user_domain
     if not url.startswith("http"): url = "https://" + url
-    
+    result = {"improvements": []}
+
     try:
         import httpx
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
@@ -1380,12 +1578,22 @@ async def analyze_ambiguity(request: AnswerPlanRequest, user: dict = Depends(get
                 from bs4 import BeautifulSoup
                 soup = BeautifulSoup(page.text, "html.parser")
                 text = soup.get_text(separator=' ', strip=True)
-                return await analyze_ambiguity_issues(text)
+                result = await analyze_ambiguity_issues(text)
     except Exception as e:
         print(f"Ambiguity analysis failed: {e}")
-        pass
-        
-    return {"improvements": []}
+
+    usage_settlement = _settle_token_usage(
+        user_id=user_id,
+        held_tokens=TOKENS_PER_AMBIGUITY_SCAN,
+        usage={"total_tokens": TOKENS_PER_AMBIGUITY_SCAN},
+        reason_prefix=f"Token usage for ambiguity scan ({request.user_domain})",
+        fallback_total_tokens=TOKENS_PER_AMBIGUITY_SCAN,
+        max_billed_tokens=TOKENS_PER_AMBIGUITY_SCAN,
+    )
+    if not isinstance(result, dict):
+        result = {"improvements": []}
+    result["token_usage"] = usage_settlement
+    return result
 
 class ContactRequest(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=100)
@@ -1498,16 +1706,30 @@ async def token_usage(user: dict = Depends(get_current_user)):
     today_utc = datetime.now(timezone.utc).date().isoformat()
     last_grant = summary.get("daily_free_tokens_last_granted_at")
     can_claim_daily_free = last_grant != today_utc
+    token_balance = int(summary.get("token_balance", 0))
+    effective_remaining_tokens = token_balance + (DAILY_FREE_TOKENS if can_claim_daily_free else 0)
 
     return {
-        "token_balance": summary.get("token_balance", 0),
+        "token_balance": token_balance,
         "daily_free_tokens": DAILY_FREE_TOKENS,
         "tokens_per_scan": TOKENS_PER_SCAN,
+        "tokens_per_initial_scan": TOKENS_PER_INITIAL_SCAN,
         "tokens_per_chat": TOKENS_PER_CHAT,
+        "tokens_per_ambiguity_scan": TOKENS_PER_AMBIGUITY_SCAN,
         "total_tokens_used": summary.get("total_tokens_used", 0),
         "total_tokens_purchased": summary.get("total_tokens_purchased", 0),
         "daily_free_tokens_last_granted_at": last_grant,
         "can_claim_daily_free": can_claim_daily_free,
+        "tokens_per_diamond": TOKENS_PER_DIAMOND,
+        "diamond_balance": _to_diamonds(token_balance),
+        "daily_free_diamonds": _to_diamonds(DAILY_FREE_TOKENS),
+        "remaining_diamonds": _to_diamonds(effective_remaining_tokens),
+        "diamonds_per_scan": round(DIAMONDS_PER_SCAN, 4),
+        "diamonds_per_initial_scan": round(DIAMONDS_PER_INITIAL_SCAN, 4),
+        "diamonds_per_chat": round(DIAMONDS_PER_CHAT, 4),
+        "diamonds_per_ambiguity_scan": round(DIAMONDS_PER_AMBIGUITY_SCAN, 4),
+        "total_diamonds_used": _to_diamonds(summary.get("total_tokens_used", 0)),
+        "total_diamonds_purchased": _to_diamonds(summary.get("total_tokens_purchased", 0)),
     }
 
 def _eden_headers() -> dict:
@@ -1635,6 +1857,130 @@ async def _fetch_eden_models() -> list[dict]:
     return EDEN_MODEL_OPTIONS
 
 
+def _site_domain_from_url(site_url: str | None) -> str:
+    if not site_url:
+        return ""
+    try:
+        parsed = urlparse(site_url)
+        host = (parsed.netloc or "").lower()
+        if host.startswith("www."):
+            host = host[4:]
+        return host
+    except Exception:
+        return ""
+
+
+def _looks_off_topic_site_chat_reply(reply: str, site_context: dict | None = None) -> tuple[bool, str]:
+    text = (reply or "").strip()
+    if not text:
+        return True, "empty_reply"
+
+    normalized = text.lower()
+    domain = _site_domain_from_url((site_context or {}).get("site_url"))
+
+    hard_fail_patterns = [
+        r"\barrr\b",
+        r"\bmatey\b",
+        r"\bahoy\b",
+        r"\bthis here image\b",
+        r"\bin this image\b",
+        r"\blush (and )?green landscape\b",
+        r"\bwooden planks\b",
+        r"\bfluffy white clouds\b",
+    ]
+    for pattern in hard_fail_patterns:
+        if re.search(pattern, normalized):
+            return True, f"matched_pattern:{pattern}"
+
+    topical_markers = [
+        "aeo",
+        "seo",
+        "geo",
+        "schema",
+        "robots.txt",
+        "sitemap",
+        "citation",
+        "entity",
+        "knowledge graph",
+        "content",
+        "heading",
+        "h1",
+        "h2",
+        "faq",
+        "internal link",
+        "metadata",
+        "serp",
+        "search",
+        "crawl",
+        "index",
+        "canonical",
+        "site",
+        "url",
+        "page",
+    ]
+    has_topic = any(marker in normalized for marker in topical_markers)
+    has_domain = bool(domain and domain in normalized)
+
+    # Long responses that contain no optimization signal are likely off-topic drift.
+    if len(normalized) >= 180 and not (has_topic or has_domain):
+        return True, "missing_optimization_signals"
+
+    return False, "ok"
+
+
+def _build_site_chat_fallback_reply(user_prompt: str, site_context: dict | None = None) -> str:
+    context = site_context or {}
+    site_url = context.get("site_url") or "this site"
+    aeo_score = context.get("aeo_score")
+    technical_score = context.get("technical_score")
+    content_score = context.get("content_score")
+    authority_score = context.get("authority_score")
+
+    score_line = (
+        f"AEO score: {aeo_score if aeo_score is not None else 'unknown'} | "
+        f"Technical: {technical_score if technical_score is not None else 'unknown'} | "
+        f"Content: {content_score if content_score is not None else 'unknown'} | "
+        f"Authority: {authority_score if authority_score is not None else 'unknown'}"
+    )
+
+    prompt_lower = (user_prompt or "").lower()
+    wants_week_plan = any(token in prompt_lower for token in ["7-day", "7 day", "week", "weekly"])
+
+    if wants_week_plan:
+        return (
+            f"### What this means\n"
+            f"You're asking for a practical GEO execution plan for {site_url}. I will keep this focused on AEO/SEO/GEO actions for your domain only.\n\n"
+            f"### Top fixes (prioritized)\n"
+            f"- High: Publish one question-led page section per day (H2s phrased as real user questions) and add concise direct answers.\n"
+            f"- High: Strengthen entity trust signals (organization/about/contact consistency, verifiable claims, and updated schema fields).\n"
+            f"- Medium: Improve citation readiness by adding specific facts, dates, and source-backed statements in key pages.\n"
+            f"- Medium: Expand internal links between problem pages, solution pages, and FAQ sections.\n\n"
+            f"### 7-day GEO content plan\n"
+            f"- Day 1: Audit top landing pages and map missing question headings by intent (what/how/cost/timeline).\n"
+            f"- Day 2: Rewrite homepage hero + intro with explicit audience, problem, and proof.\n"
+            f"- Day 3: Publish an FAQ block with 8-12 long-tail user questions and direct answer snippets.\n"
+            f"- Day 4: Add schema + consistency checks (Organization, Website, FAQPage where applicable).\n"
+            f"- Day 5: Create one comparison/alternatives page focused on decision-stage queries.\n"
+            f"- Day 6: Add evidence elements (examples, numbers, outcomes, recency) on core pages.\n"
+            f"- Day 7: Re-scan and keep the top 3 unresolved issues as next-week priorities.\n\n"
+            f"### Current context snapshot\n"
+            f"{score_line}"
+        )
+
+    return (
+        f"### What this means\n"
+        f"I can help with AEO/SEO/GEO strategy for {site_url}, but the last model response was off-scope. Here's a grounded, site-focused answer.\n\n"
+        f"### Top fixes (prioritized)\n"
+        f"- High: Add question-style headings and concise answer blocks on key pages.\n"
+        f"- High: Improve authority signals with concrete proof, dates, and verifiable claims.\n"
+        f"- Medium: Tighten technical discoverability (robots, sitemap, canonical, crawlable internal links).\n\n"
+        f"### Next step this week\n"
+        f"Share one target page URL and the exact query intent, and I will give you a rewrite-ready version plus schema recommendations.\n\n"
+        f"### Current context snapshot\n"
+        f"{score_line}"
+    )
+
+
 @app.get("/eden-models")
 async def eden_models(user: dict = Depends(get_current_user)):
     _ = _get_user_id(user)
@@ -1672,6 +2018,7 @@ async def site_model_chat(
         reason="Token usage hold for site chat",
         prefer_daily_source=was_daily_granted_now,
         tokens=TOKENS_PER_CHAT,
+        metadata={"kind": "site_chat", "site_id": payload.site_id, "model": payload.model, "stage": "hold"},
     )
     if not chat_hold_result.get("success"):
         remaining_balance = int(chat_hold_result.get("balance") or 0)
@@ -1715,17 +2062,41 @@ async def site_model_chat(
     }
 
     system_prompt = f"""
-You are an AI assistant for CheckSiteAEO.
-You must ONLY answer questions related to this specific site's AEO, SEO, and GEO strategy/performance.
-If the user asks about anything unrelated to AEO/SEO/GEO for this site, politely refuse and redirect to those topics.
-Be practical, concise, and actionable.
-Do not invent facts. If data is missing, say so clearly.
+You are the Site Optimization Strategist for CheckSiteAEO.
+
+Scope rules (must follow):
+1) ONLY answer AEO/SEO/GEO questions for this exact site.
+2) If user asks unrelated questions, politely refuse and redirect to site optimization.
+3) Never roleplay, never use fictional personas/voices, and never produce playful/fantasy style output.
+4) Never describe unrelated images/scenes. If asked to analyze an image, ask for relevant page text/URL/metrics instead.
+5) Do not invent facts. Use only the trusted site context and clearly mark unknowns.
+
+Response quality rules:
+- Be specific and implementation-focused.
+- Prefer concrete recommendations over generic advice.
+- When possible, prioritize by impact (High/Medium/Low).
+- If context is insufficient, ask one short clarifying question.
+
+Preferred response structure:
+1) What this means
+2) Top fixes (prioritized)
+3) Next step this week
 
 SITE CONTEXT (trusted):
 {json.dumps(site_context, ensure_ascii=True)}
 """.strip()
 
-    safe_messages = [{"role": m.role, "content": m.content.strip()} for m in payload.messages if m.content.strip()]
+    safe_messages = []
+    for message in payload.messages:
+        content = message.content.strip()
+        if not content:
+            continue
+        if message.role == "assistant":
+            off_topic, _ = _looks_off_topic_site_chat_reply(content, site_context)
+            if off_topic:
+                # Ignore low-quality assistant history so it does not contaminate later turns.
+                continue
+        safe_messages.append({"role": message.role, "content": content})
     if not safe_messages:
         raise HTTPException(status_code=400, detail="No valid chat messages provided")
     safe_messages = safe_messages[-20:]
@@ -1741,16 +2112,26 @@ SITE CONTEXT (trusted):
         TOKENS_PER_CHAT,
         _estimate_tokens_from_messages(eden_messages) + _estimate_tokens_from_text(completion.get("content")),
     )
+    reply_text = completion["content"].strip()
+    off_topic_reply, off_topic_reason = _looks_off_topic_site_chat_reply(reply_text, site_context)
+    if off_topic_reply:
+        latest_user_prompt = next((m["content"] for m in reversed(safe_messages) if m.get("role") == "user"), "")
+        logger.warning(
+            f"Site chat guardrail fallback triggered for site_id={payload.site_id}, model={payload.model}, reason={off_topic_reason}"
+        )
+        reply_text = _build_site_chat_fallback_reply(latest_user_prompt, site_context)
+
     chat_usage_settlement = _settle_token_usage(
         user_id=user_id,
         held_tokens=TOKENS_PER_CHAT,
         usage=eden_usage,
         reason_prefix=f"Token usage for site chat ({payload.site_id})",
         fallback_total_tokens=usage_fallback,
+        max_billed_tokens=MAX_TOKENS_PER_CHAT_BILL,
     )
 
     return {
-        "reply": completion["content"],
+        "reply": reply_text,
         "model": payload.model,
         "site_context": site_context,
         "token_usage": chat_usage_settlement,
@@ -1762,6 +2143,9 @@ class CheckoutRequest(BaseModel):
     pack_id: str  # 'starter' | 'growth' | 'scale'
     email: str | None = None
     user_id: str | None = None
+
+class ConfirmCheckoutRequest(BaseModel):
+    session_id: str
 
 def _normalize_origin(url: str | None) -> str | None:
     if not url:
@@ -1800,7 +2184,8 @@ async def create_checkout_session(payload: CheckoutRequest, http_request: Reques
 
     price_id = selected_pack.get("price_id")
     token_amount = int(selected_pack.get("tokens", 0))
-    if not price_id:
+    usd_cents = int(selected_pack.get("usd_cents", 0))
+    if not price_id and usd_cents <= 0:
         raise HTTPException(status_code=500, detail=f"Stripe price is not configured for pack '{payload.pack_id}'")
 
     try:
@@ -1821,18 +2206,36 @@ async def create_checkout_session(payload: CheckoutRequest, http_request: Reques
         if "customer" not in customer_kwargs and payload.email:
             customer_kwargs["customer_email"] = payload.email
 
+        line_item: dict
+        if price_id:
+            line_item = {
+                "price": price_id,
+                "quantity": 1,
+            }
+        else:
+            logger.warning(
+                "Stripe price_id not configured; using inline price_data fallback.",
+                extra={"pack_id": payload.pack_id, "usd_cents": usd_cents},
+            )
+            line_item = {
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": usd_cents,
+                    "product_data": {
+                        "name": f"{payload.pack_id.title()} Diamond Pack",
+                    },
+                },
+                "quantity": 1,
+            }
+
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
-            line_items=[
-                {
-                    'price': price_id,
-                    'quantity': 1,
-                },
-            ],
+            line_items=[line_item],
             mode='payment',
             invoice_creation={"enabled": True},
-            success_url=frontend_base_url + "/dashboard/billing?payment=success",
+            success_url=frontend_base_url + "/dashboard/billing?payment=success&session_id={CHECKOUT_SESSION_ID}",
             cancel_url=frontend_base_url + "/dashboard/billing?payment=cancelled",
+            client_reference_id=payload.user_id or None,
             metadata={
                 "pack_id": payload.pack_id,
                 "token_amount": str(token_amount),
@@ -1845,6 +2248,53 @@ async def create_checkout_session(payload: CheckoutRequest, http_request: Reques
     except Exception as e:
         logger.error(f"Stripe checkout creation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/confirm-checkout-session")
+async def confirm_checkout_session(
+    payload: ConfirmCheckoutRequest,
+    user: dict = Depends(get_current_user),
+):
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="Stripe is not configured")
+
+    user_id = _get_user_id(user)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    session_id = (payload.session_id or "").strip()
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Missing checkout session id")
+
+    try:
+        stripe_session = stripe.checkout.Session.retrieve(session_id)
+    except Exception as e:
+        logger.error(f"Stripe session retrieval failed for {session_id}: {e}")
+        raise HTTPException(status_code=400, detail="Unable to verify checkout session")
+
+    metadata = stripe_session.get("metadata", {}) or {}
+    metadata_user_id = metadata.get("user_id") or None
+    if metadata_user_id and metadata_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Checkout session does not belong to the authenticated user")
+
+    payment_status = (stripe_session.get("payment_status") or "").lower()
+    if payment_status not in {"paid", "no_payment_required"}:
+        raise HTTPException(status_code=400, detail=f"Checkout is not completed (status: {payment_status or 'unknown'})")
+
+    settlement_result = await handle_checkout_completed(stripe_session, fallback_user_id=user_id)
+    if not settlement_result.get("success"):
+        raise HTTPException(
+            status_code=500,
+            detail=settlement_result.get("reason") or "Payment confirmed but credit could not be applied",
+        )
+
+    summary = _get_token_summary(user_id)
+    return {
+        "success": True,
+        "token_balance": summary.get("token_balance", 0),
+        "session_id": session_id,
+        "credited_tokens": settlement_result.get("credited_tokens", 0),
+        "already_processed": bool(settlement_result.get("already_processed")),
+    }
 
 @app.post("/create-portal-session")
 async def create_portal_session(http_request: Request, user: dict = Depends(get_current_user)):
@@ -1902,18 +2352,20 @@ async def stripe_webhook(request: Request):
     # Handle the event
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
-        await handle_checkout_completed(session)
+        result = await handle_checkout_completed(session)
+        if not result.get("success"):
+            logger.error(f"Checkout webhook settlement failed: {result}")
     
     return {"status": "success"}
 
-async def handle_checkout_completed(session):
+async def handle_checkout_completed(session, fallback_user_id: str | None = None):
     customer_email = session.get('customer_details', {}).get('email')
     metadata = session.get('metadata', {}) or {}
     pack_id = metadata.get('pack_id')
     token_amount_raw = metadata.get('token_amount')
     stripe_customer_id = session.get('customer')
     stripe_session_id = session.get('id')
-    user_id = metadata.get('user_id') or None
+    user_id = metadata.get('user_id') or session.get("client_reference_id") or fallback_user_id
 
     token_amount = 0
     try:
@@ -1929,62 +2381,89 @@ async def handle_checkout_completed(session):
         f"- Tokens: {token_amount} - User ID: {user_id}"
     )
 
-    if supabase:
-        try:
-            if stripe_session_id:
-                existing_tx = (
-                    supabase.table("token_transactions")
-                    .select("id")
-                    .eq("stripe_session_id", stripe_session_id)
-                    .limit(1)
-                    .execute()
-                )
-                if existing_tx.data:
-                    print(f"   > Stripe session {stripe_session_id} already processed. Skipping.")
-                    return
+    if not supabase:
+        logger.error("Supabase is not configured; cannot settle checkout credit.")
+        return {"success": False, "reason": "database_not_configured"}
 
-            if not user_id and customer_email:
-                profile_by_email = (
-                    supabase.table("profiles")
-                    .select("id")
-                    .eq("email", customer_email)
-                    .limit(1)
-                    .execute()
-                )
-                if profile_by_email.data:
-                    user_id = profile_by_email.data[0].get("id")
-
-            if not user_id:
-                logger.error("Unable to resolve user for token credit (missing user_id and email lookup failed).")
-                return
-
-            if stripe_customer_id:
-                supabase.table("profiles").update({
-                    "stripe_customer_id": stripe_customer_id
-                }).eq("id", user_id).execute()
-
-            if token_amount <= 0:
-                logger.error(f"Invalid token amount in checkout session {stripe_session_id}: {token_amount}")
-                return
-
-            credit_result = _credit_user_tokens(
-                user_id=user_id,
-                tokens=token_amount,
-                description=f"Stripe token purchase ({pack_id or 'custom'})",
-                transaction_type="purchase",
-                stripe_session_id=stripe_session_id,
-                metadata={
-                    "pack_id": pack_id,
-                    "customer_email": customer_email,
-                },
+    try:
+        if stripe_session_id:
+            existing_tx = (
+                supabase.table("token_transactions")
+                .select("id, user_id, tokens")
+                .eq("stripe_session_id", stripe_session_id)
+                .limit(1)
+                .execute()
             )
+            if existing_tx.data:
+                existing_entry = existing_tx.data[0]
+                existing_user_id = existing_entry.get("user_id")
+                existing_tokens = int(existing_entry.get("tokens") or 0)
+                expected_user_id = fallback_user_id or user_id
+                if expected_user_id and existing_user_id and str(existing_user_id) != str(expected_user_id):
+                    logger.error(
+                        f"Stripe session {stripe_session_id} already linked to another user. "
+                        f"existing_user_id={existing_user_id}, expected_user_id={expected_user_id}"
+                    )
+                    return {"success": False, "reason": "session_processed_for_different_user"}
+                if existing_tokens <= 0:
+                    logger.error(
+                        f"Stripe session {stripe_session_id} has a non-credit transaction amount: {existing_tokens}"
+                    )
+                    return {"success": False, "reason": "invalid_existing_transaction_amount"}
+                print(f"   > Stripe session {stripe_session_id} already processed. Skipping.")
+                return {"success": True, "already_processed": True, "credited_tokens": 0, "user_id": user_id}
 
-            if credit_result.get("success"):
-                print(f"   > ✅ Credited {token_amount} tokens to user {user_id}.")
-            else:
-                logger.error(f"Token credit failed for user {user_id}. Result: {credit_result}")
-        except Exception as e:
-            logger.error(f"Failed to process token checkout in DB: {e}")
+        if not user_id and customer_email:
+            profile_by_email = (
+                supabase.table("profiles")
+                .select("id")
+                .eq("email", customer_email)
+                .limit(1)
+                .execute()
+            )
+            if profile_by_email.data:
+                user_id = profile_by_email.data[0].get("id")
+
+        if not user_id:
+            message = "Unable to resolve user for token credit (missing user_id and email lookup failed)."
+            logger.error(message)
+            return {"success": False, "reason": "user_resolution_failed"}
+
+        if stripe_customer_id:
+            supabase.table("profiles").update({
+                "stripe_customer_id": stripe_customer_id
+            }).eq("id", user_id).execute()
+
+        if token_amount <= 0:
+            logger.error(f"Invalid token amount in checkout session {stripe_session_id}: {token_amount}")
+            return {"success": False, "reason": "invalid_token_amount"}
+
+        credit_result = _credit_user_tokens(
+            user_id=user_id,
+            tokens=token_amount,
+            description=f"Stripe token purchase ({pack_id or 'custom'})",
+            transaction_type="purchase",
+            stripe_session_id=stripe_session_id,
+            metadata={
+                "pack_id": pack_id,
+                "customer_email": customer_email,
+            },
+        )
+
+        if credit_result.get("success"):
+            print(f"   > ✅ Credited {token_amount} tokens to user {user_id}.")
+            return {
+                "success": True,
+                "already_processed": False,
+                "credited_tokens": token_amount,
+                "user_id": user_id,
+            }
+
+        logger.error(f"Token credit failed for user {user_id}. Result: {credit_result}")
+        return {"success": False, "reason": credit_result.get("reason") or "token_credit_failed"}
+    except Exception as e:
+        logger.error(f"Failed to process token checkout in DB: {e}")
+        return {"success": False, "reason": str(e)}
 
 # --- Site Verification Endpoints ---
 

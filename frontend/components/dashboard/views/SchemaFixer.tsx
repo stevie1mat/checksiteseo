@@ -178,7 +178,7 @@ export function SchemaFixer({ domain, entityType = "Organization", primaryEntity
                     <Button
                         size="sm"
                         onClick={handleCopy}
-                        className={`gap-2 transition-all duration-300 ${copied ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#1A4036] hover:bg-[#2a4e40]'}`}
+                        className={`gap-2 font-semibold !text-white transition-all duration-300 ${copied ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#1A4036] hover:bg-[#2a4e40]'}`}
                     >
                         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         {copied ? "Copied!" : "Copy Optimized Schema"}

@@ -8,7 +8,7 @@ import {
   AlignLeft,
   AlertCircle,
   ArrowLeft,
-  BellRing,
+  ArrowRight,
   Check,
   Code,
   Sparkles,
@@ -966,19 +966,15 @@ export function InsightsWorkspace({ initialUrl }: { initialUrl?: string }) {
                 </Link>
               </div>
 
-              <div className="ml-auto flex items-center gap-3">
-                <button type="button" className="h-9 w-9 rounded-full border border-slate-200 text-slate-500 flex items-center justify-center">
-                  <BellRing className="h-4 w-4" />
-                </button>
-                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
-                  <div className="h-8 w-8 rounded-full bg-amber-200 text-amber-900 flex items-center justify-center text-xs font-semibold">
-                    TM
-                  </div>
-                  <div className="leading-tight">
-                    <p className="text-sm font-semibold text-slate-800">Team User</p>
-                    <p className="text-xs text-slate-500">team@checksiteaeo.com</p>
-                  </div>
-                </div>
+              <div className="ml-auto">
+                <Link
+                  href="/signup"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#cfe3d8] bg-[linear-gradient(180deg,#ffffff_0%,#edf8f2_100%)] px-4 text-sm font-semibold text-[#224034] shadow-sm transition-all hover:-translate-y-[1px] hover:shadow-md"
+                >
+                  <span className="hidden md:inline">Get More Detailed Report & Monitoring</span>
+                  <span className="md:hidden">Detailed Report + Monitoring</span>
+                  <ArrowRight className="h-4 w-4 text-emerald-700" />
+                </Link>
               </div>
         </header>
 

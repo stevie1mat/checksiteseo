@@ -41,6 +41,12 @@ export async function POST(request: Request) {
         });
 
         const data = await apiResponse.json().catch(() => ({}))
+        if (!apiResponse.ok) {
+            return NextResponse.json(
+                { error: data?.detail || data?.error || "Ambiguity analysis failed" },
+                { status: apiResponse.status }
+            )
+        }
         return NextResponse.json(data, { status: apiResponse.status });
 
     } catch (error: unknown) {

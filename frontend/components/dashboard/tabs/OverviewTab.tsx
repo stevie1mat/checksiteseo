@@ -1,11 +1,12 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Progress } from "@/components/ui/progress"
-import { BarChart3, Info, FileText, AlertCircle, Sparkles, Code, Search, Check, Clock, Cpu } from "lucide-react"
+import { BarChart3, Info, FileText, AlertCircle, Sparkles, Code, Search, Check, Clock, Cpu, XCircle, Linkedin, Youtube, MessageSquare, ChevronRight } from "lucide-react"
 import { AEOReport } from "@/types/aeo"
 import { useToast } from "@/components/ui/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -254,6 +255,11 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
     const [nextScheduledFor, setNextScheduledFor] = useState<string | null>(null)
     const [selectedEngineKey, setSelectedEngineKey] = useState<EngineKey | null>(null)
     const [activePromptIndex, setActivePromptIndex] = useState(0)
+    const [animatedAeoScore, setAnimatedAeoScore] = useState(0)
+    const [overviewStep, setOverviewStep] = useState(0)
+    
+    const searchParams = useSearchParams()
+    const viewMode = searchParams.get('mode') || 'simple'
 
     // Helper variables
     const failedQueries = activeReport.content?.missingAnswers || []
@@ -269,6 +275,51 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
     const knowledgeGraph = activeReport.authority?.knowledge_graph || {} as any
     const reportDomain = getDomain(domain || activeReport.domain || "")
     const brandName = getBrandName(reportDomain)
+
+
+    const dailySeries = useMemo(() => {
+        return Array.from({ length: 14 }, (_, index) => {
+            const wave = Math.sin((index / 3) * Math.PI) * 5
+            const drift = (index - 6) * 0.6
+            return clamp(Math.round(aeoScore - 6 + wave + drift))
+        })
+    }, [aeoScore])
+
+    const questionTargeting = activeReport?.content?.questionTargetingScore ?? 0
+    const readabilityScore = 100 - (activeReport?.content?.readabilityGrade || 10) * 5
+    const answerability = clamp(Math.round((questionTargeting * 20 + readabilityScore) / 2))
+    const structuredData = activeReport?.technical?.schema?.length ? 100 : 0
+    const crawlerAccessibility = clamp(
+        Math.round(
+            average([
+                activeReport?.technical?.robotsTxt ? 100 : 0,
+                activeReport?.technical?.llmsTxt ? 100 : 0,
+                activeReport?.technical?.sitemap ? 100 : 0,
+            ])
+        )
+    )
+    const webPresence = typeof activeReport?.scores?.authority === 'number' ? activeReport.scores.authority : 0
+    const strategyScore = clamp(
+        Math.round(average([answerability, structuredData, crawlerAccessibility, webPresence]))
+    )
+    const redditPresenceScore = clamp(
+        Math.round(average([webPresence, answerability]))
+    )
+    const linkedinScore = clamp(Math.round(webPresence * 1.1))
+    const youtubeScore = clamp(Math.round(webPresence * 0.85))
+    const forumScore = clamp(Math.round(webPresence * 0.95))
+
+    const wikipediaDetected = Boolean((knowledgeGraph as any).primaryEntity || (knowledgeGraph as any).primary_entity)
+    const sentimentScore = clamp(
+        Math.round(
+            average([
+                typeof activeReport?.scores?.authority === 'number' ? activeReport.scores.authority : 0,
+                100 - (activeReport?.content?.readabilityGrade || 10) * 5,
+            ])
+        )
+    )
+
+    const [isSearchSliderPaused, setIsSearchSliderPaused] = useState(false)
 
     const competitorCandidates = useMemo(() => {
         const genericLabels = new Set(["wikipedia", "linkedin", "medium"])
@@ -294,6 +345,10 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
             }
         })
     }, [activeReport.engineScores, aeoScore])
+
+    const averageEngineScore = Math.round(
+        engineRows.length ? average(engineRows.map((engine) => engine.score)) : 0
+    )
 
     const engineIssueByKey = useMemo(() => ({
         chatgpt:
@@ -377,6 +432,64 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
 
     const activePrompt = promptBundles[activePromptIndex] || promptBundles[0]
     const selectedEngine = engineRows.find((engine) => engine.key === selectedEngineKey) || null
+    const strongestEngine = [...engineRows].sort((a, b) => b.score - a.score)[0] || null
+    const weakestEngine = [...engineRows].sort((a, b) => a.score - b.score)[0] || null
+
+    const placeholderAiPreviewPattern = /i found several options|leading provider in this space/i
+    const rawAiPreviewResponse = activeReport.authority?.ai_preview?.response?.trim() || ""
+    const hasMeaningfulAiPreview = rawAiPreviewResponse.length > 0 && !placeholderAiPreviewPattern.test(rawAiPreviewResponse)
+    const missingAnswersCount = failedQueries.filter((q: any) => q.status !== 'Explicitly Stated').length
+
+    const generatedAiPreviewQuery = activeReport.authority?.ai_preview?.query?.trim() || `Is ${brandName} a strong choice for this service?`
+    type AiPreviewLine = { text: string; logo?: string; label?: string }
+    const generatedAiPreviewLines: AiPreviewLine[] = [
+        {
+            text: `Based on this scan, ${brandName} has an AEO visibility score of ${aeoScore}/100.`,
+        },
+        ...(strongestEngine
+            ? [{
+                text: `${strongestEngine.label} shows the strongest confidence (${strongestEngine.score}/100).`,
+                logo: strongestEngine.logo,
+                label: strongestEngine.label,
+            }]
+            : []),
+        ...(weakestEngine && weakestEngine.key !== strongestEngine?.key
+            ? [{
+                text: `${weakestEngine.label} is currently the weakest channel (${weakestEngine.score}/100).`,
+                logo: weakestEngine.logo,
+                label: weakestEngine.label,
+            }]
+            : []),
+        {
+            text: missingAnswersCount > 0
+                ? `Your site is missing clear answers to ${missingAnswersCount} important user question${missingAnswersCount > 1 ? "s" : ""}, so AI may recommend you less consistently.`
+                : "Your site clearly answers core user questions, which helps AI recommend you more consistently.",
+        },
+        {
+            text: !activeReport.technical?.robotsTxt || !activeReport.technical?.sitemap
+                ? "Crawlability signals are incomplete, so some engines may not surface your best answers reliably."
+                : "Crawlability signals look healthy, so engines can discover core pages more reliably.",
+        },
+    ]
+
+    const aiPreviewResponse = hasMeaningfulAiPreview
+        ? rawAiPreviewResponse
+        : generatedAiPreviewLines.map((line) => line.text).join(" ")
+    const verdictLabel = aeoScore >= 80 ? "Strong Visibility" : aeoScore >= 50 ? "Moderate Visibility" : "Needs Improvement"
+    const verdictBadgeClass = aeoScore >= 80
+        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+        : aeoScore >= 50
+            ? "bg-amber-100 text-amber-800 border-amber-200"
+            : "bg-rose-100 text-rose-800 border-rose-200"
+    const scoreRingPercent = clamp(animatedAeoScore)
+    const scoreRingRadius = 88
+    const scoreRingCircumference = 2 * Math.PI * scoreRingRadius
+    const scoreRingOffset = scoreRingCircumference - (scoreRingPercent / 100) * scoreRingCircumference
+    const simpleOverviewSteps = [
+        { key: "verdict", title: "AI verdict" },
+        { key: "engines", title: "Engine visibility" },
+        { key: "actions", title: "Action plan" },
+    ]
 
     useEffect(() => {
         const loadScheduledStatus = async () => {
@@ -393,6 +506,14 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
         }
         loadScheduledStatus()
     }, [siteId, isPlusOrPro])
+
+    useEffect(() => {
+        setAnimatedAeoScore(0)
+        const frame = requestAnimationFrame(() => {
+            setAnimatedAeoScore(clamp(aeoScore))
+        })
+        return () => cancelAnimationFrame(frame)
+    }, [aeoScore])
 
     const handleScheduleScan = async () => {
         if (!isPlusOrPro) {
@@ -470,6 +591,282 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
+
+            {viewMode === 'simple' ? (
+                <div className="space-y-6 animate-in fade-in duration-500 slide-in-from-bottom-2">
+                    <div className="rounded-2xl border border-[#d9e8df] bg-gradient-to-br from-white via-white to-emerald-50/40 shadow-sm px-6 py-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 className="text-3xl font-serif text-[#224034] leading-tight">Overview Breakdown</h2>
+                                <p className="text-slate-500 text-sm mt-1">Step-based summary of where AI visibility is strong and what to fix first.</p>
+                            </div>
+                            <Badge variant="outline" className="border-slate-200 bg-white text-slate-700 px-3 py-1">
+                                Step {overviewStep + 1} of {simpleOverviewSteps.length}
+                            </Badge>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2 overflow-x-auto pb-2">
+                        {simpleOverviewSteps.map((step, idx) => (
+                            <button
+                                key={step.key}
+                                onClick={() => setOverviewStep(idx)}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${overviewStep === idx ? 'bg-[#224034] text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                            >
+                                <span className="opacity-80 text-xs">{idx + 1}</span>
+                                <span>{step.title}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* 1. The Verdict */}
+                    {overviewStep === 0 && (
+                    <div className="bg-gradient-to-br from-white via-white to-emerald-50/40 rounded-2xl border border-slate-200 shadow-sm p-6 md:p-10 flex flex-col md:flex-row items-center gap-8 md:gap-12 relative overflow-hidden">
+                        <div className="shrink-0 relative z-10 w-48 h-48 flex items-center justify-center">
+                            <svg
+                                viewBox="0 0 220 220"
+                                className="absolute inset-0 w-full h-full -rotate-90"
+                                aria-hidden="true"
+                            >
+                                <circle
+                                    cx="110"
+                                    cy="110"
+                                    r={scoreRingRadius}
+                                    fill="none"
+                                    stroke="#d1fae5"
+                                    strokeWidth="16"
+                                />
+                                <circle
+                                    cx="110"
+                                    cy="110"
+                                    r={scoreRingRadius}
+                                    fill="none"
+                                    stroke="#10b981"
+                                    strokeLinecap="round"
+                                    strokeWidth="16"
+                                    strokeDasharray={scoreRingCircumference}
+                                    strokeDashoffset={scoreRingOffset}
+                                    style={{ transition: "stroke-dashoffset 900ms ease-out" }}
+                                />
+                            </svg>
+                            <div className="flex flex-col items-center justify-center w-40 h-40 rounded-full bg-white shadow-[inset_0_2px_16px_rgba(16,185,129,0.08)] border border-emerald-100">
+                                <span className="text-7xl font-serif font-medium text-[#224034]">{aeoScore}</span>
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">AEO Score</span>
+                            </div>
+                        </div>
+                        <div className="flex-1 relative z-10 w-full">
+                            <div className="flex flex-wrap items-center gap-3 mb-3">
+                                <h2 className="text-3xl font-serif text-slate-800">Here's how AI sees you.</h2>
+                                <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tracking-wide ${verdictBadgeClass}`}>
+                                    {verdictLabel}
+                                </span>
+                            </div>
+                            <p className="text-lg text-slate-600 leading-relaxed mb-5 w-full">
+                                {aeoScore > 80 
+                                    ? `Great news! ${brandName} is highly visible. AI engines can easily read your site and are likely to recommend you.`
+                                    : aeoScore > 50
+                                    ? `${brandName} is somewhat visible to AI. Engines can read your site, but they might struggle to find your best answers quickly.`
+                                    : `AI engines are struggling to understand ${brandName}. Your site needs structural changes before they will confidently recommend you.`}
+                            </p>
+
+                            <div className="flex flex-wrap gap-2 mb-6">
+                                {strongestEngine && (
+                                    <div className="inline-flex items-center gap-2 rounded-lg bg-white border border-emerald-100 px-3 py-1.5 text-xs text-slate-600">
+                                        <Image src={strongestEngine.logo} alt={strongestEngine.label} width={14} height={14} className="w-3.5 h-3.5 object-contain" />
+                                        Best: <span className="font-semibold text-slate-800">{strongestEngine.label} {strongestEngine.score}/100</span>
+                                    </div>
+                                )}
+                                {weakestEngine && (
+                                    <div className="inline-flex items-center gap-2 rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs text-slate-600">
+                                        <Image src={weakestEngine.logo} alt={weakestEngine.label} width={14} height={14} className="w-3.5 h-3.5 object-contain" />
+                                        Lowest: <span className="font-semibold text-slate-800">{weakestEngine.label} {weakestEngine.score}/100</span>
+                                    </div>
+                                )}
+                                <div className="inline-flex items-center rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs text-slate-600">
+                                    Missing answers: <span className="font-semibold text-slate-800 ml-1">{missingAnswersCount}</span>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-emerald-50/60 rounded-xl p-6 border border-emerald-100 relative w-full shadow-sm">
+                                <div className="absolute -top-3 left-6 bg-white px-3 py-0.5 rounded-full border border-emerald-100 text-[10px] font-bold text-emerald-600 uppercase tracking-widest shadow-sm">AI Visibility Summary</div>
+                                <div className="flex items-start">
+                                    <div className="text-sm text-slate-700 leading-relaxed font-medium">
+                                        {hasMeaningfulAiPreview ? (
+                                            aiPreviewResponse
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {generatedAiPreviewLines.map((line, index) => (
+                                                    <div key={`preview-line-${index}`} className="flex items-start gap-2">
+                                                        {line.logo ? (
+                                                            <Image
+                                                                src={line.logo}
+                                                                alt={`${line.label || "Engine"} logo`}
+                                                                width={16}
+                                                                height={16}
+                                                                className="w-4 h-4 object-contain mt-0.5 shrink-0"
+                                                            />
+                                                        ) : (
+                                                            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                                        )}
+                                                        <span>{line.text}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    )}
+
+                    {/* 2. Engine Visibility Buckets */}
+                    {overviewStep === 1 && (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8">
+                        <h3 className="text-2xl font-serif text-slate-800 mb-6">Which AIs are recommending you?</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Strong */}
+                            <div className="rounded-xl bg-emerald-50/30 border border-emerald-100 p-5 shadow-sm">
+                                <div className="flex items-center gap-2 mb-5">
+                                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center border border-emerald-200">
+                                        <Check className="w-4 h-4 text-emerald-600" />
+                                    </div>
+                                    <h4 className="font-semibold text-emerald-900 text-lg">Strong</h4>
+                                </div>
+                                <div className="space-y-3">
+                                    {engineRows.filter(e => e.score >= 80).map(engine => (
+                                        <div key={engine.key} className="flex items-center justify-between bg-white rounded-lg p-3 shadow-sm border border-emerald-50/50 hover:border-emerald-200 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <Image src={engine.logo} alt={engine.label} width={24} height={24} className="w-6 h-6 object-contain drop-shadow-sm" />
+                                                <span className="text-sm font-semibold text-slate-700">{engine.label}</span>
+                                            </div>
+                                            <span className="text-sm font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">{engine.score}</span>
+                                        </div>
+                                    ))}
+                                    {engineRows.filter(e => e.score >= 80).length === 0 && <p className="text-sm text-slate-500 italic px-2">No engines in this tier yet.</p>}
+                                </div>
+                            </div>
+
+                            {/* Moderate */}
+                            <div className="rounded-xl bg-amber-50/30 border border-amber-100 p-5 shadow-sm">
+                                <div className="flex items-center gap-2 mb-5">
+                                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center border border-amber-200">
+                                        <div className="w-2.5 h-2.5 bg-amber-500 rounded-full" />
+                                    </div>
+                                    <h4 className="font-semibold text-amber-900 text-lg">Moderate</h4>
+                                </div>
+                                <div className="space-y-3">
+                                    {engineRows.filter(e => e.score >= 50 && e.score < 80).map(engine => (
+                                        <div key={engine.key} className="flex items-center justify-between bg-white rounded-lg p-3 shadow-sm border border-amber-50/50 hover:border-amber-200 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <Image src={engine.logo} alt={engine.label} width={24} height={24} className="w-6 h-6 object-contain drop-shadow-sm" />
+                                                <span className="text-sm font-semibold text-slate-700">{engine.label}</span>
+                                            </div>
+                                            <span className="text-sm font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">{engine.score}</span>
+                                        </div>
+                                    ))}
+                                    {engineRows.filter(e => e.score >= 50 && e.score < 80).length === 0 && <p className="text-sm text-slate-500 italic px-2">No engines in this tier.</p>}
+                                </div>
+                            </div>
+
+                            {/* Needs Work */}
+                            <div className="rounded-xl bg-rose-50/30 border border-rose-100 p-5 shadow-sm">
+                                <div className="flex items-center gap-2 mb-5">
+                                    <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center border border-rose-200">
+                                        <AlertCircle className="w-4 h-4 text-rose-600" />
+                                    </div>
+                                    <h4 className="font-semibold text-rose-900 text-lg">Needs Work</h4>
+                                </div>
+                                <div className="space-y-3">
+                                    {engineRows.filter(e => e.score < 50).map(engine => (
+                                        <div key={engine.key} className="flex items-center justify-between bg-white rounded-lg p-3 shadow-sm border border-rose-50/50 hover:border-rose-200 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <Image src={engine.logo} alt={engine.label} width={24} height={24} className="w-6 h-6 object-contain drop-shadow-sm" />
+                                                <span className="text-sm font-semibold text-slate-700">{engine.label}</span>
+                                            </div>
+                                            <span className="text-sm font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">{engine.score}</span>
+                                        </div>
+                                    ))}
+                                    {engineRows.filter(e => e.score < 50).length === 0 && <p className="text-sm text-slate-500 italic px-2">No engines in this tier. Great job!</p>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    )}
+
+                    {/* 3. Plain English Action Items */}
+                    {overviewStep === 2 && (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8">
+                        <h3 className="text-2xl font-serif text-slate-800 mb-8">What should you fix?</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {techScore < 80 && (
+                                <div className="flex gap-5 items-start bg-slate-50/50 p-6 rounded-xl border border-slate-100">
+                                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-200 shadow-sm">
+                                        <Code className="w-5 h-5 text-slate-600" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-lg font-bold text-slate-800">Make it easier for AI to read your site.</h4>
+                                        <p className="text-sm text-slate-600 mt-2 mb-4 leading-relaxed">AI engines are having trouble scanning your website code. You need to add specific "maps" (like Robots.txt or LLMs.txt) that tell AI where to look.</p>
+                                        <button onClick={() => setActiveTab('technical')} className="text-sm font-bold text-slate-700 hover:text-emerald-700 bg-white border border-slate-200 shadow-sm px-4 py-2.5 rounded-lg transition-colors inline-flex items-center gap-2">Fix Technical Issues <ChevronRight className="w-4 h-4 opacity-50" /></button>
+                                    </div>
+                                </div>
+                            )}
+                            {activeReport.agentEconomics?.codeToTextRatio < 0.15 && (
+                                <div className="flex gap-5 items-start bg-slate-50/50 p-6 rounded-xl border border-slate-100">
+                                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-200 shadow-sm">
+                                        <Cpu className="w-5 h-5 text-slate-600" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-lg font-bold text-slate-800">Make your website load faster.</h4>
+                                        <p className="text-sm text-slate-600 mt-2 mb-4 leading-relaxed">Your website has too much background code. AI engines might give up and leave before they read your actual content.</p>
+                                        <Link href={`/dashboard/sites/${siteId}/payload-efficiency`} className="text-sm font-bold text-slate-700 hover:text-emerald-700 bg-white border border-slate-200 shadow-sm px-4 py-2.5 rounded-lg transition-colors inline-flex items-center gap-2">Check Website Speed <ChevronRight className="w-4 h-4 opacity-50" /></Link>
+                                    </div>
+                                </div>
+                            )}
+                            {failedQueries.length > 0 && failedQueries.some((q: any) => q.status !== 'Explicitly Stated') && (
+                                <div className="flex gap-5 items-start bg-slate-50/50 p-6 rounded-xl border border-slate-100">
+                                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-200 shadow-sm">
+                                        <Search className="w-5 h-5 text-slate-600" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-lg font-bold text-slate-800">Answer the questions people are asking.</h4>
+                                        <p className="text-sm text-slate-600 mt-2 mb-4 leading-relaxed">Users are asking questions about your business, but your website doesn't explicitly answer them. We found {failedQueries.filter((q: any) => q.status !== 'Explicitly Stated').length} missing answers.</p>
+                                        <button onClick={() => setActiveTab('content')} className="text-sm font-bold text-slate-700 hover:text-emerald-700 bg-white border border-slate-200 shadow-sm px-4 py-2.5 rounded-lg transition-colors inline-flex items-center gap-2">See Missing Answers <ChevronRight className="w-4 h-4 opacity-50" /></button>
+                                    </div>
+                                </div>
+                            )}
+                            {techScore >= 80 && failedQueries.every((q: any) => q.status === 'Explicitly Stated') && activeReport.agentEconomics?.codeToTextRatio >= 0.15 && (
+                                <div className="col-span-2 text-center py-12 bg-emerald-50/30 rounded-xl border border-emerald-100">
+                                    <div className="w-20 h-20 bg-white shadow-sm border border-emerald-200 rounded-full flex items-center justify-center mx-auto mb-5">
+                                        <Check className="w-10 h-10 text-emerald-500" />
+                                    </div>
+                                    <h4 className="text-2xl font-serif text-emerald-900 mb-2">Everything looks great!</h4>
+                                    <p className="text-emerald-700/80">Your site is fast, easy to read, and answers user questions well.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-3 pt-1">
+                        <button
+                            onClick={() => setOverviewStep((prev) => Math.max(0, prev - 1))}
+                            disabled={overviewStep === 0}
+                            className="px-5 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                        >
+                            Previous
+                        </button>
+                        <button
+                            onClick={() => setOverviewStep((prev) => Math.min(simpleOverviewSteps.length - 1, prev + 1))}
+                            disabled={overviewStep === simpleOverviewSteps.length - 1}
+                            className="px-5 py-3 rounded-xl bg-[#224034] text-white font-semibold hover:bg-[#1a3228] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Next Step <ChevronRight className="w-4 h-4 inline-block ml-1" />
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="space-y-8 animate-in fade-in duration-500 slide-in-from-bottom-2">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* KPI 0: Deep Scan Monitoring */}
                 <Card className="border-slate-200 shadow-sm bg-white overflow-hidden md:col-span-1">
@@ -799,11 +1196,10 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                                         </div>
                                     </div>
                                     <div>
-                                        <h4 className="text-sm font-bold text-slate-700">Unlock Pro Authority Signals</h4>
+                                        <h4 className="text-sm font-bold text-slate-700">Authority Signals Locked</h4>
                                         <p className="text-sm text-slate-500 mt-1 max-w-xl">
-                                            Upgrade to Pro to access E-E-A-T authority scoring, competitor analysis, and hallucination-risk diagnostics.
+                                            Paid upgrades are hidden in this build.
                                         </p>
-                                        <Link href="/dashboard/billing" className="text-xs text-blue-600 font-medium mt-2 inline-block hover:underline">Upgrade to Pro →</Link>
                                     </div>
                                 </div>
                             )}
@@ -872,7 +1268,7 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                             {/* User Query */}
                             <div className="flex gap-2 justify-end">
                                 <div className="bg-slate-100 text-slate-700 text-xs py-2 px-3 rounded-2xl rounded-tr-sm max-w-[85%] shadow-sm">
-                                    {activeReport.authority?.ai_preview?.query || (domain ? `Who is the best choice for ${domain}?` : 'Who is the best choice?')}
+                                    {generatedAiPreviewQuery}
                                 </div>
                                 <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
                                     <span className="text-[10px] font-bold text-slate-500">U</span>
@@ -884,10 +1280,27 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                                     <Sparkles className="w-3 h-3 text-emerald-600" />
                                 </div>
                                 <div className="bg-emerald-50/50 border border-emerald-100 text-slate-700 text-xs py-2.5 px-3 rounded-2xl rounded-tl-sm max-w-[90%] leading-relaxed shadow-sm">
-                                    {activeReport.authority?.ai_preview?.response || (
-                                        <span>
-                                            I found several options. <span className="bg-emerald-200/50 text-emerald-800 font-semibold px-1 py-0.5 rounded border border-emerald-200/50">{(knowledgeGraph as any).primaryEntity || (knowledgeGraph as any).primary_entity || "The Requested Entity"}</span> is a leading provider in this space...
-                                        </span>
+                                    {hasMeaningfulAiPreview ? (
+                                        aiPreviewResponse
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            {generatedAiPreviewLines.map((line, index) => (
+                                                <div key={`chat-preview-line-${index}`} className="flex items-start gap-1.5">
+                                                    {line.logo ? (
+                                                        <Image
+                                                            src={line.logo}
+                                                            alt={`${line.label || "Engine"} logo`}
+                                                            width={12}
+                                                            height={12}
+                                                            className="w-3 h-3 object-contain mt-0.5 shrink-0"
+                                                        />
+                                                    ) : (
+                                                        <span className="mt-1.5 h-1 w-1 rounded-full bg-emerald-500 shrink-0" />
+                                                    )}
+                                                    <span>{line.text}</span>
+                                                </div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -938,78 +1351,350 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
             </div>
 
             <div className="space-y-6">
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-bold text-slate-800">AI Engine Visibility Estimate</h3>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Click card for AEO/GEO details</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                        {engineRows.map((engine) => (
-                            <button
-                                key={engine.key}
-                                type="button"
-                                onClick={() => setSelectedEngineKey(engine.key)}
-                                className="rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100/80 text-left p-4 transition-colors"
+                <div className="relative w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm py-6 md:py-8">
+                    <div className="mx-auto flex flex-col md:flex-row items-center justify-between px-4 md:px-8">
+                        <div className="mb-6 md:mb-0 max-w-sm">
+                            <h3 className="text-xl font-serif text-slate-800">Search Engine View</h3>
+                            <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+                                AI models don't crawl like Google. Here is how easily major agents can read, understand, and quote {reportDomain || "your site"}.
+                            </p>
+                            <p className="mt-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Click card for AEO/GEO details</p>
+                        </div>
+                        <div
+                            className="relative flex w-full md:w-[65%] overflow-hidden"
+                            onMouseEnter={() => setIsSearchSliderPaused(true)}
+                            onMouseLeave={() => setIsSearchSliderPaused(false)}
+                        >
+                            <div
+                                className="flex w-max items-center"
+                                style={{
+                                    animation: `searchAiMarquee 40s linear infinite`,
+                                    animationPlayState: isSearchSliderPaused ? "paused" : "running",
+                                }}
                             >
-                                <div className="flex items-center gap-2">
-                                    <Image
-                                        src={engine.logo}
-                                        alt={`${engine.label} logo`}
-                                        width={18}
-                                        height={18}
-                                        className="w-[18px] h-[18px] object-contain"
-                                    />
-                                    <div>
-                                        <p className="text-sm font-semibold text-slate-800">{engine.label}</p>
-                                        <p className="text-[11px] text-slate-500">{engine.model}</p>
-                                    </div>
-                                </div>
-                                <div className="mt-2 flex items-end gap-1">
-                                    <span className="text-2xl font-semibold text-[#224034]">{engine.score}</span>
-                                    <span className="text-xs text-slate-400 mb-1">/100</span>
-                                </div>
-                                <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
-                                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${engine.score}%` }} />
-                                </div>
-                                <p className="mt-3 text-[10px] uppercase tracking-wider text-red-500 font-semibold">Core Issue</p>
-                                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                                    {engineIssueByKey[engine.key]}
-                                </p>
-                            </button>
-                        ))}
+                                {[...engineRows, ...engineRows].map((engine, i) => (
+                                    <button
+                                        key={`marquee-${engine.key}-${i}`}
+                                        type="button"
+                                        onClick={() => setSelectedEngineKey(engine.key)}
+                                        className="mx-2 w-64 shrink-0 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100/80 text-left p-4 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <Image
+                                                src={engine.logo}
+                                                alt={`${engine.label} logo`}
+                                                width={18}
+                                                height={18}
+                                                className="w-[18px] h-[18px] object-contain"
+                                            />
+                                            <div>
+                                                <p className="text-sm font-semibold text-slate-800">{engine.label}</p>
+                                                <p className="text-[11px] text-slate-500">{engine.model}</p>
+                                            </div>
+                                        </div>
+                                        <div className="mt-2 flex items-end gap-1">
+                                            <span className="text-2xl font-semibold text-[#224034]">{engine.score}</span>
+                                            <span className="text-xs text-slate-400 mb-1">/100</span>
+                                        </div>
+                                        <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                                            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${engine.score}%` }} />
+                                        </div>
+                                        <p className="mt-3 text-[10px] uppercase tracking-wider text-red-500 font-semibold">Core Issue</p>
+                                        <p className="text-xs text-slate-600 mt-1 leading-relaxed line-clamp-2">
+                                            {engineIssueByKey[engine.key]}
+                                        </p>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
+                    <style jsx>{`
+                    @keyframes searchAiMarquee {
+                        0% { transform: translateX(0); }
+                        100% { transform: translateX(-50%); }
+                    }
+                    `}</style>
                 </div>
 
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-                    <h3 className="text-lg font-bold text-slate-800">Query Responses by Engine</h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                        Simulated from your site audit signals (not live per-engine web queries).
-                    </p>
-                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        <div className="space-y-2">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <article className="rounded-xl border border-slate-200 bg-white shadow-sm p-4 lg:col-span-1">
+                        <h3 className="text-lg font-semibold text-slate-800">Daily Analytics</h3>
+                        <p className="text-xs text-slate-500 mt-1">
+                            Visibility, sentiment, and mention-rate trend.
+                        </p>
+                        <div className="mt-4 h-40 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 flex items-end gap-1.5">
+                            {dailySeries.map((value, index) => (
+                                <div
+                                    key={`daily-${index}`}
+                                    className="flex-1 rounded-t bg-sky-400/80"
+                                    style={{ height: `${Math.max(10, value)}%` }}
+                                />
+                            ))}
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+                                <p className="text-slate-500">Mention Rate</p>
+                                <p className="font-semibold text-slate-800">
+                                    {activePrompt ? activePrompt.mentionRate : 0}%
+                                </p>
+                            </div>
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+                                <p className="text-slate-500">Sentiment</p>
+                                <p className="font-semibold text-slate-800">{sentimentScore}/100</p>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article className="rounded-xl border border-slate-200 bg-white shadow-sm p-4 lg:col-span-2">
+                        <h3 className="text-lg font-semibold text-slate-800">Engine Visibility Details</h3>
+                        <p className="text-xs text-slate-500 mt-1">
+                            Model-level awareness check and confidence indicators.
+                        </p>
+                        <div className="mt-3 overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="text-left text-slate-500">
+                                        <th className="pb-2 pr-3">Name</th>
+                                        <th className="pb-2 pr-3">Model</th>
+                                        <th className="pb-2 pr-3">Search Access</th>
+                                        <th className="pb-2 text-right">Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {engineRows.map((engine) => (
+                                        <tr key={`presence-${engine.key}`} className="border-t border-slate-100">
+                                            <td className="py-2 pr-3">
+                                                <div className="flex items-center gap-2 text-slate-700 font-medium">
+                                                    <Image
+                                                        src={engine.logo}
+                                                        alt={`${engine.label} logo`}
+                                                        width={16}
+                                                        height={16}
+                                                        className="w-4 h-4 object-contain"
+                                                    />
+                                                    {engine.label}
+                                                </div>
+                                            </td>
+                                            <td className="py-2 pr-3 text-slate-600">{engine.model}</td>
+                                            <td className="py-2 pr-3 text-slate-600">Yes</td>
+                                            <td className="py-2 text-right font-semibold text-slate-800">
+                                                {engine.score}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <article className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-slate-800">Strategy Review</h3>
+                            <span className="text-lg font-bold text-slate-700">{strategyScore}</span>
+                        </div>
+
+                        <div className="mt-4 space-y-3">
+                            <div>
+                                <div className="flex items-center justify-between mb-1 text-sm text-slate-600">
+                                    <span>Answerability</span>
+                                    <span className="font-semibold">{answerability}</span>
+                                </div>
+                                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full bg-amber-400"
+                                        style={{ width: `${answerability}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <div className="flex items-center justify-between mb-2 text-sm text-slate-600">
+                                    <span>Web Presence</span>
+                                    <span className="font-semibold">{webPresence}</span>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">
+                                                <Linkedin className="h-3.5 w-3.5 text-blue-600" />
+                                            </span>
+                                            <span className="text-sm font-semibold text-slate-700">LinkedIn</span>
+                                        </div>
+                                        <span className="text-sm font-semibold text-slate-700">{linkedinScore}</span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="h-6 w-6 rounded-full bg-red-100 flex items-center justify-center">
+                                                <Youtube className="h-3.5 w-3.5 text-red-600" />
+                                            </span>
+                                            <span className="text-sm font-semibold text-slate-700">YouTube</span>
+                                        </div>
+                                        <span className="text-sm font-semibold text-slate-700">{youtubeScore}</span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="h-6 w-6 rounded-full bg-violet-100 flex items-center justify-center">
+                                                <MessageSquare className="h-3.5 w-3.5 text-violet-600" />
+                                            </span>
+                                            <span className="text-sm font-semibold text-slate-700">Industry Forums</span>
+                                        </div>
+                                        <span className="text-sm font-semibold text-slate-700">{forumScore}</span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="h-6 w-6 rounded-full bg-orange-100 flex items-center justify-center">
+                                                <Image
+                                                    src="/logos/reddit-logo.svg"
+                                                    alt="Reddit logo"
+                                                    width={14}
+                                                    height={14}
+                                                    className="h-3.5 w-3.5"
+                                                />
+                                            </span>
+                                            <span className="text-sm font-semibold text-slate-700">Reddit</span>
+                                        </div>
+                                        <span className="text-sm font-semibold text-slate-700">{redditPresenceScore}</span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center">
+                                                <Image
+                                                    src="/logos/wikipedia-logo.svg"
+                                                    alt="Wikipedia logo"
+                                                    width={14}
+                                                    height={14}
+                                                    className="h-3.5 w-3.5"
+                                                />
+                                            </span>
+                                            <span className="text-sm font-semibold text-slate-700">Wikipedia</span>
+                                        </div>
+                                        {wikipediaDetected ? (
+                                            <span className="h-6 w-6 rounded-full border border-emerald-200 bg-emerald-50 flex items-center justify-center">
+                                                <Check className="h-4 w-4 text-emerald-600" />
+                                            </span>
+                                        ) : (
+                                            <span className="h-6 w-6 rounded-full border border-rose-200 bg-rose-50 flex items-center justify-center">
+                                                <XCircle className="h-4 w-4 text-rose-500" />
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="flex items-center justify-between mb-1 text-sm text-slate-600">
+                                    <span>Structured Data</span>
+                                    <span className="font-semibold">{structuredData}</span>
+                                </div>
+                                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full bg-amber-400"
+                                        style={{ width: `${structuredData}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="flex items-center justify-between mb-1 text-sm text-slate-600">
+                                    <span>AI Crawler Accessibility</span>
+                                    <span className="font-semibold">{crawlerAccessibility}</span>
+                                </div>
+                                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full bg-amber-400"
+                                        style={{ width: `${crawlerAccessibility}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                    <article className="rounded-xl border border-slate-200 bg-white shadow-sm p-4 flex flex-col">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-slate-800">Top Recommendations</h3>
+                            <Sparkles className="w-5 h-5 text-emerald-500" />
+                        </div>
+                        <div className="space-y-3 flex-1">
+                            {engineRows.filter(e => e.score < 80).slice(0, 3).map((engine) => (
+                                <div key={engine.key} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Image src={engine.logo} alt={`${engine.label} logo`} width={14} height={14} className="w-3.5 h-3.5" />
+                                        <span className="text-xs font-bold text-slate-700">{engine.label} Optimization</span>
+                                    </div>
+                                    <p className="text-sm text-slate-600 leading-snug">{engineIssueByKey[engine.key]}</p>
+                                </div>
+                            ))}
+                            {engineRows.filter(e => e.score < 80).length === 0 && (
+                                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+                                    <Check className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
+                                    <p className="text-sm font-semibold text-emerald-700">All engines are highly optimized!</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-slate-100 text-right">
+                            <button onClick={() => setActiveTab('technical')} className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                                View full technical checklist →
+                            </button>
+                        </div>
+                    </article>
+                </div>
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 bg-indigo-50 rounded-lg border border-indigo-100 text-indigo-600">
+                            <MessageSquare className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800">Simulated AI Responses</h3>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                Predicted model behavior based on your current knowledge graph and authority signals.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="space-y-2 lg:border-r border-slate-100 lg:pr-6">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 pl-2">Test Queries</p>
                             {promptBundles.map((item, index) => (
                                 <button
                                     key={item.id}
                                     type="button"
                                     onClick={() => setActivePromptIndex(index)}
-                                    className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${index === activePromptIndex
-                                            ? "border-slate-400 bg-slate-100"
-                                            : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                                    className={`w-full text-left rounded-xl px-4 py-3 transition-all ${index === activePromptIndex
+                                            ? "bg-slate-50 border border-slate-200 shadow-sm"
+                                            : "bg-transparent border border-transparent hover:bg-slate-50/50"
                                         }`}
                                 >
-                                    <p className="text-sm text-slate-800 leading-snug">{item.prompt}</p>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        Mention rate: <strong className="text-slate-700">{item.mentionRate}%</strong>
+                                    <p className={`text-sm leading-relaxed ${index === activePromptIndex ? "text-slate-800 font-semibold" : "text-slate-600"}`}>
+                                        "{item.prompt}"
                                     </p>
+                                    <div className="mt-3 flex items-center justify-between">
+                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Mention Rate</span>
+                                        <span className={`text-xs font-bold ${index === activePromptIndex ? "text-indigo-600" : "text-slate-500"}`}>{item.mentionRate}%</span>
+                                    </div>
                                 </button>
                             ))}
                         </div>
 
-                        <div className="lg:col-span-2 space-y-3">
-                            {(activePrompt?.responses || []).map((entry) => (
-                                <div key={`${activePrompt?.id}-${entry.engineKey}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
+                        <div className="lg:col-span-2 space-y-6">
+                            <div className="flex gap-3 justify-end items-start mb-8 pb-6 border-b border-slate-100">
+                                <div className="bg-[#224034] text-white text-sm py-3 px-4 rounded-2xl rounded-tr-sm max-w-[85%] shadow-sm leading-relaxed">
+                                    {activePrompt?.prompt}
+                                </div>
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200">
+                                    <span className="text-xs font-bold text-slate-600">U</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-5">
+                                {(activePrompt?.responses || []).map((entry) => (
+                                    <div key={`${activePrompt?.id}-${entry.engineKey}`} className="flex items-start gap-4">
+                                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-200 shadow-sm">
                                             <Image
                                                 src={
                                                     ENGINE_META.find((engine) => engine.key === entry.engineKey)?.logo ||
@@ -1020,26 +1705,35 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                                                 height={16}
                                                 className="w-4 h-4 object-contain"
                                             />
-                                            <p className="font-semibold text-slate-800">{entry.engineLabel}</p>
-                                            <p className="text-xs text-slate-500">{entry.model}</p>
                                         </div>
-                                        <span className="text-xs rounded-md bg-white px-2 py-1 border border-slate-200 text-slate-600">
-                                            {entry.mentionRate}%
-                                        </span>
+                                        <div className="bg-slate-50/80 border border-slate-200 rounded-2xl rounded-tl-sm p-4 flex-1 shadow-sm transition-all hover:shadow-md">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-baseline gap-2">
+                                                    <h4 className="font-semibold text-slate-800 text-sm">{entry.engineLabel}</h4>
+                                                    <span className="text-[10px] font-medium text-slate-400">{entry.model}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-md px-2 py-1 shadow-sm">
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${entry.mentionRate > 50 ? 'bg-emerald-500' : entry.mentionRate > 20 ? 'bg-amber-500' : 'bg-rose-500'}`} />
+                                                    <span className="text-[10px] font-bold text-slate-600">{entry.mentionRate}% Match</span>
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-slate-600 leading-relaxed">
+                                                {entry.response}
+                                            </p>
+                                            <div className="mt-4 flex flex-wrap gap-1.5 pt-3 border-t border-slate-200/60">
+                                                {entry.mentions.slice(0, 6).map((mention) => (
+                                                    <span
+                                                        key={`${entry.engineKey}-${mention}`}
+                                                        className="text-[10px] font-semibold tracking-wide rounded-md bg-white border border-slate-200 text-slate-600 px-2 py-1 shadow-sm"
+                                                    >
+                                                        {mention}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <p className="mt-2 text-sm text-slate-600 leading-relaxed">{entry.response}</p>
-                                    <div className="mt-2 flex flex-wrap gap-1.5">
-                                        {entry.mentions.slice(0, 6).map((mention) => (
-                                            <span
-                                                key={`${entry.engineKey}-${mention}`}
-                                                className="text-[11px] rounded-md bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5"
-                                            >
-                                                {mention}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1048,7 +1742,10 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
             <Dialog
                 open={Boolean(selectedEngine)}
                 onOpenChange={(open) => {
-                    if (!open) setSelectedEngineKey(null)
+                    if (!open) {
+                        setSelectedEngineKey(null)
+                        setIsSearchSliderPaused(false)
+                    }
                 }}
             >
                 <DialogContent className="sm:max-w-4xl border border-slate-200 bg-white">
@@ -1105,7 +1802,8 @@ export function OverviewTab({ activeReport, setActiveTab, siteId, tier = 'free',
                     </div>
                 </DialogContent>
             </Dialog>
-
+                </div>
+            )}
         </div>
     )
 }

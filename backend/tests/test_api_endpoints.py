@@ -75,10 +75,13 @@ def test_analyze_endpoint_guest(mock_analyze_readiness):
     app.dependency_overrides[get_optional_current_user] = mock_get_user
 
 def test_analyze_endpoint_auth(mock_analyze_readiness, mock_supabase):
-    response = client.post("/analyze", json={"url": "https://example.com", "site_id": "site-123", "sync": True})
-    assert response.status_code == 200
-    # Should check ownership
-    mock_supabase.table.assert_called()
+    with patch("main._grant_daily_tokens_if_eligible", return_value={"granted": True}), \
+         patch("main._consume_tokens_for_scan", return_value={"success": True, "balance": 1000, "source": "daily"}), \
+         patch("main._settle_token_usage", return_value={"held_tokens": 0, "net_tokens": 0}):
+        response = client.post("/analyze", json={"url": "https://example.com", "site_id": "site-123", "sync": True})
+        assert response.status_code == 200
+        # Should check ownership
+        mock_supabase.table.assert_called()
 
 def test_schedule_scan_conflict(mock_supabase):
     # Mock existing pending scan

@@ -408,10 +408,10 @@ export function HeroSection({
 
                 <div className={`relative ${!result ? "max-w-4xl mx-auto text-center space-y-6" : "space-y-6"}`}>
                     <p className="font-serif italic text-3xl md:text-5xl leading-tight text-[#2a4a3b]/90">
-                        Fix Your AI Search Visibility
+                        Free AEO Checker
                     </p>
                     <h1 className="font-urbanist font-semibold text-[clamp(1.85rem,5.4vw,4.5rem)] leading-[1.05] tracking-tight text-[#1f2f2a] whitespace-nowrap">
-                        When Your Customer Searches
+                        Audit What AI Can Actually Cite
                     </h1>
                     {!result && (
                         <div className="pt-2">
@@ -443,12 +443,12 @@ export function HeroSection({
                         </div>
                     )}
                     <p className="text-lg md:text-2xl text-[#3f5f50] max-w-3xl mx-auto leading-relaxed">
-                        Find what’s blocking your AI rankings and get exact fixes you can apply instantly.
+                        Find the technical, content, and trust issues blocking your site from showing up in ChatGPT, Gemini, Perplexity, and Claude answers.
                     </p>
                     <div className="flex flex-wrap justify-center gap-2 text-xs text-[#3f6252] font-medium mt-6">
-                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">ChatGPT SEO</span>
-                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">Perplexity Rankings</span>
-                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">Google Gemini SEO</span>
+                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">AEO Checker</span>
+                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">AI Citation Audit</span>
+                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">LLM Visibility Fixes</span>
                     </div>
 
                     {/* Search Input Box - Refined */}
@@ -468,12 +468,12 @@ export function HeroSection({
                                     disabled={loading}
                                     className="bg-[#224034] hover:bg-[#1b332a] text-white h-11 px-7 rounded-full font-semibold text-sm tracking-wide whitespace-nowrap shadow-lg shadow-[#224034]/20 transition-all transform active:scale-95"
                                 >
-                                    {loading ? "Scanning..." : "Fix My AI Rankings"}
+                                    {loading ? "Scanning..." : "Run Free AEO Audit"}
                                 </Button>
                             </form>
 
                             <p className="mt-4 text-xs text-[#5e776a] text-center font-medium tracking-wide">
-                                Instant Analysis • No Credit Card Required • Free for 14 Days
+                                Instant Analysis • No Credit Card Required • Free
                             </p>
                             <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                                 <Link href="/aeo-checker-tool" className="text-xs text-[#2f6651] hover:text-[#224034] transition-colors underline-offset-4 hover:underline">
@@ -1107,7 +1107,7 @@ export function HeroSection({
                                     </Link>
                                 </Button>
                                 <p className="text-xs text-slate-400">
-                                    No credit card required • Free for 14 days
+                                    No credit card required • Free
                                 </p>
                             </div>
                         </div>

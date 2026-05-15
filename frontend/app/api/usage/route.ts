@@ -34,6 +34,8 @@ export async function GET() {
         const dailyFreeTokens = usageData.daily_free_tokens ?? 0
         const canClaimDailyFree = Boolean(usageData.can_claim_daily_free)
         const effectiveRemainingTokens = tokenBalance + (canClaimDailyFree ? dailyFreeTokens : 0)
+        const tokensPerDiamond = usageData.tokens_per_diamond ?? 100
+        const remainingDiamonds = usageData.remaining_diamonds ?? (effectiveRemainingTokens / Math.max(Number(tokensPerDiamond || 1), 1))
 
         return NextResponse.json({
             tokenBalance,
@@ -41,7 +43,19 @@ export async function GET() {
             dailyFreeTokens,
             canClaimDailyFree,
             tokensPerScan: usageData.tokens_per_scan ?? 1,
+            tokensPerInitialScan: usageData.tokens_per_initial_scan ?? usageData.tokens_per_scan ?? 1,
             tokensPerChat: usageData.tokens_per_chat ?? 1,
+            tokensPerAmbiguityScan: usageData.tokens_per_ambiguity_scan ?? usageData.tokens_per_chat ?? 1,
+            tokensPerDiamond,
+            diamondBalance: usageData.diamond_balance ?? 0,
+            remainingDiamonds,
+            dailyFreeDiamonds: usageData.daily_free_diamonds ?? 0,
+            diamondsPerScan: usageData.diamonds_per_scan ?? 0,
+            diamondsPerInitialScan: usageData.diamonds_per_initial_scan ?? usageData.diamonds_per_scan ?? 0,
+            diamondsPerChat: usageData.diamonds_per_chat ?? 0,
+            diamondsPerAmbiguityScan: usageData.diamonds_per_ambiguity_scan ?? usageData.diamonds_per_chat ?? 0,
+            totalDiamondsUsed: usageData.total_diamonds_used ?? 0,
+            totalDiamondsPurchased: usageData.total_diamonds_purchased ?? 0,
             totalTokensUsed: usageData.total_tokens_used ?? 0,
             totalTokensPurchased: usageData.total_tokens_purchased ?? 0,
             lastDailyGrantAt: usageData.daily_free_tokens_last_granted_at ?? null,

@@ -742,7 +742,7 @@ async def check_eeat(soup) -> dict:
 
 async def check_readability_async(text: str) -> dict:
     if not text:
-        return {"score": 0, "details": ["No text content"]}
+        return {"score": 0, "grade": 0, "details": ["No text content"]}
         
     grade = textstat.flesch_kincaid_grade(text)
     display_grade = round(grade, 1)
@@ -763,7 +763,7 @@ async def check_readability_async(text: str) -> dict:
     else:
         details[0] += " (Optimal)"
         
-    return {"score": score, "details": details}
+    return {"score": score, "grade": display_grade, "details": details}
 
 def check_visual_context(soup) -> dict:
     images = soup.find_all('img')

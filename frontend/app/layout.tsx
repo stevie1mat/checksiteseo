@@ -71,23 +71,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const jsonLd = {
+  const organizationJsonLd = {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
+    "@type": "Organization",
     "name": SITE_NAME,
-    "applicationCategory": "SEO Tool",
-    "operatingSystem": "Web",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
-    "description": "A tool to analyze websites for Answer Engine Optimization (AEO) and LLM readability readiness.",
-    "aggregateRating": {
-      "@type": "AggregateRating",
-      "ratingValue": "4.8",
-      "ratingCount": "120"
-    }
+    "url": SITE_URL,
+    "description": "AEO software for auditing, improving, and monitoring AI search visibility.",
+    "email": "hello@checksiteaeo.com",
+  };
+
+  const webSiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": SITE_NAME,
+    "url": SITE_URL,
+    "description": "Analyze your website for answer engine optimization, AI search visibility, and citation readiness.",
   };
 
   return (
@@ -95,7 +93,11 @@ export default function RootLayout({
       <body className="font-sans antialiased text-slate-900 bg-white">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteJsonLd) }}
         />
         <ErrorBoundary>
           <SentryInit />

@@ -36,15 +36,26 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
     // Scan Progress
     const [scanDialogOpen, setScanDialogOpen] = useState(false)
     const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle')
+    const [scanMessage, setScanMessage] = useState("")
 
     const router = useRouter()
     const supabase = createClient()
     const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
 
+    const normalizeUrl = (value: string) => {
+        const trimmed = value.trim()
+        if (!trimmed) return ""
+        if (/^https?:\/\//i.test(trimmed)) return trimmed
+        return `https://${trimmed}`
+    }
+
     const handleInitiate = async (e: React.FormEvent) => {
         e.preventDefault()
         setError(null)
         setLoading(true)
+
+        const normalizedUrl = normalizeUrl(url)
+        setUrl(normalizedUrl)
 
         try {
             const { data: { session } } = await supabase.auth.getSession()
@@ -56,7 +67,7 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session.access_token}`
                 },
-                body: JSON.stringify({ url: url })
+                body: JSON.stringify({ url: normalizedUrl })
             })
 
             const data = await response.json()
@@ -64,7 +75,7 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
 
             if (data.verified) {
                 // Already verified, go straight to scan
-                startScan(data.site_id, url)
+                startScan(data.site_id, normalizedUrl, true)
             } else {
                 // Show verification step
                 setSiteId(data.site_id)
@@ -101,7 +112,7 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
             if (!response.ok) throw new Error(data.detail || "Verification failed")
 
             // Success
-            startScan(siteId, url)
+            startScan(siteId, normalizeUrl(url), true)
 
         } catch (err: any) {
             setError(err.message)
@@ -123,16 +134,17 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
         URL.revokeObjectURL(url)
     }
 
-    const startScan = async (id: string, siteUrl: string) => {
+    const startScan = async (id: string, siteUrl: string, initialScan = false) => {
         setOpen(false)
         setScanStatus('scanning')
         setScanDialogOpen(true)
+        setScanMessage("")
 
         try {
             const response = await fetch('/api/scan', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ siteId: id, url: siteUrl })
+                body: JSON.stringify({ siteId: id, url: siteUrl, initialScan })
             })
 
             if (!response.ok) {
@@ -153,6 +165,7 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
 
                 if (site?.status === 'completed') {
                     setScanStatus('complete');
+                    setScanMessage("Analysis completed successfully.")
                     setTimeout(() => {
                         setScanDialogOpen(false)
                         setUrl("")
@@ -161,15 +174,16 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
                     }, 2000);
                     return;
                 }
-                if (site?.status === 'error') throw new Error("Analysis failed.");
+                if (site?.status === 'error') throw new Error("Analysis failed. Please retry scan.");
 
                 await new Promise(r => setTimeout(r, 2000));
                 attempts++;
             }
-            throw new Error("Timeout");
+            throw new Error("Analysis timed out. Please try again.");
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             setScanStatus('error')
+            setScanMessage(err instanceof Error ? err.message : "Scan failed. Please try again.")
         }
     }
 
@@ -192,13 +206,15 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
                 onOpenChange={setScanDialogOpen}
                 siteUrl={url}
                 status={scanStatus}
+                message={scanMessage}
             />
 
             <Dialog open={open} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
-                    <Button className="group bg-gradient-to-br from-[#2a4e40] to-[#1d332b] hover:from-[#335c4a] hover:to-[#224034] text-white shadow-lg shadow-[#224034]/25 border border-[#3e5c50]/50 hover:shadow-xl hover:shadow-[#224034]/30 hover:-translate-y-0.5 transition-all duration-300 gap-2 h-12 !px-12 rounded-xl font-medium tracking-wide text-base">
+                    <Button className="group relative overflow-hidden bg-gradient-to-br from-[#34d399] to-[#10b981] hover:from-[#10b981] hover:to-[#059669] text-[#022c22] shadow-[0_0_20px_rgba(52,211,153,0.3)] border border-[#34d399]/50 hover:shadow-[0_0_30px_rgba(52,211,153,0.5)] hover:-translate-y-1 transition-all duration-300 gap-2 h-14 !px-8 rounded-xl font-bold tracking-wide text-base">
+                        <div className="absolute inset-0 bg-white/20 translate-y-[-100%] group-hover:translate-y-[100%] transition-transform duration-700 ease-in-out" />
                         <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                        <span className="relative top-[1px]">Add New Site</span>
+                        <span className="relative z-10">Add New Site</span>
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md bg-[#1d332b] border-[#2a4e40] text-white">
@@ -222,7 +238,19 @@ export function AddSiteDialog({ currentSiteCount, maxSites }: AddSiteDialogProps
                                     id="url"
                                     placeholder="https://example.com"
                                     value={url}
-                                    onChange={(e) => setUrl(e.target.value)}
+                                    onChange={(e) => {
+                                        const next = e.target.value
+                                        if (!next.trim()) {
+                                            setUrl("")
+                                            return
+                                        }
+                                        if (/^https?:\/\//i.test(next)) {
+                                            setUrl(next)
+                                            return
+                                        }
+                                        setUrl(normalizeUrl(next))
+                                    }}
+                                    onBlur={(e) => setUrl(normalizeUrl(e.target.value))}
                                     required
                                     className="bg-black/20 border-white/10 text-white"
                                 />

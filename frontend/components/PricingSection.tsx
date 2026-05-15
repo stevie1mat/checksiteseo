@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { analytics } from "@/lib/analytics";
+import { formatDiamonds } from "@/lib/diamonds";
 
 export function PricingSection({
     currentPlan = "free",
@@ -21,6 +22,13 @@ export function PricingSection({
 }) {
     const router = useRouter();
     const [loading, setLoading] = useState<string | null>(null);
+    const [checkoutError, setCheckoutError] = useState<string | null>(null);
+    const dailyFreeDiamonds = Number(process.env.NEXT_PUBLIC_DAILY_FREE_DIAMONDS || 10);
+    const starterPackDiamonds = Number(process.env.NEXT_PUBLIC_TOKEN_PACK_STARTER_DIAMONDS || 100);
+    const growthPackDiamonds = Number(process.env.NEXT_PUBLIC_TOKEN_PACK_GROWTH_DIAMONDS || 500);
+    const scalePackDiamonds = Number(process.env.NEXT_PUBLIC_TOKEN_PACK_SCALE_DIAMONDS || 2000);
+    const featureDiamondLabel = (diamonds: number) => `${formatDiamonds(diamonds)} diamonds (usage credits)`;
+    const dailyRefillLabel = `Daily free refill (e.g. ${formatDiamonds(dailyFreeDiamonds)}/day)`;
 
     const packs = [
         {
@@ -30,12 +38,12 @@ export function PricingSection({
             period: "one-time",
             description: "Great for personal projects and light monitoring",
             features: [
-                "100 scan tokens",
-                "Daily free token refill",
-                "Use tokens anytime",
-                "No monthly subscription"
+                featureDiamondLabel(starterPackDiamonds),
+                dailyRefillLabel,
+                "Use diamonds anytime",
+                "One-time payment (no subscription)"
             ],
-            cta: "Buy Starter",
+            cta: "Get Starter",
             popular: false,
         },
         {
@@ -45,12 +53,12 @@ export function PricingSection({
             period: "one-time",
             description: "Best value for active websites and agencies",
             features: [
-                "500 scan tokens",
-                "Daily free token refill",
+                featureDiamondLabel(growthPackDiamonds),
+                dailyRefillLabel,
                 "Priority support",
-                "No recurring billing"
+                "One-time payment (no recurring billing)"
             ],
-            cta: "Buy Growth",
+            cta: "Get Growth",
             popular: true,
         },
         {
@@ -58,14 +66,15 @@ export function PricingSection({
             name: "Scale Pack",
             price: "$249",
             period: "one-time",
-            description: "High-volume token bundle for teams",
+            description: "High-volume diamond bundle for teams",
             features: [
-                "2,000 scan tokens",
-                "Daily free token refill",
-                "Fastest way to top up",
-                "No monthly commitment"
+                featureDiamondLabel(scalePackDiamonds),
+                dailyRefillLabel,
+                "Team usage support",
+                "Priority queue + fastest top-up handling",
+                "One-time payment (no monthly commitment)"
             ],
-            cta: "Buy Scale",
+            cta: "Get Scale",
             popular: false,
         }
     ];
@@ -83,6 +92,7 @@ export function PricingSection({
 
         analytics.trackUpgradePlanStarted(`token_pack_${packId}`);
         setLoading(packId);
+        setCheckoutError(null);
 
         try {
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/create-checkout-session`, {
@@ -99,7 +109,8 @@ export function PricingSection({
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                console.error("Token checkout failed:", errorData);
+                console.error("Diamond checkout failed:", errorData);
+                setCheckoutError(errorData?.detail || "Checkout failed. Please try again.");
                 return;
             }
 
@@ -109,6 +120,7 @@ export function PricingSection({
             }
         } catch (error) {
             console.error(error);
+            setCheckoutError("Checkout failed. Please try again.");
         } finally {
             setLoading(null);
         }
@@ -123,14 +135,14 @@ export function PricingSection({
                 {!hideHeader && (
                     <div className="text-center mb-16">
                         <div className="inline-block px-4 py-1 rounded-full border border-emerald-200 text-xs font-bold tracking-widest uppercase text-emerald-700 mb-6 bg-white">
-                            Token Packs
+                            Diamond Packs
                         </div>
                         <h2 className="font-serif text-4xl md:text-5xl text-[#224034] max-w-2xl mx-auto leading-tight">
-                            Buy tokens only when you need them.
+                            Buy diamonds only when you need them.
                         </h2>
                         <p className="text-slate-500 mt-6 max-w-xl mx-auto text-lg">
-                            All accounts receive free tokens daily.
-                            <span className="block mt-1 text-emerald-600 font-medium">Top up instantly with one-time purchases.</span>
+                            Diamonds are usage credits for scans and AI chat.
+                            <span className="block mt-1 text-emerald-600 font-medium">One-time top-up + daily free refill.</span>
                         </p>
                     </div>
                 )}
@@ -189,8 +201,11 @@ export function PricingSection({
                 </div>
 
                 <p className="text-center text-slate-400 text-sm mt-12">
-                    {currentPlan ? "Daily free tokens are added automatically. Purchased tokens never expire." : "Purchased tokens never expire."}
+                    Credits never expire. Daily bonus added automatically.
                 </p>
+                {checkoutError && (
+                    <p className="text-center text-sm text-rose-600 mt-3">{checkoutError}</p>
+                )}
             </div>
         </section>
     );

@@ -1,8 +1,10 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useRouter, useParams, usePathname } from "next/navigation"
+import Link from "next/link"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Bell, Menu, LogOut, Settings, User, CreditCard } from "lucide-react"
+import { Bell, Menu, LogOut, Settings, CreditCard, ArrowLeft, MessageSquare } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { SidebarContent } from "@/components/dashboard/Sidebar"
 import {
@@ -14,10 +16,29 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { createClient } from "@/lib/supabase/client"
+import { OverviewModeToggle } from "@/components/dashboard/OverviewModeToggle"
+import { RescanButton } from "@/components/RescanButton"
 
 export function DashboardHeader({ userEmail }: { userEmail?: string }) {
     const router = useRouter()
+    const params = useParams()
+    const pathname = usePathname()
     const supabase = createClient()
+
+    const siteId = params?.id as string
+    const isSiteRoute = pathname?.includes('/dashboard/sites/') && siteId
+
+    const [site, setSite] = useState<any>(null)
+
+    useEffect(() => {
+        if (isSiteRoute && siteId) {
+            supabase.from('sites').select('*').eq('id', siteId).single().then(({ data }) => {
+                if (data) setSite(data)
+            })
+        } else {
+            setSite(null)
+        }
+    }, [isSiteRoute, siteId, supabase])
 
     const handleSignOut = async () => {
         await supabase.auth.signOut()
@@ -26,7 +47,7 @@ export function DashboardHeader({ userEmail }: { userEmail?: string }) {
     }
 
     return (
-        <header className="h-16 border-b border-[#d3e6dc] bg-white/70 backdrop-blur-md px-4 md:px-6 flex items-center justify-between z-40 relative">
+        <header className="h-20 border-b border-[#d3e6dc] bg-white/70 backdrop-blur-md px-4 md:px-6 flex items-center justify-between z-40 relative">
             <div className="flex items-center gap-4">
                 <Sheet>
                     <SheetTrigger asChild>
@@ -40,59 +61,41 @@ export function DashboardHeader({ userEmail }: { userEmail?: string }) {
                     </SheetContent>
                 </Sheet>
                 <div className="md:hidden flex items-center">
-                    <span className="font-serif text-xl font-medium tracking-wide text-[#1A4036]">
-                        CheckSite<span className="text-[#8cd9b8]">AEO</span>
-                    </span>
-                </div>            </div>
+                    {!isSiteRoute && (
+                        <span className="font-serif text-xl font-medium tracking-wide text-[#1A4036]">
+                            CheckSite<span className="text-[#8cd9b8]">AEO</span>
+                        </span>
+                    )}
+                </div>
 
-            <div className="flex items-center gap-4">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-slate-500 hover:text-slate-700">
-                            <Bell className="w-5 h-5" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-80">
-                        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <div className="p-4 text-center text-sm text-slate-500">
-                            No new notifications
+                {/* Site Header Elements (Desktop) */}
+                {isSiteRoute && site && (
+                    <div className="hidden md:flex items-center gap-3 ml-2">
+
+                        <div className="flex flex-col justify-center">
+                            <h1 className="text-lg font-serif text-[#224034] font-bold leading-tight">{site.name || site.url}</h1>
+
                         </div>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                    </div>
+                )}
+            </div>
 
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="relative h-8 w-8 rounded-full">
-                            <div className="h-8 w-8 rounded-full bg-[#224034] text-white flex items-center justify-center text-xs font-medium">
-                                {userEmail?.[0]?.toUpperCase()}
-                            </div>
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                        {userEmail && (
-                            <div className="px-2 py-1.5 text-xs text-slate-500 truncate">
-                                {userEmail}
-                            </div>
-                        )}
-                        <DropdownMenuSeparator />
+            <div className="flex items-center gap-3 md:gap-4">
+                {/* Site Header Action Buttons */}
+                {isSiteRoute && site && (
+                    <div className="hidden md:flex items-center gap-2 mr-2">
+                        <OverviewModeToggle />
+                        <Link
+                            href={`/dashboard/sites/${site.id}/chat`}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#224034] bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                        >
+                            <MessageSquare className="h-4 w-4" />
+                            AI Chat
+                        </Link>
+                        <RescanButton siteId={site.id} url={site.url} />
+                    </div>
+                )}
 
-                        <DropdownMenuItem onClick={() => router.push('/dashboard/billing')}>
-                            <CreditCard className="mr-2 h-4 w-4" />
-                            Top Up
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
-                            <Settings className="mr-2 h-4 w-4" />
-                            Settings
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={handleSignOut}>
-                            <LogOut className="mr-2 h-4 w-4" />
-                            Sign out
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
             </div>
         </header>
     )

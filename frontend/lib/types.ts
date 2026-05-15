@@ -3,9 +3,11 @@ export interface Site {
     user_id: string
     url: string
     name?: string
-    status: 'pending' | 'analyzing' | 'completed' | 'error'
+    status: 'pending' | 'analyzing' | 'completed' | 'error' | 'unverified' | 'pending_verification'
     created_at: string
     aeo_score: number
+    verification_token?: string
+    verified_at?: string | null
     health_status: {
         robots: 'healthy' | 'warning' | 'critical' | 'neutral'
         schema: 'healthy' | 'warning' | 'critical' | 'neutral'

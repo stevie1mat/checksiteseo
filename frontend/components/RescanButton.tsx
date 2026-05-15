@@ -6,6 +6,7 @@ import { PlayCircle, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
 import { createClient } from "@/lib/supabase/client"
+import { formatDiamonds } from "@/lib/diamonds"
 
 interface RescanButtonProps {
     siteId: string
@@ -16,11 +17,14 @@ export function RescanButton({ siteId, url }: RescanButtonProps) {
     const [loading, setLoading] = useState(false)
     const [scanDialogOpen, setScanDialogOpen] = useState(false)
     const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle')
+    const [scanMessage, setScanMessage] = useState("")
     const [usage, setUsage] = useState<{
-        tokenBalance: number
+        remainingDiamonds: number
+        dailyFreeDiamonds: number
+        diamondBalance: number
         remainingTokens: number
         tokensPerScan: number
-        dailyFreeTokens: number
+        diamondsPerScan: number
         canClaimDailyFree?: boolean
     } | null>(null)
     const router = useRouter()
@@ -39,6 +43,7 @@ export function RescanButton({ siteId, url }: RescanButtonProps) {
         setLoading(true)
         setScanDialogOpen(true)
         setScanStatus('scanning')
+        setScanMessage("")
 
         try {
             const response = await fetch('/api/scan', {
@@ -65,6 +70,7 @@ export function RescanButton({ siteId, url }: RescanButtonProps) {
 
                 if (site?.status === 'completed') {
                     setScanStatus('complete');
+                    setScanMessage("Analysis completed successfully.")
                     setTimeout(() => {
                         setScanDialogOpen(false)
                         setLoading(false)
@@ -75,22 +81,29 @@ export function RescanButton({ siteId, url }: RescanButtonProps) {
                     return;
                 }
                 if (site?.status === 'error') {
-                    throw new Error("Analysis failed.");
+                    throw new Error("Analysis failed. Please retry scan.");
                 }
 
                 await new Promise(r => setTimeout(r, 2000));
                 attempts++;
             }
-            throw new Error("Timeout");
+            throw new Error("Analysis timed out. Please try again.");
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Rescan failed", error)
             setScanStatus('error')
+            setScanMessage(error instanceof Error ? error.message : "Scan failed. Please try again.")
             setTimeout(() => {
                 setLoading(false)
             }, 3000)
         }
     }
+
+    const usageHint = usage
+        ? usage.canClaimDailyFree
+            ? `${formatDiamonds(usage.diamondBalance)} paid + ${formatDiamonds(usage.dailyFreeDiamonds)} free today (${formatDiamonds(usage.remainingDiamonds)} available) • ${formatDiamonds(usage.diamondsPerScan)} diamonds per scan`
+            : `${formatDiamonds(usage.remainingDiamonds)} diamonds available • ${formatDiamonds(usage.diamondsPerScan)} diamonds per scan`
+        : ""
 
     return (
         <>
@@ -103,13 +116,15 @@ export function RescanButton({ siteId, url }: RescanButtonProps) {
                 }}
                 siteUrl={url}
                 status={scanStatus}
+                message={scanMessage}
                 title="Rescanning Site"
             />
 
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex items-end">
                 <Button
                     onClick={handleRescan}
                     disabled={loading || (usage ? usage.remainingTokens < (usage.tokensPerScan || 1) : false)}
+                    title={usageHint || "Rescan this site"}
                     className="bg-[#224034] hover:bg-[#1a3027] text-white pr-6 transition-colors shadow-sm"
                 >
                     {loading ? (
@@ -124,13 +139,6 @@ export function RescanButton({ siteId, url }: RescanButtonProps) {
                         </>
                     )}
                 </Button>
-                {usage && (
-                    <span className="text-[10px] text-slate-400 font-medium px-1">
-                        {usage.canClaimDailyFree
-                            ? `${usage.tokenBalance} paid tokens + ${usage.dailyFreeTokens} daily free available • ${usage.tokensPerScan} token per scan`
-                            : `${usage.tokenBalance} tokens available • ${usage.tokensPerScan} token per scan`}
-                    </span>
-                )}
             </div>
         </>
     )

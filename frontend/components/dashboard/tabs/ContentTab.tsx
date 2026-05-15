@@ -1,17 +1,11 @@
 import Link from "next/link"
-import { useState } from "react"
+import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Check, AlertCircle, FileText, XCircle, ArrowRight, Search, Loader2, Sparkles, AlertTriangle } from "lucide-react"
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
+import { Check, ArrowRight, Loader2, AlertTriangle, ChevronRight } from "lucide-react"
 import { AEOReport } from "@/types/aeo"
+import { ScanProgressDialog } from "@/components/dashboard/ScanProgressDialog"
 
 interface ContentTabProps {
     activeReport: AEOReport
@@ -20,15 +14,52 @@ interface ContentTabProps {
     tier?: string
 }
 
-export function ContentTab({ activeReport, activeReport: { content }, siteId, domain, tier }: ContentTabProps & { activeReport: { content: any } }) {
-    // Helper Accessors (Safeguarded)
-    const failedQueries = activeReport.content?.missingAnswers || []
+type MissingAnswerItem = AEOReport["content"]["missingAnswers"][number]
+
+type AmbiguityImprovement = {
+    category: string
+    originalText: string
+    suggestedFix: string
+}
+
+type AmbiguityResponse = {
+    improvements?: AmbiguityImprovement[]
+}
+
+type ContentStep = {
+    key: string
+    title: string
+    description: string
+    metricLabel: string
+    metricValue: string
+    done: boolean
+    issue: string
+    steps: string[]
+    locked?: boolean
+}
+
+const getDisplayQuery = (query: MissingAnswerItem) => {
+    const value = (query?.query || "").trim()
+    return value.length > 0 ? value : "No query text returned by scan"
+}
+
+export function ContentTab({ activeReport, siteId, domain, tier }: ContentTabProps) {
+    const router = useRouter()
+
+    const content = activeReport.content
+    const failedQueries: MissingAnswerItem[] = content?.missingAnswers || []
     const isPlusOrPro = tier === 'plus' || tier === 'pro'
 
-    // Ambiguity Analysis State
+    const [contentStep, setContentStep] = useState(0)
+
     const [ambiguityLoading, setAmbiguityLoading] = useState(false)
-    const [ambiguityData, setAmbiguityData] = useState<any>(null)
+    const [ambiguityData, setAmbiguityData] = useState<AmbiguityResponse | null>(null)
     const [error, setError] = useState<string | null>(null)
+    const [isRecrawling, setIsRecrawling] = useState(false)
+    const [recrawlMessage, setRecrawlMessage] = useState<string | null>(null)
+    const [scanDialogOpen, setScanDialogOpen] = useState(false)
+    const [scanDialogStatus, setScanDialogStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle')
+    const [scanDialogMessage, setScanDialogMessage] = useState<string>("")
 
     const handleAnalyzeAmbiguity = async () => {
         if (!domain) return
@@ -40,271 +71,418 @@ export function ContentTab({ activeReport, activeReport: { content }, siteId, do
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_domain: domain })
             })
-            if (!res.ok) throw new Error("Analysis failed")
-            const data = await res.json()
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok) throw new Error(data?.error || "Analysis failed")
             setAmbiguityData(data)
-        } catch (err) {
-            setError("Could not analyze content. Please try again.")
+            window.dispatchEvent(new Event("diamonds-updated"))
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Could not analyze content. Please try again.")
         } finally {
             setAmbiguityLoading(false)
         }
     }
 
+    const questionTargetingScore = Number(content?.questionTargetingScore || 0)
+    const readabilityGrade = Number(content?.readabilityGrade || 0)
+    const visualContextScore = Number(content?.visualContextScore || 0)
+    const freshnessScore = Number(content?.freshnessScore || 0)
+    const readabilitySuggestion = content?.readabilityDetails?.find((d: string) => d.startsWith("Suggestion:"))
+    const ambiguityImprovements = ambiguityData?.improvements ?? []
+
+    const explicitAnswers = failedQueries.filter((q) => q.status === 'Explicitly Stated').length
+    const aiConfidence = Math.round((explicitAnswers / Math.max(failedQueries.length, 1)) * 100)
+    const unresolvedAnswers = failedQueries.filter((q) => q.status !== 'Explicitly Stated').length
+    const scanTargetDomain = activeReport.domain || domain || ""
+
+    const runContentReverify = async () => {
+        if (!siteId || !scanTargetDomain) return
+
+        setIsRecrawling(true)
+        setRecrawlMessage(null)
+        setScanDialogOpen(true)
+        setScanDialogStatus("scanning")
+        setScanDialogMessage("Running a full rescan to verify content updates.")
+
+        try {
+            const response = await fetch("/api/scan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ siteId, url: scanTargetDomain }),
+            })
+
+            const data = await response.json().catch(() => ({}))
+            if (!response.ok && response.status !== 409) {
+                throw new Error(data.error || "Could not start reverification scan.")
+            }
+            if (response.status === 409) {
+                setRecrawlMessage("A scan is already in progress. Waiting for it to finish.")
+                setScanDialogMessage("A scan is already in progress. Waiting for completion.")
+            }
+
+            let attempts = 0
+            const maxAttempts = 60
+
+            while (attempts < maxAttempts) {
+                await new Promise((resolve) => setTimeout(resolve, 2000))
+                const pollResponse = await fetch(`/api/scan?domain=${encodeURIComponent(scanTargetDomain)}`, { cache: "no-store" })
+                const pollData = await pollResponse.json().catch(() => ({}))
+
+                if (!pollResponse.ok) {
+                    attempts += 1
+                    continue
+                }
+
+                if (pollData.status === "completed") {
+                    setRecrawlMessage("Reverification complete. Latest content scores are now loading.")
+                    setScanDialogStatus("complete")
+                    setScanDialogMessage("Verification complete. Refreshing your report.")
+                    window.dispatchEvent(new Event("diamonds-updated"))
+                    setTimeout(() => {
+                        setScanDialogOpen(false)
+                        router.refresh()
+                    }, 1200)
+                    return
+                }
+
+                if (pollData.status === "failed") {
+                    throw new Error("Verification scan completed with errors.")
+                }
+
+                attempts += 1
+            }
+
+            throw new Error("Verification timed out. Please refresh and try again.")
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Could not start reverification."
+            setRecrawlMessage(message)
+            setScanDialogStatus("error")
+            setScanDialogMessage(message)
+        } finally {
+            setIsRecrawling(false)
+        }
+    }
+
+    const contentSteps: ContentStep[] = useMemo(() => {
+        return [
+            {
+                key: "question-targeting",
+                title: "Question targeting",
+                description: "Are your headings aligned to real user questions?",
+                metricLabel: "Headers asking questions",
+                metricValue: `${questionTargetingScore} / 5`,
+                done: questionTargetingScore >= 3,
+                issue: questionTargetingScore >= 3
+                    ? "Great coverage. Your pages already include question-style headings."
+                    : "Too few question-style headings. AI may not map your page to user intent quickly.",
+                steps: [
+                    "Add clear H2/H3 question headings users actually search for.",
+                    "Start each major section with one direct question.",
+                    "Match wording to long-tail searches (who, what, how, cost, timeline).",
+                ],
+            },
+            {
+                key: "readability",
+                title: "Readability",
+                description: "Is the writing easy for humans and AI to understand quickly?",
+                metricLabel: "Flesch-Kincaid grade",
+                metricValue: readabilityGrade > 0 ? `Grade ${readabilityGrade}` : "Calculating...",
+                done: readabilityGrade > 0 && readabilityGrade <= 10,
+                issue: readabilityGrade > 0 && readabilityGrade <= 10
+                    ? "Your writing is easy to parse."
+                    : readabilityGrade > 10
+                        ? "Your writing may be too complex, which lowers answer extraction quality."
+                        : "Readability score is not ready yet.",
+                steps: [
+                    "Use shorter sentences and plain language.",
+                    "Keep paragraphs to 2-4 lines.",
+                    "Replace vague words with concrete facts and numbers.",
+                ],
+            },
+            {
+                key: "visual-context",
+                title: "Visual context",
+                description: "Do images and layout support clear page meaning?",
+                metricLabel: "Visual context",
+                metricValue: `${visualContextScore}%`,
+                done: visualContextScore >= 85,
+                issue: visualContextScore >= 85
+                    ? "Strong visual context."
+                    : "Visual context can be improved for better model interpretation.",
+                steps: [
+                    "Add descriptive alt text to important images.",
+                    "Put key message text near related visuals.",
+                    "Avoid decorative images that do not support content meaning.",
+                ],
+            },
+            {
+                key: "freshness",
+                title: "Content freshness",
+                description: "Can AI trust that your content is current?",
+                metricLabel: "Dates validated",
+                metricValue: freshnessScore > 0 ? "Validated" : "Needs review",
+                done: freshnessScore > 0,
+                issue: freshnessScore > 0
+                    ? "Freshness signals are present."
+                    : "Missing clear timestamps can reduce trust in your content.",
+                steps: [
+                    "Show published and updated dates on key pages.",
+                    "Keep pricing, policies, and product info current.",
+                    "Update outdated sections and rescan after publishing.",
+                ],
+            },
+            {
+                key: "missing-answers",
+                title: "The missing answer",
+                description: "Do your pages directly answer simulated user questions?",
+                metricLabel: "AI confidence",
+                metricValue: `${aiConfidence} / 100`,
+                done: unresolvedAnswers === 0,
+                issue: unresolvedAnswers === 0
+                    ? "All tested questions are explicitly answered."
+                    : `${unresolvedAnswers} simulated questions are still implied or missing.`,
+                steps: [
+                    "Add a direct answer block for each missing question.",
+                    "Use exact phrasing from user queries in your headings.",
+                    "Add concise FAQ sections with explicit statements.",
+                ],
+                locked: !isPlusOrPro,
+            },
+            {
+                key: "ambiguity",
+                title: "Ambiguity inspector",
+                description: "Remove vague claims so AI can cite you accurately.",
+                metricLabel: "Ambiguity checks",
+                metricValue: ambiguityData ? "Scanned" : "Not scanned",
+                done: Boolean(ambiguityData) && ambiguityImprovements.length === 0,
+                issue: ambiguityData
+                    ? (ambiguityImprovements.length > 0
+                        ? "We found vague wording that should be made concrete."
+                        : "No major ambiguity found.")
+                    : "Run ambiguity scan to detect weak phrases.",
+                steps: [
+                    "Replace words like 'best' or 'fast' with measurable proof.",
+                    "Add numbers, dates, and source-backed claims.",
+                    "Update pages with specific outcomes and examples.",
+                ],
+                locked: !isPlusOrPro,
+            },
+        ]
+    }, [aiConfidence, ambiguityData, ambiguityImprovements.length, freshnessScore, isPlusOrPro, questionTargetingScore, readabilityGrade, unresolvedAnswers, visualContextScore])
+
+    const activeStep = contentSteps[contentStep] || contentSteps[0]
+    const allDone = contentSteps.every((step) => step.done || step.locked)
+
+        if (allDone) {
+            return (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 w-full max-w-5xl mx-auto flex flex-col items-center justify-center min-h-[50vh] text-center">
+                    <ScanProgressDialog
+                        open={scanDialogOpen}
+                        onOpenChange={(open) => {
+                            if (!open && scanDialogStatus === "scanning") return
+                            setScanDialogOpen(open)
+                        }}
+                        siteUrl={scanTargetDomain}
+                        status={scanDialogStatus}
+                        message={scanDialogMessage}
+                        title="Content Reverification In Progress"
+                    />
+                    <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mb-6 shadow-sm border-8 border-white">
+                        <Check className="w-12 h-12 text-emerald-600" />
+                    </div>
+                    <h2 className="text-4xl font-serif text-[#224034] leading-tight mb-4">Content Steps Complete</h2>
+                    <p className="text-slate-500 text-lg max-w-2xl mx-auto mb-8">
+                        Your core content checks are healthy. AI systems should be able to read, interpret, and cite your pages more reliably.
+                    </p>
+                    <button onClick={() => setContentStep(0)} className="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors shadow-sm">
+                        Review Steps
+                    </button>
+                </div>
+            )
+        }
+
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-            <h2 className="text-2xl font-serif text-[#224034] mb-4">Content Breakdown</h2>
-
-            <div className="grid grid-cols-1 gap-8">
-                {/* Standard Content Checks */}
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
-                    {/* Questions */}
-                    <div className="flex justify-between items-center pb-4 border-b border-gray-50">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 w-full pb-20 pt-2">
+                <ScanProgressDialog
+                    open={scanDialogOpen}
+                    onOpenChange={(open) => {
+                        if (!open && scanDialogStatus === "scanning") return
+                        setScanDialogOpen(open)
+                    }}
+                    siteUrl={scanTargetDomain}
+                    status={scanDialogStatus}
+                    message={scanDialogMessage}
+                    title="Content Reverification In Progress"
+                />
+                <div className="rounded-2xl border border-[#d9e8df] bg-gradient-to-br from-white via-white to-emerald-50/40 shadow-sm px-6 py-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <p className="font-semibold text-slate-700 text-base">Question Targeting</p>
-                            <p className="text-sm text-slate-500 mt-0.5">Headers asking questions</p>
+                            <h2 className="text-3xl font-serif text-[#224034] leading-tight">Content Breakdown</h2>
+                            <p className="text-slate-500 text-sm mt-1">Step-based plan to improve answer clarity, readability, and AI confidence.</p>
                         </div>
-                        <Badge variant="secondary" className="bg-slate-100 text-slate-700">{content.questionTargetingScore} / 5</Badge>
-                    </div>
-                    {/* Readability */}
-                    <div className="pb-4 border-b border-gray-50">
-                        <div className="flex justify-between items-center mb-1">
-                            <div>
-                                <p className="font-semibold text-slate-700 text-base">Readability</p>
-                                <p className="text-sm text-slate-500 mt-0.5">Flesch-Kincaid Grade</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {content.readabilityGrade && content.readabilityGrade > 0 ? (
-                                    <Badge variant="outline" className={`
-                                        ${content.readabilityGrade > 12 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}
-                                    `}>
-                                        Grade {content.readabilityGrade}
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200">
-                                        Calculating...
-                                    </Badge>
-                                )}
-
-                            </div>
-                        </div>
-                        {/* Rewrite Suggestion (Legacy Array Support) */}
-                        {content.readabilityDetails?.find((d: string) => d.startsWith("Suggestion:")) && (
-                            <div className="mt-3 bg-orange-50 rounded-xl p-4 border border-orange-100">
-                                <span className="font-bold text-orange-700 block mb-1 text-sm uppercase tracking-wide">✨ AI Rewrite Suggestion</span>
-                                <span className="text-slate-700 text-base leading-relaxed">"{content.readabilityDetails.find((d: string) => d.startsWith("Suggestion:"))?.replace("Suggestion:", "").trim()}"</span>
-                            </div>
-                        )}
-                    </div>
-                    {/* Visual Context */}
-                    <div className=" pb-4 border-b border-gray-50">
-                        <div className="flex justify-between mb-2">
-                            <p className="font-semibold text-slate-700 text-base">Visual Context</p>
-                            <p className="text-sm font-medium text-slate-600">{content.visualContextScore || 0}%</p>
-                        </div>
-                        <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-blue-500 rounded-full" style={{ width: (content.visualContextScore || 0) + '%' }}></div>
-                        </div>
-                    </div>
-                    {/* Freshness */}
-                    <div className="flex justify-between items-center pb-4 border-b border-gray-50">
-                        <div>
-                            <p className="font-semibold text-slate-700 text-base">Content Freshness</p>
-                            <p className="text-sm text-slate-500 mt-0.5">Dates validated</p>
-                        </div>
-                        {(content.freshnessScore || 0) > 0 ? <Check className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-amber-400" />}
+                        <Badge variant="outline" className="border-slate-200 bg-white text-slate-700 px-3 py-1">
+                            Step {contentStep + 1} of {contentSteps.length}
+                        </Badge>
                     </div>
                 </div>
 
-                {/* The Missing Answer (Green Card) */}
-                {isPlusOrPro && failedQueries.length > 0 && (
-                    <div className="bg-[#224034] rounded-xl overflow-hidden shadow-lg relative group">
-                        {/* Background Effects */}
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-emerald-500/20 transition-all duration-700 pointer-events-none" />
+                <div className="flex items-center justify-center gap-2 overflow-x-auto pb-3">
+                    {contentSteps.map((step, idx) => {
+                        const doneOrLocked = step.done || step.locked
+                        return (
+                            <button
+                                key={step.key}
+                                onClick={() => setContentStep(idx)}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${contentStep === idx ? 'bg-[#224034] text-white shadow-md' : doneOrLocked ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                            >
+                                {doneOrLocked ? <Check className="w-4 h-4" /> : <span className="opacity-80 text-xs">{idx + 1}</span>}
+                                <span className="hidden sm:inline-block">{step.title}</span>
+                            </button>
+                        )
+                    })}
+                </div>
 
-                        <div className="p-8 relative z-10">
-                            {/* Header Section */}
-                            <div className="flex flex-col md:flex-row gap-8 items-center md:items-start mb-8">
-                                <div className="text-center md:text-left shrink-0">
-                                    <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-                                        <FileText className="w-5 h-5 text-emerald-400" />
-                                        <p className="text-emerald-200/80 font-medium uppercase tracking-widest text-sm">The Missing Answer</p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="text-5xl md:text-6xl font-serif text-white tracking-tighter leading-none">
-                                            {Math.round((failedQueries.filter((q: any) => q.status === 'Explicitly Stated').length / Math.max(failedQueries.length, 1)) * 100)}
-                                        </div>
-                                        <div className="space-y-1">
-                                            <div className="text-lg text-emerald-100/60 font-light">/ 100</div>
-                                            <div className="text-sm font-bold bg-white/10 px-2 py-0.5 rounded text-emerald-100 shadow-sm border border-white/5">
-                                                AI Confidence
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <p className="text-emerald-100/60 text-base mt-3 max-w-[200px] leading-relaxed">
-                                        We simulated real user questions to see if your site provides the answers.
-                                    </p>
-                                    {siteId && (
-                                        <Link href={`/dashboard/sites/${siteId}/answer-rate`} className="inline-flex items-center gap-2 mt-4 text-sm text-emerald-300 hover:text-white transition-colors">
-                                            View Full Analysis <ArrowRight className="w-4 h-4" />
-                                        </Link>
-                                    )}
+                {activeStep && (
+                    <div className="bg-white rounded-[32px] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden relative">
+                        <div className={`h-2.5 w-full ${activeStep.done ? 'bg-emerald-400' : activeStep.locked ? 'bg-violet-400' : 'bg-[#224034]'}`} />
+
+                        <div className="p-8 md:p-12 space-y-8">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-widest">
+                                Step {contentStep + 1} of {contentSteps.length}
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <h3 className="text-3xl lg:text-4xl font-serif text-[#224034] leading-tight">{activeStep.title}</h3>
+                                    <Badge className={`${activeStep.done ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : activeStep.locked ? 'bg-violet-100 text-violet-800 border-violet-200' : 'bg-slate-100 text-slate-700 border-slate-200'} hover:bg-inherit`}>{activeStep.metricLabel}: {activeStep.metricValue}</Badge>
                                 </div>
+                                <p className="text-slate-600 text-lg">{activeStep.description}</p>
+                            </div>
 
-                                {/* Table Section */}
-                                <div className="grow w-full bg-white/5 rounded-xl border border-white/10 overflow-hidden backdrop-blur-sm">
-                                    <Table>
-                                        <TableHeader className="bg-black/20 border-b border-white/10">
-                                            <TableRow className="hover:bg-transparent border-white/10">
-                                                <TableHead className="text-emerald-100/80 w-[40%]">Simulated User Query</TableHead>
-                                                <TableHead className="text-emerald-100/80 w-[15%]">Status</TableHead>
-                                                <TableHead className="text-emerald-100/80 w-[15%] text-right">Optimization</TableHead>
-                                                <TableHead className="text-emerald-100/80 text-right">Result</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {failedQueries.map((query: any, i: number) => (
-                                                <TableRow key={i} className="hover:bg-white/5 border-white/5 group/row transition-colors">
-                                                    <TableCell className="font-medium text-emerald-50 py-4 align-top">
-                                                        "{query.question || query.query}"
-                                                    </TableCell>
-                                                    <TableCell className="py-4 align-top">
-                                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ring-1 ring-inset
-                                                        ${query.status === 'Explicitly Stated' ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-400/20' :
-                                                                query.status === 'Implied' ? 'bg-amber-500/10 text-amber-300 ring-amber-400/20' :
-                                                                    'bg-red-500/10 text-red-300 ring-red-400/20'}`}>
-                                                            {query.status}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell className="text-right py-4 align-top">
-                                                        {query.status !== 'Explicitly Stated' && query.draft_answer && (
-                                                            <div className="group/btn relative inline-block">
-                                                                <button className="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 px-2.5 py-1.5 rounded transition-colors">
-                                                                    View Draft
-                                                                </button>
-                                                                {/* Tooltip implementation for draft answer */}
-                                                                <div className="absolute right-0 bottom-full mb-2 w-64 p-3 bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg shadow-xl opacity-0 invisible group-hover/btn:opacity-100 group-hover/btn:visible transition-all z-50">
-                                                                    <p className="font-bold text-emerald-400 mb-1">Use this Answer:</p>
-                                                                    <p className="italic">"{query.draft_answer}"</p>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-right py-4 align-top">
-                                                        {query.status === 'Explicitly Stated' ?
-                                                            <div className="flex items-center justify-end gap-2 text-emerald-400 text-base font-medium"><Check className="w-4 h-4" /> Found</div> :
-                                                            <div className="flex items-center justify-end gap-2 text-red-300/80 text-base"><XCircle className="w-4 h-4" /> Failed</div>
-                                                        }
-                                                    </TableCell>
-                                                </TableRow>
+                            {activeStep.locked ? (
+                                <div className="rounded-xl border border-violet-200 bg-violet-50 p-5">
+                                    <p className="text-violet-800 font-medium">This step is temporarily unavailable.</p>
+                                    <p className="text-violet-700 mt-1 text-sm">Paid upgrades are hidden in this build.</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className={`rounded-xl border p-5 ${activeStep.done ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}>
+                                        <p className="font-semibold">{activeStep.done ? "Healthy" : "Issue found"}</p>
+                                        <p className="mt-1">{activeStep.issue}</p>
+                                    </div>
+
+                                    <div className="rounded-xl border border-slate-200 bg-white p-5">
+                                        <p className="text-slate-900 font-semibold">How to solve</p>
+                                        <ul className="list-disc pl-5 mt-2 space-y-1 text-slate-600">
+                                            {activeStep.steps.map((item) => (
+                                                <li key={item}>{item}</li>
                                             ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                                        </ul>
+                                    </div>
 
-                {!isPlusOrPro && (
-                    <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
-                        <h3 className="text-lg font-serif text-[#224034] mb-2">AI Content Gap Detection</h3>
-                        <p className="text-sm text-slate-600 mb-4">
-                            Upgrade to Plus to unlock missing-answer detection and draft answer suggestions.
-                        </p>
-                        <Link href="/dashboard/billing" className="inline-flex items-center gap-2 text-sm font-semibold text-[#224034] hover:text-emerald-700">
-                            Upgrade to Plus <ArrowRight className="w-4 h-4" />
-                        </Link>
-                    </div>
-                )}
-
-                {/* NEW: Ambiguity Inspector */}
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 overflow-hidden relative">
-                    <div className="flex justify-between items-start mb-6">
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
-                                    <Search className="w-4 h-4" />
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-800">Ambiguity Inspector</h3>
-                                <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50">Plus Feature</Badge>
-                            </div>
-                            <p className="text-slate-500 text-sm max-w-xl">
-                                AI Agents hate vague content. We identify words like "best," "fast," or "experienced" and suggest concrete data replacements to boost E-E-A-T.
-                            </p>
-                        </div>
-                        {!ambiguityData && (
-                            (!isPlusOrPro || !tier) ? (
-                                <Button
-                                    disabled
-                                    className="bg-slate-100 text-slate-400 border border-slate-200"
-                                >
-                                    <Sparkles className="w-4 h-4 mr-2" /> Upgrade to Inspect
-                                </Button>
-                            ) : (
-                                <Button
-                                    onClick={handleAnalyzeAmbiguity}
-                                    disabled={ambiguityLoading}
-                                    className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-200"
-                                >
-                                    {ambiguityLoading ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Sparkles className="w-4 h-4 mr-2" /> Inspect Content
-                                        </>
-                                    )}
-                                </Button>
-                            )
-                        )}
-                    </div>
-
-                    {error && (
-                        <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center gap-2 mb-4">
-                            <AlertTriangle className="w-4 h-4" />
-                            {error}
-                        </div>
-                    )}
-
-                    {ambiguityData && (
-                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                            {ambiguityData.improvements && ambiguityData.improvements.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-4">
-                                    {ambiguityData.improvements.map((item: any, i: number) => (
-                                        <div key={i} className="p-4 rounded-lg border border-purple-100 bg-purple-50/30 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-bold uppercase tracking-wider text-purple-400">{item.category}</span>
-                                                </div>
-                                                <p className="text-slate-600 font-medium font-serif italic">"{item.originalText}"</p>
-                                            </div>
-                                            <div className="shrink-0 flex items-center gap-3">
-                                                <ArrowRight className="w-4 h-4 text-purple-300 hidden md:block" />
-                                                <div className="bg-white px-4 py-2 rounded-lg border border-purple-100 shadow-sm">
-                                                    <p className="text-sm font-bold text-purple-700">{item.suggestedFix}</p>
-                                                </div>
-                                            </div>
+                                    {activeStep.key === "readability" && readabilitySuggestion && (
+                                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+                                            <p className="text-amber-800 font-semibold mb-1">AI rewrite suggestion</p>
+                                            <p className="text-amber-900/90">&ldquo;{readabilitySuggestion.replace("Suggestion:", "").trim()}&rdquo;</p>
                                         </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                                    <Check className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                                    <p className="text-slate-600 font-medium">No ambiguity found!</p>
-                                    <p className="text-slate-400 text-sm">Your content is concrete and data-rich.</p>
-                                </div>
+                                    )}
+
+                                    {activeStep.key === "missing-answers" && (
+                                        <div className="rounded-xl border border-slate-200 bg-white p-5">
+                                            <p className="text-slate-900 font-semibold mb-3">Simulated user query results</p>
+                                            {failedQueries.length === 0 ? (
+                                                <p className="text-slate-600">No query data available yet for this scan.</p>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {failedQueries.slice(0, 5).map((query, i) => (
+                                                        <div key={`${query.query}-${i}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3">
+                                                            <p className="text-slate-700 text-sm max-w-2xl">&ldquo;{getDisplayQuery(query)}&rdquo;</p>
+                                                            <Badge className={`${query.status === 'Explicitly Stated' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-rose-100 text-rose-800 border-rose-200'} hover:bg-inherit`}>{query.status || "Missing"}</Badge>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {activeStep.key === "ambiguity" && (
+                                        <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+                                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                                                <div>
+                                                    <p className="font-semibold text-slate-900">Run ambiguity scan</p>
+                                                    <p className="text-sm text-slate-600">Find vague words and replace them with clearer, trust-building language.</p>
+                                                </div>
+                                                <Button
+                                                    onClick={handleAnalyzeAmbiguity}
+                                                    disabled={ambiguityLoading}
+                                                    className="bg-[#224034] hover:bg-[#1b3028] text-white"
+                                                >
+                                                    {ambiguityLoading ? (
+                                                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</>
+                                                    ) : (
+                                                        <>Inspect Content</>
+                                                    )}
+                                                </Button>
+                                            </div>
+
+                                            {error && (
+                                                <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center gap-2">
+                                                    <AlertTriangle className="w-4 h-4" />
+                                                    {error}
+                                                </div>
+                                            )}
+
+                                            {ambiguityImprovements.length > 0 && (
+                                                <div className="space-y-2">
+                                                    {ambiguityImprovements.slice(0, 4).map((item, i) => (
+                                                        <div key={i} className="rounded-lg border border-violet-100 bg-violet-50/40 p-3">
+                                                            <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">{item.category}</p>
+                                                            <p className="text-slate-700 mt-1">&ldquo;{item.originalText}&rdquo;</p>
+                                                            <p className="text-sm text-violet-800 mt-1">Suggested: {item.suggestedFix}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </>
                             )}
 
-                            <div className="flex justify-end pt-4">
-                                <Button variant="ghost" onClick={() => setAmbiguityData(null)} className="text-slate-400 hover:text-slate-600">
-                                    Reset Analysis
-                                </Button>
+                            <div className="flex flex-wrap gap-3 pt-2">
+                                <button
+                                    onClick={runContentReverify}
+                                    disabled={!siteId || !scanTargetDomain || isRecrawling}
+                                    className="px-5 py-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-100"
+                                >
+                                    {isRecrawling ? "Verifying..." : "Reverify"}
+                                </button>
+                                <button
+                                    onClick={() => setContentStep((prev) => Math.max(0, prev - 1))}
+                                    disabled={contentStep === 0}
+                                    className="px-5 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    onClick={() => setContentStep((prev) => Math.min(contentSteps.length - 1, prev + 1))}
+                                    className="px-5 py-3 rounded-xl bg-[#224034] text-white font-semibold hover:bg-[#1a3228]"
+                                >
+                                    Next Step <ChevronRight className="w-4 h-4 inline-block ml-1" />
+                                </button>
                             </div>
+                            {recrawlMessage && (
+                                <div className={`mt-4 p-4 rounded-xl text-sm font-medium ${
+                                    recrawlMessage.toLowerCase().includes("complete")
+                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                        : recrawlMessage.toLowerCase().includes("already in progress")
+                                            ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                            : "bg-rose-50 text-rose-700 border border-rose-200"
+                                }`}>
+                                    <p>{recrawlMessage}</p>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
-        </div>
     )
 }
