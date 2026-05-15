@@ -177,7 +177,7 @@ async def query_llm(prompt: str, json_mode: bool = True, temperature: float = 0.
         print("⚠️ [AI] Eden call failed. Falling back to Groq.")
 
     if not GROQ_API_KEY:
-        print("❌ [AI] Groq API Key missing!")
+        print("❌ [AI] Groq API Key missing")
         return None
 
     print("⚡ [AI] Using Groq (LLaMA 3.3 70B)...")
