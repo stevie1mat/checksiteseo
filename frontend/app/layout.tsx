@@ -11,13 +11,16 @@ import { SITE_URL, OG_IMAGE, SITE_NAME, TWITTER_HANDLE } from "@/lib/seo"
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "AEO Checker & Answer Engine Optimization Tool | CheckSiteAEO",
+    default: "Best AEO Checker & Checking Tool | CheckSiteAEO",
     template: "%s | CheckSiteAEO",
   },
   description:
-    "Analyze your website with a free AEO checker to improve AI search visibility, citation readiness, and answer engine performance.",
+    "Analyze your website with the best free AEO checker tool to improve AI search visibility, citation readiness, and answer engine performance.",
   keywords: [
     "AEO checker",
+    "AEO checking tool",
+    "best AEO checking tool",
+    "AEO checking software",
     "answer engine optimization",
     "AI search optimization",
     "LLM optimization",
@@ -33,9 +36,9 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: SITE_URL,
-    title: "AEO Checker & Answer Engine Optimization Tool",
+    title: "Best AEO Checker & Checking Tool",
     description:
-      "Analyze your website for AI search visibility and citation readiness with detailed technical, content, and authority scoring.",
+      "Analyze your website for AI search visibility and citation readiness with detailed technical, content, and authority scoring using our AEO checking software.",
     siteName: SITE_NAME,
     images: [
       {
@@ -48,7 +51,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "AEO Checker & Answer Engine Optimization Tool",
+    title: "Best AEO Checker & Checking Tool",
     description: "Run a free AEO checker audit and improve visibility in AI-generated answers.",
     images: [OG_IMAGE],
     creator: TWITTER_HANDLE,

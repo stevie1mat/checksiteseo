@@ -29,21 +29,27 @@ export function FeaturesSection() {
                 <div className="text-center mb-20">
                     <p className="text-sm font-medium text-slate-500 uppercase tracking-widest mb-4">Why CheckSite AEO?</p>
                     <h2 className="font-serif text-4xl md:text-5xl text-[#224034] max-w-3xl mx-auto leading-tight mb-6">
-                        Why teams choose this AEO checker tool.
+                        Why teams choose this AEO checking software.
                     </h2>
                     <p className="text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed">
-                        We focus on the levers that move real outcomes in AI search visibility: actionable fixes, citation readiness, and measurable improvement over time.
+                        We focus on the levers that move real outcomes in AI search visibility: actionable fixes, citation readiness, and precise AEO tracking over time.
                     </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {differentiators.map((item) => (
-                        <div key={item.title} className="rounded-2xl border border-slate-100 bg-white p-8 hover:shadow-lg transition-all duration-300">
-                            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-[#224034] flex items-center justify-center mb-5">
-                                <item.icon className="w-6 h-6" />
+                        <div key={item.title} className="group relative rounded-2xl bg-white p-8 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl">
+                            {/* Animated gradient border effect */}
+                            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-400 via-teal-500 to-emerald-400 opacity-0 group-hover:opacity-10 transition-opacity duration-500" />
+                            <div className="absolute inset-0 rounded-2xl border border-slate-100 group-hover:border-emerald-200 transition-colors duration-500" />
+                            
+                            <div className="relative z-10">
+                                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-[#224034] flex items-center justify-center mb-5 group-hover:scale-110 group-hover:bg-emerald-100 transition-all duration-500">
+                                    <item.icon className="w-6 h-6" />
+                                </div>
+                                <h3 className="font-serif text-2xl text-[#224034] mb-3">{item.title}</h3>
+                                <p className="text-slate-600 leading-relaxed text-sm">{item.description}</p>
                             </div>
-                            <h3 className="font-serif text-2xl text-[#224034] mb-3">{item.title}</h3>
-                            <p className="text-slate-600 leading-relaxed text-sm">{item.description}</p>
                         </div>
                     ))}
                 </div>

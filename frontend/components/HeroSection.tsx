@@ -407,11 +407,17 @@ export function HeroSection({
                 )}
 
                 <div className={`relative ${!result ? "max-w-4xl mx-auto text-center space-y-6" : "space-y-6"}`}>
+                    <div className="mx-auto w-max mb-4">
+                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 text-sm font-semibold tracking-wide shadow-[0_0_15px_rgba(16,185,129,0.15)] animate-pulse-ring backdrop-blur-sm">
+                            <Sparkles className="w-4 h-4 text-emerald-500" />
+                            Rank #1 in ChatGPT & Gemini
+                        </div>
+                    </div>
                     <p className="font-serif italic text-3xl md:text-5xl leading-tight text-[#2a4a3b]/90">
-                        Free AEO Checker
+                        The Best AEO Checker
                     </p>
-                    <h1 className="font-urbanist font-semibold text-[clamp(1.85rem,5.4vw,4.5rem)] leading-[1.05] tracking-tight text-[#1f2f2a] whitespace-nowrap">
-                        Audit What AI Can Actually Cite
+                    <h1 className="font-urbanist font-semibold text-[clamp(1.85rem,5.4vw,4.5rem)] leading-[1.05] tracking-tight text-[#1f2f2a] whitespace-nowrap glow-text">
+                        & AEO Checking Tool
                     </h1>
                     {!result && (
                         <div className="pt-2">
@@ -443,12 +449,13 @@ export function HeroSection({
                         </div>
                     )}
                     <p className="text-lg md:text-2xl text-[#3f5f50] max-w-3xl mx-auto leading-relaxed">
-                        Find the technical, content, and trust issues blocking your site from showing up in ChatGPT, Gemini, Perplexity, and Claude answers.
+                        Use the best AEO checking software to find the technical, content, and trust issues blocking your site from showing up in ChatGPT, Gemini, Perplexity, and Claude answers.
                     </p>
                     <div className="flex flex-wrap justify-center gap-2 text-xs text-[#3f6252] font-medium mt-6">
-                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">AEO Checker</span>
-                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">AI Citation Audit</span>
-                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">LLM Visibility Fixes</span>
+                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">Best AEO Checker</span>
+                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">AEO Checking Tool</span>
+                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">AEO Checking Software</span>
+                        <span className="px-3 py-1 rounded-full border border-[#cfe3d8] bg-white/80 transition-colors hover:bg-[#edf8f2]">AI Search Tracker</span>
                     </div>
 
                     {/* Search Input Box - Refined */}
@@ -609,8 +616,10 @@ export function HeroSection({
                                         setSelectedEngineName(engine.name)
                                         setIsEngineDialogOpen(true)
                                     }}
-                                    className="flex-none w-[280px] md:w-[320px] bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col items-center justify-start relative overflow-hidden group hover:border-emerald-200 transition-all h-full snap-start text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                                    className="flex-none w-[280px] md:w-[320px] bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col items-center justify-start relative overflow-hidden group hover:-translate-y-1.5 hover:shadow-xl hover:border-emerald-200 transition-all duration-500 h-full snap-start text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
                                 >
+                                    {/* Subtle gradient overlay on hover */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                                     <div className="flex items-center gap-1 mb-1">
                                         <div className={`rounded-lg flex items-center justify-center ${(["ChatGPT", "Gemini", "Perplexity", "Claude", "SearchGPT", "Meta AI", "Grok", "Mistral", "You.com"].includes(engine.name)) ? "w-9 h-9 bg-transparent" : "w-8 h-8 bg-emerald-50 text-emerald-600"}`}>
                                             {engine.icon}

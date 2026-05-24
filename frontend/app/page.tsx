@@ -13,14 +13,17 @@ import { HOME_FAQ_ITEMS } from "@/lib/home-faq";
 import { createPageMetadata, absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "Free AEO Checker Tool & AI Search Visibility Audit",
+  title: "Best AEO Checker & AEO Checking Tool (Free Audit)",
   description:
     "Run a free AEO checker to audit your site for ChatGPT, Gemini, Claude, and Perplexity visibility. Find technical, content, and trust issues blocking AI citations.",
   path: "/",
   keywords: [
     "AEO checker",
+    "best AEO checker",
     "AEO checking tool",
-    "AEO audit",
+    "best AEO checking tool",
+    "AEO checking software",
+    "AEO trackers",
     "answer engine optimization tool",
     "ChatGPT SEO",
     "Claude SEO",
@@ -49,10 +52,10 @@ export default function Home() {
   const webPageJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    "name": "Free AEO Checker Tool & AI Search Visibility Audit",
+    "name": "Best AEO Checker & AEO Checking Tool (Free Audit)",
     "url": absoluteUrl("/"),
     "description":
-      "Run a free AEO checker to improve AI search visibility in ChatGPT, Perplexity, Claude, and Gemini.",
+      "Run the best free AEO checker tool to improve AI search visibility in ChatGPT, Perplexity, Claude, and Gemini.",
     "inLanguage": "en-US",
   };
 
