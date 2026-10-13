@@ -2,7 +2,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl, EmailStr, Field
 from analyzer import (
@@ -2632,12 +2632,20 @@ async def verify_ownership(
 
 # --- Admin Stats Endpoint ---
 ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "checksite-admin-123")
-from fastapi import Header
+
+
+def _verify_admin_secret(x_admin_secret: str | None) -> None:
+    if x_admin_secret != ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+def _result_count(result) -> int:
+    """Supabase can return a null count depending on the client version."""
+    return result.count if getattr(result, "count", None) is not None else len(result.data or [])
 
 @app.get("/admin/stats")
 async def get_admin_stats(x_admin_secret: str = Header(None, alias="x-admin-secret")):
-    if x_admin_secret != ADMIN_SECRET_KEY:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    _verify_admin_secret(x_admin_secret)
         
     try:
         # Total Users
@@ -2712,4 +2720,105 @@ async def get_admin_stats(x_admin_secret: str = Header(None, alias="x-admin-secr
         }
     except Exception as e:
         logger.error(f"Failed to fetch admin stats: {e}")
+        raise HTTPException(status_code=500, detail="Database Error")
+
+
+@app.get("/admin/records")
+async def get_admin_records(
+    section: Literal["users", "authenticated_scans", "anonymous_scans"],
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=5, le=100),
+    search: str = Query("", max_length=200),
+    status: str = Query("all", max_length=50),
+    plan: str = Query("all", max_length=50),
+    x_admin_secret: str = Header(None, alias="x-admin-secret"),
+):
+    """Return a filtered, server-paginated admin table."""
+    _verify_admin_secret(x_admin_secret)
+    offset = (page - 1) * page_size
+    search = search.strip()
+
+    try:
+        if section == "users":
+            query = supabase.table("profiles").select(
+                "id, email, created_at, subscription_tier", count="exact"
+            )
+            if search:
+                query = query.ilike("email", f"%{search}%")
+            if plan != "all":
+                query = query.eq("subscription_tier", plan)
+
+            result = query.order("created_at", desc=True).range(
+                offset, offset + page_size - 1
+            ).execute()
+            items = result.data or []
+            total = _result_count(result)
+        else:
+            anonymous = section == "anonymous_scans"
+            query = supabase.table("pages").select(
+                "id, url, status, last_scanned_at, aeo_score, site_id, "
+                "ip_address, city, country, user_agent, sites!inner(name, user_id)",
+                count="exact",
+            )
+            query = (
+                query.eq("sites.name", "Anonymous Scan")
+                if anonymous
+                else query.neq("sites.name", "Anonymous Scan")
+            )
+            if search:
+                query = query.ilike("url", f"%{search}%")
+            if status != "all":
+                query = query.eq("status", status)
+
+            result = query.order("last_scanned_at", desc=True).range(
+                offset, offset + page_size - 1
+            ).execute()
+            total = _result_count(result)
+            items = [
+                {
+                    "id": record["id"],
+                    "url": record["url"],
+                    "status": record.get("status", "completed"),
+                    "created_at": record.get("last_scanned_at"),
+                    "aeo_score": record.get("aeo_score"),
+                    "site_id": record.get("site_id"),
+                    "user_id": (record.get("sites") or {}).get("user_id"),
+                    "ip": record.get("ip_address"),
+                    "city": record.get("city"),
+                    "country": record.get("country"),
+                    "ua": record.get("user_agent"),
+                }
+                for record in (result.data or [])
+            ]
+
+            if not anonymous and items:
+                user_ids = list({
+                    item["user_id"] for item in items if item.get("user_id")
+                })
+                profiles = (
+                    supabase.table("profiles")
+                    .select("id, email")
+                    .in_("id", user_ids)
+                    .execute()
+                    .data
+                    or []
+                ) if user_ids else []
+                emails_by_user = {
+                    profile["id"]: profile.get("email") for profile in profiles
+                }
+                for item in items:
+                    item["user_email"] = emails_by_user.get(item.get("user_id"))
+
+            for item in items:
+                item.pop("user_id", None)
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": max(1, (total + page_size - 1) // page_size),
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch admin {section}: {e}")
         raise HTTPException(status_code=500, detail="Database Error")
