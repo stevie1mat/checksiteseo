@@ -142,6 +142,28 @@ function EmptyRow({ colSpan, loading, error }: { colSpan: number; loading: boole
   return <tr><td colSpan={colSpan} className={`px-6 py-8 text-center ${error ? "text-red-400" : "text-slate-500"}`}>{error || (loading ? "Loading records..." : "No matching records.")}</td></tr>;
 }
 
+function formatDateRun(value?: string) {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  const day = date.getDate();
+  const remainder = day % 100;
+  const suffix = remainder >= 11 && remainder <= 13
+    ? "th"
+    : day % 10 === 1
+      ? "st"
+      : day % 10 === 2
+        ? "nd"
+        : day % 10 === 3
+          ? "rd"
+          : "th";
+  const month = date.toLocaleString("en-GB", { month: "short" });
+
+  return `${day}${suffix} ${month}, ${date.getFullYear()}`;
+}
+
 export default function AdminDashboard() {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -288,7 +310,7 @@ export default function AdminDashboard() {
             <table className="w-full whitespace-nowrap text-left text-sm">
               <thead className="bg-slate-900/50 text-slate-400"><tr><th className="px-6 py-4 font-medium">URL</th><th className="px-6 py-4 font-medium">Location</th><th className="px-6 py-4 font-medium">IP/Device</th><th className="px-6 py-4 font-medium">Status</th><th className="px-6 py-4 font-medium">Score</th><th className="px-6 py-4 font-medium">Date Run</th></tr></thead>
               <tbody className="divide-y divide-slate-700">
-                {anonymous.data.items.map((scan) => <tr key={scan.id} className="transition-colors hover:bg-slate-700/50"><td className="max-w-[240px] truncate px-6 py-4 font-medium text-amber-400" title={scan.url}>{scan.url}</td><td className="px-6 py-4 text-xs"><div className="font-medium text-white">{scan.city || "Unknown City"}</div><div className="text-[10px] text-slate-500">{scan.country || "Unknown Country"}</div></td><td className="px-6 py-4"><div className="font-mono text-[10px] text-emerald-500/70">{scan.ip || "—"}</div><div className="max-w-[140px] truncate text-[9px] text-slate-500" title={scan.ua}>{scan.ua || "unknown device"}</div></td><td className="px-6 py-4">{statusBadge(scan.status)}</td><td className="px-6 py-4 font-mono text-white">{scan.aeo_score ?? "N/A"}</td><td className="px-6 py-4 text-[11px] text-slate-300">{scan.created_at ? new Date(scan.created_at).toLocaleString() : "N/A"}</td></tr>)}
+                {anonymous.data.items.map((scan) => <tr key={scan.id} className="transition-colors hover:bg-slate-700/50"><td className="max-w-[240px] truncate px-6 py-4 font-medium text-amber-400" title={scan.url}>{scan.url}</td><td className="px-6 py-4 text-xs"><div className="font-medium text-white">{scan.city || "Unknown City"}</div><div className="text-[10px] text-slate-500">{scan.country || "Unknown Country"}</div></td><td className="px-6 py-4"><div className="font-mono text-[10px] text-emerald-500/70">{scan.ip || "—"}</div><div className="max-w-[140px] truncate text-[9px] text-slate-500" title={scan.ua}>{scan.ua || "unknown device"}</div></td><td className="px-6 py-4">{statusBadge(scan.status)}</td><td className="px-6 py-4 font-mono text-white">{scan.aeo_score ?? "N/A"}</td><td className="px-6 py-4 text-[11px] text-slate-300">{formatDateRun(scan.created_at)}</td></tr>)}
                 {!anonymous.data.items.length && <EmptyRow colSpan={6} loading={anonymous.loading} error={anonymous.error} />}
               </tbody>
             </table>
