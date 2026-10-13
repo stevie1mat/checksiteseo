@@ -2756,35 +2756,95 @@ async def get_admin_records(
             for item in items:
                 item["user_email"] = emails_by_user.get(item.pop("user_id", None))
         else:
-            query = supabase.table("pages").select(
-                "id, url, status, last_scanned_at, aeo_score, site_id, "
-                "ip_address, city, country, user_agent, sites!inner(name, user_id)",
+            # History is authoritative. A pages row is optional telemetry enrichment.
+            if status not in ("all", "completed"):
+                return {
+                    "items": [],
+                    "total": 0,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": 1,
+                }
+
+            query = supabase.table("site_history").select(
+                "id, site_id, aeo_score, created_at, sites!inner(url, name)",
                 count="exact",
             ).eq("sites.name", "Anonymous Scan")
             if search:
-                query = query.ilike("url", f"%{search}%")
-            if status != "all":
-                query = query.eq("status", status)
+                query = query.ilike("sites.url", f"%{search}%")
 
-            result = query.order("last_scanned_at", desc=True).range(
+            result = query.order("created_at", desc=True).range(
                 offset, offset + page_size - 1
             ).execute()
             total = _result_count(result)
             items = [
                 {
                     "id": record["id"],
-                    "url": record["url"],
-                    "status": record.get("status", "completed"),
-                    "created_at": record.get("last_scanned_at"),
+                    "url": (record.get("sites") or {}).get("url"),
+                    "status": "completed",
+                    "created_at": record.get("created_at"),
                     "aeo_score": record.get("aeo_score"),
                     "site_id": record.get("site_id"),
-                    "ip": record.get("ip_address"),
-                    "city": record.get("city"),
-                    "country": record.get("country"),
-                    "ua": record.get("user_agent"),
                 }
                 for record in (result.data or [])
             ]
+
+            # Match optional telemetry by site, score, and nearest timestamp.
+            site_ids = list({item["site_id"] for item in items if item.get("site_id")})
+            telemetry_rows = (
+                supabase.table("pages")
+                .select(
+                    "id, site_id, aeo_score, status, last_scanned_at, "
+                    "ip_address, city, country, user_agent"
+                )
+                .in_("site_id", site_ids)
+                .order("last_scanned_at", desc=True)
+                .limit(1000)
+                .execute()
+                .data
+                or []
+            ) if site_ids else []
+
+            def timestamp(value):
+                if not value:
+                    return 0
+                try:
+                    return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+                except (TypeError, ValueError):
+                    return 0
+
+            unused_telemetry = {row["id"]: row for row in telemetry_rows}
+            for item in items:
+                candidates = [
+                    row for row in unused_telemetry.values()
+                    if row.get("site_id") == item.get("site_id")
+                    and row.get("aeo_score") == item.get("aeo_score")
+                ]
+                if not candidates:
+                    continue
+
+                match = min(
+                    candidates,
+                    key=lambda row: abs(
+                        timestamp(row.get("last_scanned_at"))
+                        - timestamp(item.get("created_at"))
+                    ),
+                )
+                time_difference = abs(
+                    timestamp(match.get("last_scanned_at"))
+                    - timestamp(item.get("created_at"))
+                )
+                if time_difference > 300:
+                    continue
+
+                item.update({
+                    "status": match.get("status") or "completed",
+                    "ip": match.get("ip_address"),
+                    "city": match.get("city"),
+                    "country": match.get("country"),
+                    "ua": match.get("user_agent"),
+                })
+                unused_telemetry.pop(match["id"], None)
 
         return {
             "items": items,
