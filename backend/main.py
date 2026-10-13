@@ -2650,73 +2650,31 @@ async def get_admin_stats(x_admin_secret: str = Header(None, alias="x-admin-secr
     try:
         # Total Users
         users_count_res = supabase.table("profiles").select("id", count="exact").limit(1).execute()
-        total_users = getattr(users_count_res, 'count', len(users_count_res.data))
+        total_users = _result_count(users_count_res)
 
         # Total Sites (Projects)
         sites_res = supabase.table("sites").select("id", count="exact").limit(1).execute()
-        total_sites = getattr(sites_res, 'count', len(sites_res.data))
+        total_sites = _result_count(sites_res)
         
-        # Total Pages/Scans run
-        scans_res = supabase.table("pages").select("id", count="exact").limit(1).execute()
-        total_scans = getattr(scans_res, 'count', len(scans_res.data))
+        # site_history is the canonical record of completed scan events.
+        scans_res = supabase.table("site_history").select("id", count="exact").limit(1).execute()
+        total_scans = _result_count(scans_res)
 
-        # Total Landing Page Scans (sites named "Anonymous Scan")
-        anon_sites_res = supabase.table("sites").select("id", count="exact").eq("name", "Anonymous Scan").execute()
-        landing_page_scans = getattr(anon_sites_res, 'count', len(anon_sites_res.data))
-
-        # Recent Users (with email from profiles)
-        recent_users_res = supabase.table("profiles").select("id, email, created_at, subscription_tier").order("created_at", desc=True).limit(5).execute()
-        recent_users = recent_users_res.data
-        
-        # Identify All Anonymous Site IDs
-        anon_sites_query = supabase.table("sites").select("id").eq("name", "Anonymous Scan").execute()
-        anon_site_ids = [s["id"] for s in anon_sites_query.data]
-        
-        # Recent Scans (Logged-In Users) - Pull from pages table and join with sites/profiles
-        # Since Supabase join syntax for 3 levels is complex, we fetch pages and map
-        recent_pages_res = supabase.table("pages").select("id, url, status, last_scanned_at, aeo_score, site_id, ip_address, city, country, user_agent").order("last_scanned_at", desc=True).limit(50).execute()
-        
-        recent_sites = []
-        landing_page_scans_data = []
-        
-        for p in recent_pages_res.data:
-            sid = p["site_id"]
-            is_anon = sid in anon_site_ids
-            
-            item = {
-                "id": p["id"],
-                "url": p["url"],
-                "status": p.get("status", "completed"),
-                "created_at": p["last_scanned_at"],
-                "aeo_score": p["aeo_score"],
-                "ip": p.get("ip_address"),
-                "city": p.get("city"),
-                "country": p.get("country"),
-                "ua": p.get("user_agent")
-            }
-            
-            if is_anon:
-                if len(landing_page_scans_data) < 20:
-                    landing_page_scans_data.append(item)
-            else:
-                if len(recent_sites) < 20:
-                    # Enrich with User Email
-                    site_data = supabase.table("sites").select("user_id").eq("id", sid).single().execute()
-                    if site_data.data:
-                        user_id = site_data.data["user_id"]
-                        profile_data = supabase.table("profiles").select("email").eq("id", user_id).single().execute()
-                        if profile_data.data:
-                            item["user_email"] = profile_data.data["email"]
-                    recent_sites.append(item)
+        # Count history rows belonging to anonymous landing-page sites.
+        anon_scans_res = (
+            supabase.table("site_history")
+            .select("id, sites!inner(name)", count="exact")
+            .eq("sites.name", "Anonymous Scan")
+            .limit(1)
+            .execute()
+        )
+        landing_page_scans = _result_count(anon_scans_res)
 
         return {
             "total_users": total_users,
             "total_sites": total_sites,
             "total_scans": total_scans,
-            "landing_page_urls_scanned": landing_page_scans,
-            "recent_users": recent_users,
-            "recent_sites": recent_sites,
-            "recent_landing_page_scans": landing_page_scans_data
+            "landing_page_urls_scanned": landing_page_scans
         }
     except Exception as e:
         logger.error(f"Failed to fetch admin stats: {e}")
@@ -2753,18 +2711,56 @@ async def get_admin_records(
             ).execute()
             items = result.data or []
             total = _result_count(result)
+        elif section == "authenticated_scans":
+            query = supabase.table("site_history").select(
+                "id, site_id, aeo_score, created_at, "
+                "sites!inner(url, name, status, user_id)",
+                count="exact",
+            ).neq("sites.name", "Anonymous Scan")
+            if search:
+                query = query.ilike("sites.url", f"%{search}%")
+            if status != "all":
+                query = query.eq("sites.status", status)
+
+            result = query.order("created_at", desc=True).range(
+                offset, offset + page_size - 1
+            ).execute()
+            total = _result_count(result)
+            items = [
+                {
+                    "id": record["id"],
+                    "url": (record.get("sites") or {}).get("url"),
+                    "status": (record.get("sites") or {}).get("status", "completed"),
+                    "created_at": record.get("created_at"),
+                    "aeo_score": record.get("aeo_score"),
+                    "site_id": record.get("site_id"),
+                    "user_id": (record.get("sites") or {}).get("user_id"),
+                }
+                for record in (result.data or [])
+            ]
+
+            user_ids = list({
+                item["user_id"] for item in items if item.get("user_id")
+            })
+            profiles = (
+                supabase.table("profiles")
+                .select("id, email")
+                .in_("id", user_ids)
+                .execute()
+                .data
+                or []
+            ) if user_ids else []
+            emails_by_user = {
+                profile["id"]: profile.get("email") for profile in profiles
+            }
+            for item in items:
+                item["user_email"] = emails_by_user.get(item.pop("user_id", None))
         else:
-            anonymous = section == "anonymous_scans"
             query = supabase.table("pages").select(
                 "id, url, status, last_scanned_at, aeo_score, site_id, "
                 "ip_address, city, country, user_agent, sites!inner(name, user_id)",
                 count="exact",
-            )
-            query = (
-                query.eq("sites.name", "Anonymous Scan")
-                if anonymous
-                else query.neq("sites.name", "Anonymous Scan")
-            )
+            ).eq("sites.name", "Anonymous Scan")
             if search:
                 query = query.ilike("url", f"%{search}%")
             if status != "all":
@@ -2782,7 +2778,6 @@ async def get_admin_records(
                     "created_at": record.get("last_scanned_at"),
                     "aeo_score": record.get("aeo_score"),
                     "site_id": record.get("site_id"),
-                    "user_id": (record.get("sites") or {}).get("user_id"),
                     "ip": record.get("ip_address"),
                     "city": record.get("city"),
                     "country": record.get("country"),
@@ -2790,27 +2785,6 @@ async def get_admin_records(
                 }
                 for record in (result.data or [])
             ]
-
-            if not anonymous and items:
-                user_ids = list({
-                    item["user_id"] for item in items if item.get("user_id")
-                })
-                profiles = (
-                    supabase.table("profiles")
-                    .select("id, email")
-                    .in_("id", user_ids)
-                    .execute()
-                    .data
-                    or []
-                ) if user_ids else []
-                emails_by_user = {
-                    profile["id"]: profile.get("email") for profile in profiles
-                }
-                for item in items:
-                    item["user_email"] = emails_by_user.get(item.get("user_id"))
-
-            for item in items:
-                item.pop("user_id", None)
 
         return {
             "items": items,
