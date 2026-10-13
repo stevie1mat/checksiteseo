@@ -36,6 +36,8 @@ from typing import Literal
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
+ADMIN_DASHBOARD_URL = os.getenv("ADMIN_DASHBOARD_URL", "https://www.checksiteaeo.com/admin")
 print(f"DEBUG: Loaded RESEND_API_KEY: {'Yes' if RESEND_API_KEY else 'No'}")
 
 # Stripe Setup
@@ -690,8 +692,54 @@ async def get_geoip_data(ip: str):
         logger.error(f"GeoIP listup failed: {e}")
     return {"city": "Unknown", "country": "Unknown", "countryCode": ""}
 
+
+def _slack_escape(value: object) -> str:
+    return str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+async def notify_slack_scan_completed(
+    url: str,
+    score: int,
+    metadata: dict | None = None,
+    scan_type: str = "anonymous",
+) -> None:
+    """Send a non-blocking-style admin alert without exposing the webhook in logs."""
+    if not SLACK_WEBHOOK_URL:
+        return
+
+    metadata = metadata or {}
+    location = ", ".join(
+        _slack_escape(value)
+        for value in (metadata.get("city"), metadata.get("country"))
+        if value
+    ) or "Unknown"
+    payload = {
+        "text": (
+            "✅ *CheckSiteAEO scan completed*\n"
+            f"*Type:* {_slack_escape(scan_type.title())}\n"
+            f"*URL:* {_slack_escape(url)}\n"
+            f"*Score:* {_slack_escape(score)}/100\n"
+            f"*Location:* {location}\n"
+            f"*Admin:* {_slack_escape(ADMIN_DASHBOARD_URL)}"
+        )
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(SLACK_WEBHOOK_URL, json=payload)
+            response.raise_for_status()
+    except Exception as e:
+        # A notification failure must never make a completed scan fail.
+        logger.warning(f"Slack scan notification failed: {e}")
+
 async def log_scan_to_db(url: str, result: dict, site_id: str | None = None, metadata: dict | None = None):
-    if not supabase: return
+    is_anonymous = site_id is None
+    aeo_score = result.get("total_score", 0)
+    if not supabase:
+        await notify_slack_scan_completed(
+            url, aeo_score, metadata, "anonymous" if is_anonymous else "logged-in"
+        )
+        return
     try:
         # Find site_id if None (Anonymous Scan)
         if not site_id:
@@ -716,7 +764,6 @@ async def log_scan_to_db(url: str, result: dict, site_id: str | None = None, met
                         site_id = new_site.data[0]["id"]
 
         if site_id:
-            aeo_score = result.get("total_score", 0)
             breakdown = result.get("breakdown", {})
             status = "completed"
             
@@ -756,6 +803,10 @@ async def log_scan_to_db(url: str, result: dict, site_id: str | None = None, met
                 logger.error(f"SQL direct insert failed in sync log: {e}")
     except Exception as e:
         logger.error(f"Failed to log anonymous scan: {e}")
+
+    await notify_slack_scan_completed(
+        url, aeo_score, metadata, "anonymous" if is_anonymous else "logged-in"
+    )
 
 @app.post("/analyze")
 async def analyze_url(
@@ -1074,6 +1125,13 @@ async def run_analysis_background(
             await loop.run_in_executor(None, update_pages)
             
             print(f"🎉 [Background] Analysis completed/saved for {url}")
+
+        await notify_slack_scan_completed(
+            url,
+            aeo_score,
+            metadata,
+            "logged-in" if site_id else "anonymous",
+        )
             
     except asyncio.TimeoutError:
         print(f"⏰ [Background] Analysis TIMED OUT for {url} (exceeded 120s)")
