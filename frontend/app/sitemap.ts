@@ -1,184 +1,62 @@
-import { MetadataRoute } from 'next'
-import { SITE_URL } from '@/lib/seo'
+import { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/seo";
 
-const baseUrl = SITE_URL
+const staticRoutes = [
+  { path: "", changeFrequency: "weekly", priority: 1 },
+  { path: "/blog", changeFrequency: "daily", priority: 0.9 },
+  { path: "/pricing", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/aeo-guide", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/aeo-checker-tool", changeFrequency: "weekly", priority: 0.85 },
+  { path: "/aeo-readiness", changeFrequency: "weekly", priority: 0.75 },
+  { path: "/aeo-monitoring", changeFrequency: "weekly", priority: 0.75 },
+  { path: "/aeo-audit", changeFrequency: "weekly", priority: 0.85 },
+  { path: "/aeo-grader", changeFrequency: "weekly", priority: 0.84 },
+  { path: "/aeo-software", changeFrequency: "weekly", priority: 0.85 },
+  { path: "/aeo-tracker", changeFrequency: "weekly", priority: 0.85 },
+  { path: "/sample-aeo-report", changeFrequency: "weekly", priority: 0.8 },
+  { path: "/aeo-checker-vs-aeo-grader", changeFrequency: "monthly", priority: 0.78 },
+  { path: "/how-to-improve-aeo-score", changeFrequency: "monthly", priority: 0.78 },
+  { path: "/ai-seo-checker", changeFrequency: "weekly", priority: 0.8 },
+  { path: "/about", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/integrations", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/case-studies", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/changelog", changeFrequency: "weekly", priority: 0.6 },
+  { path: "/careers", changeFrequency: "monthly", priority: 0.5 },
+  { path: "/documentation", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/contact", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/privacy", changeFrequency: "yearly", priority: 0.3 },
+  { path: "/terms", changeFrequency: "yearly", priority: 0.3 },
+  { path: "/cookies", changeFrequency: "yearly", priority: 0.3 },
+] as const;
+
+const articleRoutes = [
+  {
+    path: "/blog/why-i-stopped-worrying-about-google-rankings",
+    lastModified: "2026-01-16",
+  },
+  {
+    path: "/blog/the-time-chatgpt-cited-my-competitor-instead-of-me",
+    lastModified: "2026-01-11",
+  },
+  {
+    path: "/blog/i-audited-50-sites-for-aeo-heres-what-i-found",
+    lastModified: "2026-01-04",
+  },
+] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  // Static pages
-  const staticPages: MetadataRoute.Sitemap = [
-    {
-      url: baseUrl,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 1,
-    },
-    {
-      url: `${baseUrl}/blog`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/pricing`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/aeo-guide`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/aeo-checker-tool`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.85,
-    },
-    {
-      url: `${baseUrl}/aeo-readiness`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.75,
-    },
-    {
-      url: `${baseUrl}/aeo-monitoring`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.75,
-    },
-    {
-      url: `${baseUrl}/aeo-audit`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.85,
-    },
-    {
-      url: `${baseUrl}/aeo-grader`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.84,
-    },
-    {
-      url: `${baseUrl}/aeo-software`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.85,
-    },
-    {
-      url: `${baseUrl}/aeo-tracker`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.85,
-    },
-    {
-      url: `${baseUrl}/sample-aeo-report`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/aeo-checker-vs-aeo-grader`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.78,
-    },
-    {
-      url: `${baseUrl}/how-to-improve-aeo-score`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.78,
-    },
-    {
-      url: `${baseUrl}/ai-seo-checker`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/about`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/integrations`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/case-studies`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/changelog`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/careers`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
-    {
-      url: `${baseUrl}/documentation`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/contact`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/privacy`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.3,
-    },
-    {
-      url: `${baseUrl}/terms`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.3,
-    },
-    {
-      url: `${baseUrl}/cookies`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.3,
-    },
-  ]
+  const staticPages: MetadataRoute.Sitemap = staticRoutes.map((route) => ({
+    url: `${SITE_URL}${route.path}`,
+    changeFrequency: route.changeFrequency,
+    priority: route.priority,
+  }));
 
-  // Static blog post pages
-  const blogPages: MetadataRoute.Sitemap = [
-    {
-      url: `${baseUrl}/blog/why-i-stopped-worrying-about-google-rankings`,
-      lastModified: new Date('2026-01-16'),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/blog/the-time-chatgpt-cited-my-competitor-instead-of-me`,
-      lastModified: new Date('2026-01-11'),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/blog/i-audited-50-sites-for-aeo-heres-what-i-found`,
-      lastModified: new Date('2026-01-04'),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-  ]
+  const articlePages: MetadataRoute.Sitemap = articleRoutes.map((route) => ({
+    url: `${SITE_URL}${route.path}`,
+    lastModified: new Date(route.lastModified),
+    changeFrequency: "monthly",
+    priority: 0.8,
+  }));
 
-  return [...staticPages, ...blogPages]
+  return [...staticPages, ...articlePages];
 }
